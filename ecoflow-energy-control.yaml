@@ -12,6 +12,8 @@ views:
           - number.ecoflow_energy_control_applicatie_teruglever_doel
           - number.ecoflow_energy_control_applicatie_eigen_gebruik_doel
           - number.ecoflow_energy_control_applicatie_laadstekkers_aan_vanaf_gecorrigeerde_zon
+          - button.ecoflow_energy_control_applicatie_ecoflow_api_controleren
+          - button.ecoflow_energy_control_applicatie_epex_prijzen_ophalen
           - button.ecoflow_energy_control_applicatie_strategie_nu_toepassen
           - sensor.ecoflow_energy_control_applicatie_status
           - sensor.ecoflow_energy_control_applicatie_laatste_actie

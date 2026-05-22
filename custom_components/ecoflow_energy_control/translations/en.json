@@ -31,6 +31,7 @@
         "menu_options": {
           "general": "General settings",
           "add_device": "Add device",
+          "edit_device": "Edit device",
           "remove_device": "Remove device"
         }
       },
@@ -39,6 +40,9 @@
       },
       "add_device": {
         "title": "Add device"
+      },
+      "edit_device": {
+        "title": "Edit device"
       },
       "device_delta_pro": {
         "title": "Add Delta Pro"
@@ -57,6 +61,21 @@
       },
       "device_smart_plug": {
         "title": "Add Smart Plug"
+      },
+      "edit_batteries": {
+        "title": "Edit battery"
+      },
+      "edit_powerstreams": {
+        "title": "Edit PowerStream"
+      },
+      "edit_sma_inverters": {
+        "title": "Edit SMA inverter"
+      },
+      "edit_homewizard_meters": {
+        "title": "Edit HomeWizard meter"
+      },
+      "edit_smart_plugs": {
+        "title": "Edit Smart Plug"
       },
       "remove_device": {
         "title": "Remove device"

@@ -189,7 +189,11 @@ class StatusSensor(BaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"errors": (self.coordinator.data or {}).get("errors", {})}
+        data = self.coordinator.data or {}
+        return {
+            "errors": data.get("errors", {}),
+            "ecoflow_devices": data.get("ecoflow_devices", []),
+        }
 
 
 class LastActionSensor(BaseSensor):

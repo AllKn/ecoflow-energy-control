@@ -56,6 +56,7 @@ Daar kun je kiezen:
 
 - Algemene instellingen
 - Apparaat toevoegen
+- Apparaat wijzigen
 - Apparaat verwijderen
 
 ### Grafische apparaatwizard
@@ -79,6 +80,24 @@ De integratie controleert de verbinding voordat het apparaat wordt opgeslagen:
 - SMA: het ingestelde SMA cloud endpoint
 
 Als deze controle faalt, blijft het apparaat uit de configuratie en krijg je een melding in de flow.
+
+Met **Apparaat wijzigen** kun je bestaande apparaten aanpassen zonder ze eerst te verwijderen. De wizard vult de huidige waarden alvast in en controleert bij opslaan opnieuw de verbinding.
+
+## Handmatige controles
+
+Het dashboard bevat nu knoppen voor snelle diagnose:
+
+- **EcoFlow API controleren**: controleert access key, secret key en regio-host via de EcoFlow device-list.
+- **EPEX prijzen ophalen**: haalt de prijsfeed direct opnieuw op.
+
+Het resultaat zie je in:
+
+```text
+sensor.ecoflow_energy_control_applicatie_status
+sensor.ecoflow_energy_control_applicatie_laatste_actie
+```
+
+Bij een geslaagde EcoFlow-check staan de gevonden serienummers ook als attribuut `ecoflow_devices` op de status-sensor.
 
 ### Delta Pro en Delta Pro 3
 
@@ -277,7 +296,7 @@ Als HACS de update niet meteen ziet, verhoog dan de versie in:
 custom_components/ecoflow_energy_control/manifest.json
 ```
 
-Deze iteratie staat op versie `0.4.2`.
+Deze iteratie staat op versie `0.4.3`.
 
 ### Entiteiten blijven unavailable
 

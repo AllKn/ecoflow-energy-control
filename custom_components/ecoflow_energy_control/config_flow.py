@@ -110,6 +110,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._entry = config_entry
         self._pending_remove: str | None = None
+        self._pending_edit: tuple[str, int] | None = None
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -119,6 +120,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
             menu_options=[
                 "general",
                 "add_device",
+                "edit_device",
                 "remove_device",
             ],
         )
@@ -410,6 +412,205 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema({vol.Required("device"): vol.In(choices)}),
         )
 
+    async def async_step_edit_device(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        choices = self._device_choices()
+        if user_input is not None:
+            group, index_text = user_input["device"].split(":", 1)
+            self._pending_edit = (group, int(index_text))
+            return await getattr(self, f"async_step_edit_{group}")()
+        if not choices:
+            return self.async_abort(reason="no_devices")
+        return self.async_show_form(
+            step_id="edit_device",
+            data_schema=vol.Schema({vol.Required("device"): vol.In(choices)}),
+        )
+
+    async def async_step_edit_batteries(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        group, index, current = self._edit_context(CONF_BATTERIES)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                await self._validate_ecoflow_device(user_input["serial"])
+            except Exception:  # noqa: BLE001
+                errors["base"] = "cannot_connect"
+            else:
+                item = {
+                    **current,
+                    "name": user_input["name"],
+                    "model": user_input["model"],
+                    "serial": user_input["serial"],
+                    "quotas": DEFAULT_BATTERY_QUOTAS,
+                }
+                return self._replace_device(group, index, item)
+        return self.async_show_form(
+            step_id="edit_batteries",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name", default=current.get("name", "Delta Pro")): str,
+                    vol.Required(
+                        "model", default=current.get("model", "Delta Pro")
+                    ): vol.In({"Delta Pro": "Delta Pro", "Delta Pro 3": "Delta Pro 3"}),
+                    vol.Required("serial", default=current.get("serial", "")): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_edit_powerstreams(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        group, index, current = self._edit_context(CONF_POWERSTREAMS)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                command = json.loads(user_input["command"])
+            except json.JSONDecodeError:
+                errors["command"] = "invalid_json"
+            else:
+                try:
+                    await self._validate_ecoflow_device(user_input["serial"])
+                except Exception:  # noqa: BLE001
+                    errors["base"] = "cannot_connect"
+                else:
+                    item = {
+                        **current,
+                        "name": user_input["name"],
+                        "serial": user_input["serial"],
+                        "max_watts": user_input["max_watts"],
+                        "phase": user_input["phase"],
+                        "command": command,
+                    }
+                    return self._replace_device(group, index, item)
+        return self.async_show_form(
+            step_id="edit_powerstreams",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name", default=current.get("name", "PowerStream")): str,
+                    vol.Required("serial", default=current.get("serial", "")): str,
+                    vol.Required("max_watts", default=current.get("max_watts", 800)): int,
+                    vol.Required("phase", default=current.get("phase", "l1")): vol.In(
+                        {"l1": "Fase 1", "l2": "Fase 2", "l3": "Fase 3"}
+                    ),
+                    vol.Required(
+                        "command",
+                        default=json.dumps(
+                            current.get("command", DEFAULT_POWERSTREAM_COMMAND)
+                        ),
+                    ): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_edit_sma_inverters(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        group, index, current = self._edit_context(CONF_SMA_INVERTERS)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                await self._validate_sma_device(dict(user_input))
+            except Exception:  # noqa: BLE001
+                errors["base"] = "cannot_connect"
+            else:
+                return self._replace_device(group, index, dict(user_input))
+        return self.async_show_form(
+            step_id="edit_sma_inverters",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name", default=current.get("name", "Sunny Boy")): str,
+                    vol.Required("device_id", default=current.get("device_id", "")): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_edit_homewizard_meters(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        group, index, current = self._edit_context(CONF_HOMEWIZARD_METERS)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                await read_homewizard_meter(
+                    async_get_clientsession(self.hass), dict(user_input)
+                )
+            except Exception:  # noqa: BLE001
+                errors["base"] = "cannot_connect"
+            else:
+                return self._replace_device(group, index, dict(user_input))
+        return self.async_show_form(
+            step_id="edit_homewizard_meters",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "name", default=current.get("name", "HomeWizard zonmeter")
+                    ): str,
+                    vol.Required("host", default=current.get("host", "")): str,
+                    vol.Required(
+                        "role", default=current.get("role", DEFAULT_HOMEWIZARD_ROLE)
+                    ): vol.In({"solar_total": "Totale opwekking"}),
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_edit_smart_plugs(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        group, index, current = self._edit_context(CONF_SMART_PLUGS)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                on_command = json.loads(user_input["on_command"])
+                off_command = json.loads(user_input["off_command"])
+            except json.JSONDecodeError:
+                errors["base"] = "invalid_json"
+            else:
+                try:
+                    await self._validate_ecoflow_device(user_input["serial"])
+                except Exception:  # noqa: BLE001
+                    errors["base"] = "cannot_connect"
+                else:
+                    item = {
+                        **current,
+                        "name": user_input["name"],
+                        "serial": user_input["serial"],
+                        "charges": user_input["charges"],
+                        "on_command": on_command,
+                        "off_command": off_command,
+                    }
+                    return self._replace_device(group, index, item)
+        return self.async_show_form(
+            step_id="edit_smart_plugs",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "name", default=current.get("name", "Delta Pro laadstekker")
+                    ): str,
+                    vol.Required("serial", default=current.get("serial", "")): str,
+                    vol.Required("charges", default=current.get("charges", "Delta Pro")): str,
+                    vol.Required(
+                        "on_command",
+                        default=json.dumps(
+                            current.get("on_command", DEFAULT_SMART_PLUG_ON_COMMAND)
+                        ),
+                    ): str,
+                    vol.Required(
+                        "off_command",
+                        default=json.dumps(
+                            current.get("off_command", DEFAULT_SMART_PLUG_OFF_COMMAND)
+                        ),
+                    ): str,
+                }
+            ),
+            errors=errors,
+        )
+
     def _settings(self) -> dict[str, Any]:
         values = {**self._entry.data, **self._entry.options}
         values.setdefault(CONF_BATTERIES, [])
@@ -423,6 +624,23 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         merged = self._settings()
         merged.update(values)
         return self.async_create_entry(title="", data=merged)
+
+    def _edit_context(self, expected_group: str) -> tuple[str, int, dict[str, Any]]:
+        if self._pending_edit is None:
+            raise ValueError("No device selected")
+        group, index = self._pending_edit
+        if group != expected_group:
+            raise ValueError("Unexpected device group")
+        item = self._settings()[group][index]
+        return group, index, item
+
+    def _replace_device(
+        self, group: str, index: int, item: dict[str, Any]
+    ) -> config_entries.FlowResult:
+        values = self._settings()
+        values[group][index] = item
+        self._pending_edit = None
+        return self._save(values)
 
     def _device_choices(self) -> dict[str, str]:
         values = self._settings()

@@ -18,7 +18,13 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: EcoFlowEnergyCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([ApplyStrategyButton(coordinator)])
+    async_add_entities(
+        [
+            ApplyStrategyButton(coordinator),
+            CheckEcoFlowApiButton(coordinator),
+            RefreshPricesButton(coordinator),
+        ]
+    )
 
 
 class ApplyStrategyButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEntity):
@@ -37,3 +43,39 @@ class ApplyStrategyButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEnt
 
     async def async_press(self) -> None:
         await self.coordinator.async_apply_strategy()
+
+
+class CheckEcoFlowApiButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEntity):
+    """Manually check EcoFlow API connectivity."""
+
+    _attr_has_entity_name = True
+    _attr_name = "EcoFlow API controleren"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{DOMAIN}_check_ecoflow_api"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, "controller")},
+            "name": "EcoFlow Energy Control Applicatie",
+        }
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_check_ecoflow_api()
+
+
+class RefreshPricesButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEntity):
+    """Manually refresh EPEX/day-ahead prices."""
+
+    _attr_has_entity_name = True
+    _attr_name = "EPEX prijzen ophalen"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{DOMAIN}_refresh_prices"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, "controller")},
+            "name": "EcoFlow Energy Control Applicatie",
+        }
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_refresh_prices_now()

@@ -31,6 +31,7 @@
         "menu_options": {
           "general": "Algemene instellingen",
           "add_device": "Apparaat toevoegen",
+          "edit_device": "Apparaat wijzigen",
           "remove_device": "Apparaat verwijderen"
         }
       },
@@ -39,6 +40,9 @@
       },
       "add_device": {
         "title": "Apparaat toevoegen"
+      },
+      "edit_device": {
+        "title": "Apparaat wijzigen"
       },
       "device_delta_pro": {
         "title": "Delta Pro toevoegen"
@@ -57,6 +61,21 @@
       },
       "device_smart_plug": {
         "title": "Smart Plug toevoegen"
+      },
+      "edit_batteries": {
+        "title": "Batterij wijzigen"
+      },
+      "edit_powerstreams": {
+        "title": "PowerStream wijzigen"
+      },
+      "edit_sma_inverters": {
+        "title": "SMA omvormer wijzigen"
+      },
+      "edit_homewizard_meters": {
+        "title": "HomeWizard meter wijzigen"
+      },
+      "edit_smart_plugs": {
+        "title": "Smart Plug wijzigen"
       },
       "remove_device": {
         "title": "Apparaat verwijderen"
