@@ -1,0 +1,34 @@
+title: EcoFlow Energy Control
+views:
+  - title: Energie
+    path: ecoflow-energy
+    icon: mdi:home-lightning-bolt
+    cards:
+      - type: entities
+        title: Controlpanel
+        entities:
+          - select.ecoflow_energy_control_strategie
+          - switch.ecoflow_energy_control_testmodus
+          - number.ecoflow_energy_control_dure_stroom_vanaf
+          - number.ecoflow_energy_control_goedkope_stroom_tot
+          - number.ecoflow_energy_control_teruglever_doel
+          - number.ecoflow_energy_control_eigen_gebruik_doel
+          - button.ecoflow_energy_control_strategie_nu_toepassen
+          - sensor.ecoflow_energy_control_laatste_actie
+      - type: gauge
+        entity: sensor.ecoflow_energy_control_stroomprijs_nu
+        name: Stroomprijs nu
+        min: -0.2
+        max: 0.8
+      - type: gauge
+        entity: sensor.ecoflow_energy_control_sma_totaal_vermogen
+        name: SMA opwek
+        min: 0
+        max: 8000
+      - type: history-graph
+        title: Energie
+        hours_to_show: 24
+        entities:
+          - sensor.ecoflow_energy_control_stroomprijs_nu
+          - sensor.ecoflow_energy_control_sma_totaal_vermogen
+

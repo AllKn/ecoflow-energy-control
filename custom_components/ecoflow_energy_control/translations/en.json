@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EcoFlow Energy Control",
+        "description": "Configure EcoFlow Cloud, spot prices, PowerStreams and local SMA inverters.",
+        "data": {
+          "name": "Name",
+          "access_key": "EcoFlow access key",
+          "secret_key": "EcoFlow secret key",
+          "ecoflow_host": "EcoFlow API host",
+          "price_url": "Spot price JSON URL",
+          "batteries": "Battery devices JSON",
+          "powerstreams": "PowerStream devices JSON",
+          "sma_inverters": "SMA inverters JSON",
+          "dry_run": "Start in test mode"
+        }
+      }
+    },
+    "error": {
+      "invalid_json": "One of the JSON fields is invalid. Each field must contain a JSON list."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "EcoFlow Energy Control options"
+      }
+    }
+  }
+}

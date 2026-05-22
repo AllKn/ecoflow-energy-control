@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EcoFlow Energy Control",
+        "description": "Stel EcoFlow Cloud, spotprijzen, PowerStreams en lokale SMA omvormers in.",
+        "data": {
+          "name": "Naam",
+          "access_key": "EcoFlow access key",
+          "secret_key": "EcoFlow secret key",
+          "ecoflow_host": "EcoFlow API host",
+          "price_url": "Spotprijs JSON URL",
+          "batteries": "Batterijen JSON",
+          "powerstreams": "PowerStreams JSON",
+          "sma_inverters": "SMA omvormers JSON",
+          "dry_run": "Start in testmodus"
+        }
+      }
+    },
+    "error": {
+      "invalid_json": "Een van de JSON-velden is ongeldig. Elk veld moet een JSON-lijst bevatten."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "EcoFlow Energy Control opties"
+      }
+    }
+  }
+}
