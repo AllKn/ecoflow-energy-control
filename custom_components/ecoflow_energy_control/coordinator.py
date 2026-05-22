@@ -196,6 +196,66 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             {**(self.data or {}), "last_action": f"{serial} -> {watts} W"}
         )
 
+    async def async_check_ecoflow_api(self) -> None:
+        """Manually validate EcoFlow API credentials and device-list access."""
+        data = dict(self.data or {})
+        errors = dict(data.get("errors") or {})
+        try:
+            response = await self.ecoflow.get_devices()
+            serials = _extract_serials(response)
+        except Exception as err:  # noqa: BLE001
+            errors["ecoflow_api"] = str(err)
+            data.update(
+                {
+                    "errors": errors,
+                    "status": "EcoFlow API fout",
+                    "last_action": f"EcoFlow API controle mislukt: {err}",
+                }
+            )
+        else:
+            errors.pop("ecoflow_api", None)
+            data.update(
+                {
+                    "ecoflow_devices": serials,
+                    "errors": errors,
+                    "status": "ok" if not errors else f"{len(errors)} bron(nen) met fout",
+                    "last_action": f"EcoFlow API ok, {len(serials)} apparaat/apparaten gevonden",
+                }
+            )
+        self.async_set_updated_data(data)
+
+    async def async_refresh_prices_now(self) -> None:
+        """Manually fetch EPEX/day-ahead prices."""
+        data = dict(self.data or {})
+        errors = dict(data.get("errors") or {})
+        settings = {**self.entry.data, **self.entry.options}
+        try:
+            prices = await fetch_prices(
+                self.session, settings.get(CONF_PRICE_URL, DEFAULT_PRICE_URL)
+            )
+        except Exception as err:  # noqa: BLE001
+            errors["prices"] = str(err)
+            data.update(
+                {
+                    "errors": errors,
+                    "status": "prijsfeed fout",
+                    "last_action": f"Prijzen ophalen mislukt: {err}",
+                }
+            )
+        else:
+            errors.pop("prices", None)
+            data.update(
+                {
+                    "prices": prices,
+                    "price_now": current_price(prices, dt_util.now()),
+                    "price_bands": price_bands(prices),
+                    "errors": errors,
+                    "status": "ok" if not errors else f"{len(errors)} bron(nen) met fout",
+                    "last_action": f"Prijzen opgehaald, {len(prices)} uurrecords",
+                }
+            )
+        self.async_set_updated_data(data)
+
     async def async_apply_strategy(self) -> None:
         """Apply the currently selected simple price strategy."""
         price_now = (self.data or {}).get("price_now")
@@ -268,3 +328,21 @@ def _extract_values(response: dict[str, Any]) -> dict[str, Any]:
             return data["quotas"]
         return data
     return {}
+
+
+def _extract_serials(response: dict[str, Any]) -> list[str]:
+    serials: set[str] = set()
+
+    def walk(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in {"sn", "serial", "serialNumber", "deviceSn"} and item:
+                    serials.add(str(item))
+                else:
+                    walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(response.get("data", response))
+    return sorted(serials)
