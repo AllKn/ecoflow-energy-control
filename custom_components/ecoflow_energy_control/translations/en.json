@@ -1,0 +1,58 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EcoFlow Energy Control",
+        "description": "Configure EcoFlow Cloud, spot prices, PowerStreams and local SMA inverters.",
+        "data": {
+          "name": "Name",
+          "access_key": "EcoFlow access key",
+          "secret_key": "EcoFlow secret key",
+          "ecoflow_host": "EcoFlow API host",
+          "price_url": "Spot price JSON URL",
+          "sma_api_host": "SMA API host",
+          "sma_token": "SMA API token",
+          "sma_plant_id": "SMA plant id",
+          "sma_endpoint": "SMA endpoint template",
+          "dry_run": "Start in test mode"
+        }
+      }
+    },
+    "error": {
+      "invalid_json": "One of the JSON fields is invalid. Each field must contain a JSON list."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "EcoFlow Energy Control options",
+        "menu_options": {
+          "general": "General settings",
+          "add_battery": "Add battery",
+          "add_powerstream": "Add PowerStream",
+          "add_sma": "Add SMA inverter",
+          "add_smart_plug": "Add Smart Plug",
+          "remove_device": "Remove device"
+        }
+      },
+      "general": {
+        "title": "General settings"
+      },
+      "add_battery": {
+        "title": "Add battery"
+      },
+      "add_powerstream": {
+        "title": "Add PowerStream"
+      },
+      "add_sma": {
+        "title": "Add SMA inverter"
+      },
+      "add_smart_plug": {
+        "title": "Add Smart Plug"
+      },
+      "remove_device": {
+        "title": "Remove device"
+      }
+    }
+  }
+}
