@@ -21,3 +21,17 @@ apply_strategy:
   name: Pas strategie toe
   description: Past de ingestelde lokale strategie direct eenmalig toe.
 
+set_smart_plug:
+  name: Zet Smart Plug
+  description: Zet een EcoFlow Smart Plug aan of uit.
+  fields:
+    serial:
+      name: Serienummer
+      required: true
+      selector:
+        text:
+    "on":
+      name: Aan
+      required: true
+      selector:
+        boolean:

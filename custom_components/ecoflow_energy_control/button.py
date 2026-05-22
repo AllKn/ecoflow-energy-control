@@ -32,9 +32,8 @@ class ApplyStrategyButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEnt
         self._attr_unique_id = f"{DOMAIN}_apply_strategy"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control",
+            "name": "EcoFlow Energy Control Applicatie",
         }
 
     async def async_press(self) -> None:
         await self.coordinator.async_apply_strategy()
-

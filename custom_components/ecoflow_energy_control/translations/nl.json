@@ -10,9 +10,10 @@
           "secret_key": "EcoFlow secret key",
           "ecoflow_host": "EcoFlow API host",
           "price_url": "Spotprijs JSON URL",
-          "batteries": "Batterijen JSON",
-          "powerstreams": "PowerStreams JSON",
-          "sma_inverters": "SMA omvormers JSON",
+          "sma_api_host": "SMA API host",
+          "sma_token": "SMA API token",
+          "sma_plant_id": "SMA plant id",
+          "sma_endpoint": "SMA endpoint-template",
           "dry_run": "Start in testmodus"
         }
       }
@@ -24,7 +25,33 @@
   "options": {
     "step": {
       "init": {
-        "title": "EcoFlow Energy Control opties"
+        "title": "EcoFlow Energy Control opties",
+        "menu_options": {
+          "general": "Algemene instellingen",
+          "add_battery": "Batterij toevoegen",
+          "add_powerstream": "PowerStream toevoegen",
+          "add_sma": "SMA omvormer toevoegen",
+          "add_smart_plug": "Smart Plug toevoegen",
+          "remove_device": "Apparaat verwijderen"
+        }
+      },
+      "general": {
+        "title": "Algemene instellingen"
+      },
+      "add_battery": {
+        "title": "Batterij toevoegen"
+      },
+      "add_powerstream": {
+        "title": "PowerStream toevoegen"
+      },
+      "add_sma": {
+        "title": "SMA omvormer toevoegen"
+      },
+      "add_smart_plug": {
+        "title": "Smart Plug toevoegen"
+      },
+      "remove_device": {
+        "title": "Apparaat verwijderen"
       }
     }
   }

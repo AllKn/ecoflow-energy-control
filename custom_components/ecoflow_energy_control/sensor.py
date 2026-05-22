@@ -23,6 +23,8 @@ async def async_setup_entry(
     coordinator: EcoFlowEnergyCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SensorEntity] = [
         PriceSensor(coordinator),
+        CheapBandSensor(coordinator),
+        ExpensiveBandSensor(coordinator),
         TotalSolarPowerSensor(coordinator),
         LastActionSensor(coordinator),
     ]
@@ -43,7 +45,7 @@ class BaseSensor(CoordinatorEntity[EcoFlowEnergyCoordinator], SensorEntity):
         self._attr_unique_id = f"{DOMAIN}_{key}"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control",
+            "name": "EcoFlow Energy Control Applicatie",
         }
         self._attr_name = name
 
@@ -74,10 +76,33 @@ class TotalSolarPowerSensor(BaseSensor):
 
     @property
     def native_value(self) -> float:
-        return sum(
-            float(values.get("ac_power_w") or 0)
-            for values in self.coordinator.data.get("inverters", {}).values()
-        )
+        return float(self.coordinator.data.get("solar_power") or 0)
+
+
+class CheapBandSensor(BaseSensor):
+    """Automatic cheap price band sensor."""
+
+    _attr_native_unit_of_measurement = "EUR/kWh"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "cheap_band", "goedkope prijsgrens")
+
+    @property
+    def native_value(self) -> float | None:
+        return (self.coordinator.data.get("price_bands") or {}).get("cheap")
+
+
+class ExpensiveBandSensor(BaseSensor):
+    """Automatic expensive price band sensor."""
+
+    _attr_native_unit_of_measurement = "EUR/kWh"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "expensive_band", "dure prijsgrens")
+
+    @property
+    def native_value(self) -> float | None:
+        return (self.coordinator.data.get("price_bands") or {}).get("expensive")
 
 
 class BatterySocSensor(BaseSensor):
@@ -111,4 +136,3 @@ class LastActionSensor(BaseSensor):
     @property
     def native_value(self) -> str | None:
         return self.coordinator.data.get("last_action")
-

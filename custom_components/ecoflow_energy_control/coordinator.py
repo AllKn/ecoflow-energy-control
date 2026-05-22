@@ -13,8 +13,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .api.ecoflow import EcoFlowCloudClient, render_template_dict
-from .api.prices import current_price, fetch_prices
-from .api.sma import SmaInverter, read_inverter
+from .api.prices import current_price, fetch_prices, price_bands
+from .api.sma_cloud import read_sma_device
 from .const import (
     CONF_ACCESS_KEY,
     CONF_BATTERIES,
@@ -23,9 +23,16 @@ from .const import (
     CONF_POWERSTREAMS,
     CONF_PRICE_URL,
     CONF_SECRET_KEY,
+    CONF_SMA_API_HOST,
+    CONF_SMA_ENDPOINT,
     CONF_SMA_INVERTERS,
+    CONF_SMA_PLANT_ID,
+    CONF_SMA_TOKEN,
+    CONF_SMART_PLUGS,
     DEFAULT_ECOFLOW_HOST,
     DEFAULT_PRICE_URL,
+    DEFAULT_SMA_API_HOST,
+    DEFAULT_SMA_ENDPOINT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     STRATEGY_IDLE,
@@ -48,10 +55,9 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.settings[CONF_SECRET_KEY],
         )
         self.strategy = STRATEGY_IDLE
-        self.expensive_threshold = 0.32
-        self.cheap_threshold = 0.12
         self.export_watts = 600
         self.self_use_watts = 0
+        self.solar_plug_threshold_watts = 1200
         self.dry_run = bool(self.settings.get(CONF_DRY_RUN, True))
         super().__init__(
             hass,
@@ -66,6 +72,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.session, settings.get(CONF_PRICE_URL, DEFAULT_PRICE_URL)
         )
         price_now = current_price(prices, dt_util.now())
+        bands = price_bands(prices)
 
         batteries = {}
         for device in settings.get(CONF_BATTERIES, []):
@@ -85,26 +92,39 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 batteries[serial] = {"name": device.get("name", serial), "error": str(err)}
 
         inverters = {}
+        sma_token = settings.get(CONF_SMA_TOKEN)
+        sma_plant_id = settings.get(CONF_SMA_PLANT_ID)
         for item in settings.get(CONF_SMA_INVERTERS, []):
-            host = item.get("host")
-            if not host:
+            device_id = item.get("device_id")
+            if not sma_token or not sma_plant_id or not device_id:
                 continue
-            inverter = SmaInverter(
-                name=item.get("name", host),
-                host=host,
-                port=int(item.get("port", 502)),
-                unit_id=int(item.get("unit_id", 3)),
-            )
             try:
-                inverters[inverter.name] = await read_inverter(inverter)
+                name = item.get("name", device_id)
+                inverters[name] = await read_sma_device(
+                    self.session,
+                    settings.get(CONF_SMA_API_HOST, DEFAULT_SMA_API_HOST),
+                    sma_token,
+                    sma_plant_id,
+                    item,
+                    settings.get(CONF_SMA_ENDPOINT, DEFAULT_SMA_ENDPOINT),
+                )
             except Exception as err:  # noqa: BLE001
-                inverters[inverter.name] = {"available": False, "error": str(err)}
+                inverters[item.get("name", device_id)] = {
+                    "available": False,
+                    "error": str(err),
+                }
+
+        solar_power = sum(
+            float(values.get("ac_power_w") or 0) for values in inverters.values()
+        )
 
         return {
             "price_now": price_now,
+            "price_bands": bands,
             "prices": prices,
             "batteries": batteries,
             "inverters": inverters,
+            "solar_power": solar_power,
             "strategy": self.strategy,
             "dry_run": self.dry_run,
             "last_action": self.data.get("last_action") if self.data else None,
@@ -128,13 +148,16 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def async_apply_strategy(self) -> None:
         """Apply the currently selected simple price strategy."""
         price_now = (self.data or {}).get("price_now")
+        bands = (self.data or {}).get("price_bands") or {}
         if price_now is None or self.strategy == STRATEGY_IDLE:
             return
 
         target = self.self_use_watts
-        if price_now <= self.cheap_threshold:
+        cheap = bands.get("cheap")
+        expensive = bands.get("expensive")
+        if cheap is not None and price_now <= cheap:
             target = 0
-        elif price_now >= self.expensive_threshold:
+        elif expensive is not None and price_now >= expensive:
             target = self.export_watts
 
         for device in self.settings.get(CONF_POWERSTREAMS, []):
@@ -142,11 +165,39 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if serial and "VUL_HIER" not in serial:
                 await self.async_set_powerstream_watts(serial, target)
 
+        solar_power = float((self.data or {}).get("solar_power") or 0)
+        plug_on = solar_power >= self.solar_plug_threshold_watts
+        for device in self.settings.get(CONF_SMART_PLUGS, []):
+            serial = device.get("serial")
+            if serial and "VUL_HIER" not in serial:
+                await self.async_set_smart_plug(serial, plug_on)
+
+    async def async_set_smart_plug(self, serial: str, on: bool) -> None:
+        """Set a configured EcoFlow smart plug on or off."""
+        device = self._smart_plug(serial)
+        template = device["on_command"] if on else device["off_command"]
+        command = render_template_dict(template, {"on": on})
+        if self.dry_run:
+            self.async_set_updated_data(
+                {**(self.data or {}), "last_action": f"dry-run plug {serial} -> {on}"}
+            )
+            return
+        await self.ecoflow.set_device_command(serial, command)
+        self.async_set_updated_data(
+            {**(self.data or {}), "last_action": f"plug {serial} -> {on}"}
+        )
+
     def _powerstream(self, serial: str) -> dict[str, Any]:
         for device in self.settings.get(CONF_POWERSTREAMS, []):
             if device.get("serial") == serial:
                 return device
         raise ValueError(f"Unknown PowerStream serial: {serial}")
+
+    def _smart_plug(self, serial: str) -> dict[str, Any]:
+        for device in self.settings.get(CONF_SMART_PLUGS, []):
+            if device.get("serial") == serial:
+                return device
+        raise ValueError(f"Unknown smart plug serial: {serial}")
 
 
 def _extract_values(response: dict[str, Any]) -> dict[str, Any]:
@@ -156,4 +207,3 @@ def _extract_values(response: dict[str, Any]) -> dict[str, Any]:
             return data["quotas"]
         return data
     return {}
-

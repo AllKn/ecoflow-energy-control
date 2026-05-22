@@ -33,7 +33,7 @@ class StrategySelect(CoordinatorEntity[EcoFlowEnergyCoordinator], SelectEntity):
         self._attr_unique_id = f"{DOMAIN}_strategy"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control",
+            "name": "EcoFlow Energy Control Applicatie",
         }
 
     @property
@@ -44,4 +44,3 @@ class StrategySelect(CoordinatorEntity[EcoFlowEnergyCoordinator], SelectEntity):
         if option in STRATEGIES:
             self.coordinator.strategy = option
             self.async_write_ha_state()
-

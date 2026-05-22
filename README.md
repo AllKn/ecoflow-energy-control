@@ -1,140 +1,190 @@
-# EcoFlow Energy Control
+# EcoFlow Energy Control Applicatie
 
-Lokale Home Assistant/HACS-integratie voor:
+Lokale Home Assistant/HACS-integratie voor EcoFlow, EPEX day-ahead prijzen, SMA clouddata en automatische laad-/terugleverstrategieën.
 
-- EcoFlow Delta Pro en Delta Pro 3 uitlezen via EcoFlow Cloud API
-- Twee EcoFlow PowerStreams aansturen via EcoFlow Cloud API
-- Nederlandse spotprijzen uitlezen via een JSON-feed
-- SMA Sunny Boy omvormers lokaal uitlezen via Modbus TCP
-- Een grafisch controlpanel met strategie, drempels, testmodus en handmatige toepassing
+## Wat deze iteratie doet
 
-## Status
-
-Dit is een eerste werkende basis. Hij start standaard in **testmodus**, zodat commando's naar PowerStream niet meteen worden verzonden. EcoFlow gebruikt per apparaat en firmware verschillende command-payloads. Daarom zijn PowerStream-commando's configureerbaar als JSON-template.
+- EcoFlow Delta Pro en Delta Pro 3 uitlezen via EcoFlow Cloud API.
+- Twee of meer EcoFlow PowerStreams aansturen via EcoFlow Cloud API.
+- EcoFlow Smart Plugs toevoegen om bijvoorbeeld een Delta Pro te laden bij voldoende zonnestroom.
+- EPEX/day-ahead prijzen automatisch pollen via een externe JSON-feed.
+- SMA Sunny Boy/ennexOS omvormers uitlezen via de SMA cloud/API, dus zonder lokale Modbus TCP.
+- Apparaten 1 voor 1 toevoegen of verwijderen via het Home Assistant configuratiescherm.
+- Een vereenvoudigd controlpanel met strategie, testmodus, laad-/terugleverdoelen en automatische prijsgrenzen.
 
 ## Installatie via HACS
 
-1. Zet deze map in een Git repository.
+1. Publiceer deze repository op GitHub.
 2. Voeg de repository in HACS toe als custom repository van type `Integration`.
 3. Installeer **EcoFlow Energy Control**.
 4. Herstart Home Assistant.
-5. Ga naar **Instellingen > Apparaten & diensten > Integratie toevoegen** en kies **EcoFlow Energy Control**.
+5. Ga naar **Instellingen > Apparaten & diensten > Integratie toevoegen**.
+6. Kies **EcoFlow Energy Control**.
 
-Handmatig kan ook: kopieer `custom_components/ecoflow_energy_control` naar de `custom_components` map van Home Assistant en herstart.
+## Eerste configuratie
 
-## EcoFlow instellingen
+Bij de eerste setup vul je alleen de algemene gegevens in:
 
-Vraag in het EcoFlow Developer Portal een `access_key` en `secret_key` aan. Gebruik voor Europa standaard:
+- EcoFlow `access_key`
+- EcoFlow `secret_key`
+- EcoFlow API host, meestal `https://api-e.ecoflow.com`
+- Prijsfeed URL
+- SMA API host
+- SMA API token
+- SMA plant id
+- SMA endpoint-template
+- Testmodus
 
-```text
-https://api-e.ecoflow.com
-```
-
-Vul batterijen in als JSON:
-
-```json
-[
-  {
-    "name": "Delta Pro",
-    "serial": "JOUW_SERIENUMMER",
-    "quotas": ["pd.soc", "pd.inputWatts", "pd.outputWatts", "pd.invOutWatts"]
-  },
-  {
-    "name": "Delta Pro 3",
-    "serial": "JOUW_SERIENUMMER",
-    "quotas": ["pd.soc", "pd.inputWatts", "pd.outputWatts", "pd.invOutWatts"]
-  }
-]
-```
-
-Vul PowerStreams in als JSON:
-
-```json
-[
-  {
-    "name": "PowerStream 1",
-    "serial": "JOUW_SERIENUMMER",
-    "max_watts": 800,
-    "command": {
-      "id": 1,
-      "version": "1.0",
-      "moduleType": 1,
-      "operateType": "WN511_SET_PERMANENT_WATTS_PACK",
-      "params": {"permanentWatts": "{{ watts }}"}
-    }
-  }
-]
-```
-
-Als EcoFlow voor jouw PowerStream een andere `operateType`, `moduleType` of parameternaam vereist, pas je alleen dit JSON-template aan.
-
-## SMA Sunny Boy
-
-Zet Modbus TCP aan in de lokale webinterface van de SMA omvormer. Meestal is dit poort `502` en unit id `3`.
-
-```json
-[
-  {
-    "name": "Sunny Boy dak",
-    "host": "192.168.1.50",
-    "port": 502,
-    "unit_id": 3
-  }
-]
-```
-
-## Spotprijzen
-
-Standaard staat de feed op:
+Standaard prijsfeed:
 
 ```text
-https://enever.nl/api/stroomprijs_vandaag.php
+https://api.stekker.app/api/v1/market_price_forecast?region=NL
 ```
 
-Elke JSON-feed met uurrecords en een prijsveld zoals `prijs`, `price`, `value` of `electricity_price` kan worden gebruikt.
+De integratie accepteert ook andere JSON-feeds met uurprijzen, zolang er velden aanwezig zijn zoals `price`, `forecast`, `price_per_mwh`, `prijs`, `value` en een tijdveld zoals `period_start`, `datetime`, `start` of `timestamp`.
+
+## Apparaten toevoegen
+
+Ga na installatie naar:
+
+```text
+Instellingen > Apparaten & diensten > EcoFlow Energy Control > Configureren
+```
+
+Daar kun je kiezen:
+
+- Algemene instellingen
+- Batterij toevoegen
+- PowerStream toevoegen
+- SMA omvormer toevoegen
+- Smart Plug toevoegen
+- Apparaat verwijderen
+
+### Batterij
+
+Voor een Delta Pro of Delta Pro 3 vul je in:
+
+- naam
+- serienummer
+
+De standaard EcoFlow quota's worden automatisch gebruikt.
+
+### PowerStream
+
+Per PowerStream vul je in:
+
+- naam
+- serienummer
+- maximaal vermogen
+- command-template
+
+Standaard command-template:
+
+```json
+{
+  "id": 1,
+  "version": "1.0",
+  "moduleType": 1,
+  "operateType": "WN511_SET_PERMANENT_WATTS_PACK",
+  "params": {
+    "permanentWatts": "{{ watts }}"
+  }
+}
+```
+
+EcoFlow wijzigt command-payloads soms per firmware of apparaatserie. Daarom is dit bewust instelbaar.
+
+### SMA omvormer
+
+Voor SMA gebruik je de internet/API-route in plaats van lokale Modbus. Vul eerst bij algemene instellingen je SMA API token en plant id in.
+
+Per omvormer vul je daarna in:
+
+- naam
+- SMA device id
+
+Het standaard endpoint-template is:
+
+```text
+/monitoring/v1/plants/{plant_id}/devices/{device_id}/measurements/recent
+```
+
+Als jouw SMA Developer API of ennexOS endpoint een ander pad gebruikt, pas je alleen dit template aan.
+
+### Smart Plug
+
+Per Smart Plug vul je in:
+
+- naam
+- serienummer
+- welke batterij ermee geladen wordt
+- aan-command-template
+- uit-command-template
+
+De strategie zet Smart Plugs aan zodra de gemeten SMA-opwek boven de ingestelde zonnedrempel komt. Daarmee kun je bijvoorbeeld een Delta Pro automatisch laten laden bij zonneschijn.
 
 ## Controlpanel
 
-De integratie maakt entiteiten aan voor:
+Gebruik het voorbeeld:
 
-- huidige stroomprijs
-- totaal SMA-vermogen
-- batterij-SoC per ingestelde EcoFlow batterij
-- strategie: `self_use`, `export`, `idle`
-- testmodus
-- goedkope en dure prijsdrempel
-- doelvermogen voor terugleveren en eigen gebruik
-- knop om de strategie direct toe te passen
+[dashboards/ecoflow-energy-control.yaml](dashboards/ecoflow-energy-control.yaml)
 
-Gebruik `dashboards/ecoflow-energy-control.yaml` als startpunt voor een Lovelace-dashboard.
+De dashboard-entiteiten gebruiken nu de `_applicatie` naam, bijvoorbeeld:
+
+```yaml
+sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
+select.ecoflow_energy_control_applicatie_strategie
+number.ecoflow_energy_control_applicatie_laadstekkers_aan_vanaf_zon
+```
+
+Als Home Assistant andere entity_id's maakt, zoek dan bij **Instellingen > Apparaten & diensten > Entiteiten** op `EcoFlow Energy Control Applicatie` en pas de YAML daarop aan.
 
 ## Strategie
 
-De eerste strategie is eenvoudig en bewust veilig:
+De prijs wordt niet meer handmatig ingesteld. De integratie pollt de prijsfeed en berekent automatisch:
 
-- onder de goedkope drempel: PowerStream doelvermogen naar `0 W`
-- boven de dure drempel: PowerStream doelvermogen naar het ingestelde terugleverdoel
-- daartussen: PowerStream doelvermogen naar het ingestelde eigen-gebruik-doel
+- goedkope prijsgrens: onderste kwart van de opgehaalde uurprijzen
+- dure prijsgrens: bovenste kwart van de opgehaalde uurprijzen
 
-Zolang testmodus aan staat, wordt alleen de laatste geplande actie getoond.
+Gedrag:
+
+- goedkope uren: PowerStream doel naar `0 W`
+- dure uren: PowerStream doel naar `teruglever doel`
+- tussenliggende uren: PowerStream doel naar `eigen gebruik doel`
+- voldoende zon: Smart Plugs aan om ingestelde Delta Pro's te laden
+
+Begin altijd met **testmodus aan**. Dan zie je de geplande acties zonder dat de PowerStreams of Smart Plugs echt worden aangestuurd.
 
 ## Services
 
-`ecoflow_energy_control.set_powerstream_watts`
+PowerStream vermogen instellen:
 
 ```yaml
-serial: JOUW_POWERSTREAM_SERIENUMMER
-watts: 600
+service: ecoflow_energy_control.set_powerstream_watts
+data:
+  serial: JOUW_POWERSTREAM_SERIENUMMER
+  watts: 600
 ```
 
-`ecoflow_energy_control.apply_strategy`
+Smart Plug schakelen:
 
-Past de ingestelde strategie eenmalig toe.
+```yaml
+service: ecoflow_energy_control.set_smart_plug
+data:
+  serial: JOUW_SMART_PLUG_SERIENUMMER
+  on: true
+```
 
-## Belangrijke opmerkingen
+Strategie eenmalig toepassen:
 
-- Home Assistant Recorder bewaart de sensordata in je lokale Home Assistant database.
-- De SMA-data loopt lokaal via je netwerk.
-- EcoFlow-besturing loopt via de EcoFlow Cloud API, omdat EcoFlow voor deze apparaten geen stabiele lokale API aanbiedt.
-- Begin altijd met testmodus aan en controleer in de EcoFlow app of het gebruikte command-template klopt voor jouw apparaat.
+```yaml
+service: ecoflow_energy_control.apply_strategy
+```
+
+## Belangrijk
+
+- Home Assistant Recorder bewaart de sensordata lokaal in je Home Assistant database.
+- EcoFlow-besturing loopt via EcoFlow Cloud.
+- SMA loopt in deze iteratie via de SMA cloud/API, niet meer via lokale Modbus.
+- Controleer command-templates altijd eerst in testmodus.
 

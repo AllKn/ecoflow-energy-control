@@ -10,9 +10,10 @@
           "secret_key": "EcoFlow secret key",
           "ecoflow_host": "EcoFlow API host",
           "price_url": "Spot price JSON URL",
-          "batteries": "Battery devices JSON",
-          "powerstreams": "PowerStream devices JSON",
-          "sma_inverters": "SMA inverters JSON",
+          "sma_api_host": "SMA API host",
+          "sma_token": "SMA API token",
+          "sma_plant_id": "SMA plant id",
+          "sma_endpoint": "SMA endpoint template",
           "dry_run": "Start in test mode"
         }
       }
@@ -24,7 +25,33 @@
   "options": {
     "step": {
       "init": {
-        "title": "EcoFlow Energy Control options"
+        "title": "EcoFlow Energy Control options",
+        "menu_options": {
+          "general": "General settings",
+          "add_battery": "Add battery",
+          "add_powerstream": "Add PowerStream",
+          "add_sma": "Add SMA inverter",
+          "add_smart_plug": "Add Smart Plug",
+          "remove_device": "Remove device"
+        }
+      },
+      "general": {
+        "title": "General settings"
+      },
+      "add_battery": {
+        "title": "Add battery"
+      },
+      "add_powerstream": {
+        "title": "Add PowerStream"
+      },
+      "add_sma": {
+        "title": "Add SMA inverter"
+      },
+      "add_smart_plug": {
+        "title": "Add Smart Plug"
+      },
+      "remove_device": {
+        "title": "Remove device"
       }
     }
   }

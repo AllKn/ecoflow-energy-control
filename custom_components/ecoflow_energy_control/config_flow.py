@@ -18,54 +18,59 @@ from .const import (
     CONF_POWERSTREAMS,
     CONF_PRICE_URL,
     CONF_SECRET_KEY,
+    CONF_SMA_API_HOST,
+    CONF_SMA_ENDPOINT,
     CONF_SMA_INVERTERS,
+    CONF_SMA_PLANT_ID,
+    CONF_SMA_TOKEN,
+    CONF_SMART_PLUGS,
     DEFAULT_BATTERY_QUOTAS,
     DEFAULT_ECOFLOW_HOST,
     DEFAULT_POWERSTREAM_COMMAND,
     DEFAULT_PRICE_URL,
+    DEFAULT_SMA_API_HOST,
+    DEFAULT_SMA_ENDPOINT,
+    DEFAULT_SMART_PLUG_OFF_COMMAND,
+    DEFAULT_SMART_PLUG_ON_COMMAND,
     DOMAIN,
 )
 
 
 class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow."""
+    """Handle initial setup."""
 
-    VERSION = 1
+    VERSION = 2
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
-        errors: dict[str, str] = {}
         if user_input is not None:
-            try:
-                _loads(user_input[CONF_BATTERIES])
-                _loads(user_input[CONF_POWERSTREAMS])
-                _loads(user_input[CONF_SMA_INVERTERS])
-            except ValueError:
-                errors["base"] = "invalid_json"
-            else:
-                data = dict(user_input)
-                data[CONF_BATTERIES] = _loads(data[CONF_BATTERIES])
-                data[CONF_POWERSTREAMS] = _loads(data[CONF_POWERSTREAMS])
-                data[CONF_SMA_INVERTERS] = _loads(data[CONF_SMA_INVERTERS])
-                return self.async_create_entry(title=data[CONF_NAME], data=data)
+            data = {
+                **user_input,
+                CONF_BATTERIES: [],
+                CONF_POWERSTREAMS: [],
+                CONF_SMA_INVERTERS: [],
+                CONF_SMART_PLUGS: [],
+            }
+            return self.async_create_entry(title=user_input[CONF_NAME], data=data)
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_NAME, default="EcoFlow Energy Control"): str,
+                vol.Required(
+                    CONF_NAME, default="EcoFlow Energy Control Applicatie"
+                ): str,
                 vol.Required(CONF_ACCESS_KEY): str,
                 vol.Required(CONF_SECRET_KEY): str,
                 vol.Required(CONF_ECOFLOW_HOST, default=DEFAULT_ECOFLOW_HOST): str,
                 vol.Required(CONF_PRICE_URL, default=DEFAULT_PRICE_URL): str,
-                vol.Required(CONF_BATTERIES, default=_default_batteries()): str,
-                vol.Required(CONF_POWERSTREAMS, default=_default_powerstreams()): str,
-                vol.Required(CONF_SMA_INVERTERS, default=_default_sma()): str,
+                vol.Optional(CONF_SMA_API_HOST, default=DEFAULT_SMA_API_HOST): str,
+                vol.Optional(CONF_SMA_TOKEN, default=""): str,
+                vol.Optional(CONF_SMA_PLANT_ID, default=""): str,
+                vol.Optional(CONF_SMA_ENDPOINT, default=DEFAULT_SMA_ENDPOINT): str,
                 vol.Required(CONF_DRY_RUN, default=True): bool,
             }
         )
-        return self.async_show_form(
-            step_id="user", data_schema=schema, errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=schema)
 
     @staticmethod
     @callback
@@ -76,107 +81,205 @@ class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
-    """Options flow."""
+    """Options flow with one-device-at-a-time editing."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._entry = config_entry
+        self._pending_remove: str | None = None
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
-        errors: dict[str, str] = {}
-        current = {**self._entry.data, **self._entry.options}
-        if user_input is not None:
-            try:
-                user_input[CONF_BATTERIES] = _loads(user_input[CONF_BATTERIES])
-                user_input[CONF_POWERSTREAMS] = _loads(user_input[CONF_POWERSTREAMS])
-                user_input[CONF_SMA_INVERTERS] = _loads(user_input[CONF_SMA_INVERTERS])
-            except ValueError:
-                errors["base"] = "invalid_json"
-            else:
-                return self.async_create_entry(title="", data=user_input)
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=[
+                "general",
+                "add_battery",
+                "add_powerstream",
+                "add_sma",
+                "add_smart_plug",
+                "remove_device",
+            ],
+        )
 
+    async def async_step_general(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        current = self._settings()
+        if user_input is not None:
+            return self._save(user_input)
         schema = vol.Schema(
             {
                 vol.Required(
                     CONF_PRICE_URL, default=current.get(CONF_PRICE_URL, DEFAULT_PRICE_URL)
                 ): str,
-                vol.Required(
-                    CONF_BATTERIES,
-                    default=json.dumps(current.get(CONF_BATTERIES, []), indent=2),
+                vol.Optional(
+                    CONF_SMA_API_HOST,
+                    default=current.get(CONF_SMA_API_HOST, DEFAULT_SMA_API_HOST),
                 ): str,
-                vol.Required(
-                    CONF_POWERSTREAMS,
-                    default=json.dumps(current.get(CONF_POWERSTREAMS, []), indent=2),
+                vol.Optional(CONF_SMA_TOKEN, default=current.get(CONF_SMA_TOKEN, "")): str,
+                vol.Optional(
+                    CONF_SMA_PLANT_ID, default=current.get(CONF_SMA_PLANT_ID, "")
                 ): str,
-                vol.Required(
-                    CONF_SMA_INVERTERS,
-                    default=json.dumps(current.get(CONF_SMA_INVERTERS, []), indent=2),
+                vol.Optional(
+                    CONF_SMA_ENDPOINT,
+                    default=current.get(CONF_SMA_ENDPOINT, DEFAULT_SMA_ENDPOINT),
                 ): str,
                 vol.Required(CONF_DRY_RUN, default=current.get(CONF_DRY_RUN, True)): bool,
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
+        return self.async_show_form(step_id="general", data_schema=schema)
 
+    async def async_step_add_battery(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        if user_input is not None:
+            values = self._settings()
+            values.setdefault(CONF_BATTERIES, []).append(
+                {
+                    "name": user_input["name"],
+                    "serial": user_input["serial"],
+                    "quotas": DEFAULT_BATTERY_QUOTAS,
+                }
+            )
+            return self._save(values)
+        return self.async_show_form(
+            step_id="add_battery",
+            data_schema=vol.Schema(
+                {vol.Required("name", default="Delta Pro"): str, vol.Required("serial"): str}
+            ),
+        )
 
-def _loads(value: str) -> Any:
-    try:
-        parsed = json.loads(value)
-    except json.JSONDecodeError as err:
-        raise ValueError from err
-    if not isinstance(parsed, list):
-        raise ValueError
-    return parsed
+    async def async_step_add_powerstream(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                command = json.loads(user_input["command"])
+            except json.JSONDecodeError:
+                errors["command"] = "invalid_json"
+            else:
+                values = self._settings()
+                values.setdefault(CONF_POWERSTREAMS, []).append(
+                    {
+                        "name": user_input["name"],
+                        "serial": user_input["serial"],
+                        "max_watts": user_input["max_watts"],
+                        "command": command,
+                    }
+                )
+                return self._save(values)
+        return self.async_show_form(
+            step_id="add_powerstream",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name", default="PowerStream"): str,
+                    vol.Required("serial"): str,
+                    vol.Required("max_watts", default=800): int,
+                    vol.Required(
+                        "command", default=json.dumps(DEFAULT_POWERSTREAM_COMMAND)
+                    ): str,
+                }
+            ),
+            errors=errors,
+        )
 
+    async def async_step_add_sma(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        if user_input is not None:
+            values = self._settings()
+            values.setdefault(CONF_SMA_INVERTERS, []).append(dict(user_input))
+            return self._save(values)
+        return self.async_show_form(
+            step_id="add_sma",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name", default="Sunny Boy"): str,
+                    vol.Required("device_id"): str,
+                }
+            ),
+        )
 
-def _default_batteries() -> str:
-    return json.dumps(
-        [
-            {
-                "name": "Delta Pro",
-                "serial": "VUL_HIER_SERIENUMMER_IN",
-                "quotas": DEFAULT_BATTERY_QUOTAS,
-            },
-            {
-                "name": "Delta Pro 3",
-                "serial": "VUL_HIER_SERIENUMMER_IN",
-                "quotas": DEFAULT_BATTERY_QUOTAS,
-            },
-        ],
-        indent=2,
-    )
+    async def async_step_add_smart_plug(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                on_command = json.loads(user_input["on_command"])
+                off_command = json.loads(user_input["off_command"])
+            except json.JSONDecodeError:
+                errors["base"] = "invalid_json"
+            else:
+                values = self._settings()
+                values.setdefault(CONF_SMART_PLUGS, []).append(
+                    {
+                        "name": user_input["name"],
+                        "serial": user_input["serial"],
+                        "charges": user_input["charges"],
+                        "on_command": on_command,
+                        "off_command": off_command,
+                    }
+                )
+                return self._save(values)
+        return self.async_show_form(
+            step_id="add_smart_plug",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name", default="Delta Pro laadstekker"): str,
+                    vol.Required("serial"): str,
+                    vol.Required("charges", default="Delta Pro"): str,
+                    vol.Required(
+                        "on_command", default=json.dumps(DEFAULT_SMART_PLUG_ON_COMMAND)
+                    ): str,
+                    vol.Required(
+                        "off_command", default=json.dumps(DEFAULT_SMART_PLUG_OFF_COMMAND)
+                    ): str,
+                }
+            ),
+            errors=errors,
+        )
 
+    async def async_step_remove_device(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        choices = self._device_choices()
+        if user_input is not None:
+            values = self._settings()
+            group, index_text = user_input["device"].split(":", 1)
+            values[group].pop(int(index_text))
+            return self._save(values)
+        if not choices:
+            return self.async_abort(reason="no_devices")
+        return self.async_show_form(
+            step_id="remove_device",
+            data_schema=vol.Schema({vol.Required("device"): vol.In(choices)}),
+        )
 
-def _default_powerstreams() -> str:
-    return json.dumps(
-        [
-            {
-                "name": "PowerStream 1",
-                "serial": "VUL_HIER_SERIENUMMER_IN",
-                "max_watts": 800,
-                "command": DEFAULT_POWERSTREAM_COMMAND,
-            },
-            {
-                "name": "PowerStream 2",
-                "serial": "VUL_HIER_SERIENUMMER_IN",
-                "max_watts": 800,
-                "command": DEFAULT_POWERSTREAM_COMMAND,
-            },
-        ],
-        indent=2,
-    )
+    def _settings(self) -> dict[str, Any]:
+        values = {**self._entry.data, **self._entry.options}
+        values.setdefault(CONF_BATTERIES, [])
+        values.setdefault(CONF_POWERSTREAMS, [])
+        values.setdefault(CONF_SMA_INVERTERS, [])
+        values.setdefault(CONF_SMART_PLUGS, [])
+        return values
 
+    def _save(self, values: dict[str, Any]) -> config_entries.FlowResult:
+        merged = self._settings()
+        merged.update(values)
+        return self.async_create_entry(title="", data=merged)
 
-def _default_sma() -> str:
-    return json.dumps(
-        [
-            {
-                "name": "Sunny Boy 1",
-                "host": "192.168.1.50",
-                "port": 502,
-                "unit_id": 3,
-            }
-        ],
-        indent=2,
-    )
-
+    def _device_choices(self) -> dict[str, str]:
+        values = self._settings()
+        choices: dict[str, str] = {}
+        for group, label in (
+            (CONF_BATTERIES, "Batterij"),
+            (CONF_POWERSTREAMS, "PowerStream"),
+            (CONF_SMA_INVERTERS, "SMA"),
+            (CONF_SMART_PLUGS, "Smart Plug"),
+        ):
+            for index, item in enumerate(values.get(group, [])):
+                choices[f"{group}:{index}"] = f"{label}: {item.get('name', index)}"
+        return choices

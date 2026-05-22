@@ -32,7 +32,7 @@ class DryRunSwitch(CoordinatorEntity[EcoFlowEnergyCoordinator], SwitchEntity):
         self._attr_unique_id = f"{DOMAIN}_dry_run"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control",
+            "name": "EcoFlow Energy Control Applicatie",
         }
 
     @property
@@ -46,4 +46,3 @@ class DryRunSwitch(CoordinatorEntity[EcoFlowEnergyCoordinator], SwitchEntity):
     async def async_turn_off(self, **kwargs) -> None:
         self.coordinator.dry_run = False
         self.async_write_ha_state()
-

@@ -11,9 +11,9 @@ from aiohttp import ClientSession
 async def fetch_prices(session: ClientSession, url: str) -> list[dict[str, Any]]:
     """Fetch hourly electricity prices from a JSON endpoint.
 
-    The parser accepts common Dutch feed shapes, including Enever-like records
-    with `prijs` and `datum` fields. Prices are normalized to EUR/kWh where the
-    source is clearly EUR/MWh.
+    The parser accepts common EPEX/day-ahead feed shapes, including Stekker,
+    ENTSO-E wrappers and Enever-like records. Prices are normalized to EUR/kWh
+    where the source is clearly EUR/MWh.
     """
     async with session.get(url) as resp:
         data = await resp.json(content_type=None)
@@ -22,7 +22,7 @@ async def fetch_prices(session: ClientSession, url: str) -> list[dict[str, Any]]
     if isinstance(data, list):
         records = data
     elif isinstance(data, dict):
-        for key in ("data", "prices", "records", "items"):
+        for key in ("data", "prices", "records", "items", "marketPrices"):
             if isinstance(data.get(key), list):
                 records = data[key]
                 break
@@ -35,8 +35,22 @@ async def fetch_prices(session: ClientSession, url: str) -> list[dict[str, Any]]
     for item in records:
         if not isinstance(item, dict):
             continue
-        price = _first_number(item, ("prijs", "price", "electricity_price", "value"))
-        starts_at = _first_text(item, ("datum", "datetime", "time", "start", "from"))
+        price = _first_number(
+            item,
+            (
+                "price_per_mwh",
+                "forecast",
+                "prijs",
+                "price",
+                "electricity_price",
+                "value",
+                "marketprice",
+            ),
+        )
+        starts_at = _first_text(
+            item,
+            ("period_start", "datum", "datetime", "time", "start", "from", "timestamp"),
+        )
         if price is None:
             continue
         if abs(price) > 5:
@@ -69,6 +83,23 @@ def current_price(prices: list[dict[str, Any]], now: datetime) -> float | None:
     return prices[0]["price_eur_kwh"]
 
 
+def price_bands(prices: list[dict[str, Any]]) -> dict[str, float | None]:
+    """Calculate cheap and expensive bands from the current fetched market prices."""
+    values = sorted(
+        item["price_eur_kwh"]
+        for item in prices
+        if isinstance(item.get("price_eur_kwh"), (int, float))
+    )
+    if not values:
+        return {"cheap": None, "expensive": None}
+    cheap_index = max(0, round((len(values) - 1) * 0.25))
+    expensive_index = min(len(values) - 1, round((len(values) - 1) * 0.75))
+    return {
+        "cheap": values[cheap_index],
+        "expensive": values[expensive_index],
+    }
+
+
 def _first_number(item: dict[str, Any], keys: tuple[str, ...]) -> float | None:
     for key in keys:
         value = item.get(key)
@@ -87,4 +118,3 @@ def _first_text(item: dict[str, Any], keys: tuple[str, ...]) -> str | None:
         if value is not None:
             return str(value)
     return None
-

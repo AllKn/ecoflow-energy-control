@@ -21,10 +21,9 @@ async def async_setup_entry(
     coordinator: EcoFlowEnergyCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         [
-            ThresholdNumber(coordinator, "expensive_threshold", "dure stroom vanaf", 0, 2, 0.01, "EUR/kWh"),
-            ThresholdNumber(coordinator, "cheap_threshold", "goedkope stroom tot", -1, 2, 0.01, "EUR/kWh"),
             ThresholdNumber(coordinator, "export_watts", "teruglever doel", 0, 1600, 10, UnitOfPower.WATT),
             ThresholdNumber(coordinator, "self_use_watts", "eigen gebruik doel", 0, 1600, 10, UnitOfPower.WATT),
+            ThresholdNumber(coordinator, "solar_plug_threshold_watts", "laadstekkers aan vanaf zon", 0, 10000, 50, UnitOfPower.WATT),
         ]
     )
 
@@ -54,7 +53,7 @@ class ThresholdNumber(CoordinatorEntity[EcoFlowEnergyCoordinator], NumberEntity)
         self._attr_native_unit_of_measurement = unit
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control",
+            "name": "EcoFlow Energy Control Applicatie",
         }
 
     @property
@@ -64,4 +63,3 @@ class ThresholdNumber(CoordinatorEntity[EcoFlowEnergyCoordinator], NumberEntity)
     async def async_set_native_value(self, value: float) -> None:
         setattr(self.coordinator, self._attr, value)
         self.async_write_ha_state()
-

@@ -10,9 +10,11 @@ from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import (
     ATTR_SERIAL,
+    ATTR_ON,
     ATTR_WATTS,
     DOMAIN,
     SERVICE_APPLY_STRATEGY,
+    SERVICE_SET_SMART_PLUG,
     SERVICE_SET_POWERSTREAM_WATTS,
 )
 from .coordinator import EcoFlowEnergyCoordinator
@@ -34,6 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     async def set_powerstream_watts(call: ServiceCall) -> None:
@@ -44,14 +47,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def apply_strategy(call: ServiceCall) -> None:
         await coordinator.async_apply_strategy()
 
+    async def set_smart_plug(call: ServiceCall) -> None:
+        await coordinator.async_set_smart_plug(
+            call.data[ATTR_SERIAL], bool(call.data[ATTR_ON])
+        )
+
     if not hass.services.has_service(DOMAIN, SERVICE_SET_POWERSTREAM_WATTS):
         hass.services.async_register(
             DOMAIN, SERVICE_SET_POWERSTREAM_WATTS, set_powerstream_watts
         )
     if not hass.services.has_service(DOMAIN, SERVICE_APPLY_STRATEGY):
         hass.services.async_register(DOMAIN, SERVICE_APPLY_STRATEGY, apply_strategy)
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_SMART_PLUG):
+        hass.services.async_register(DOMAIN, SERVICE_SET_SMART_PLUG, set_smart_plug)
 
     return True
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the integration after options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
