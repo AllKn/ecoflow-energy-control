@@ -32,6 +32,7 @@ from .const import (
     CONF_SMA_TOKEN,
     CONF_SMART_PLUGS,
     DEFAULT_ECOFLOW_HOST,
+    DEFAULT_POWERSTREAM_QUOTAS,
     DEFAULT_PRICE_URL,
     DEFAULT_SMA_API_HOST,
     DEFAULT_SMA_ENDPOINT,
@@ -103,6 +104,44 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 errors[f"battery_{serial}"] = str(err)
                 batteries[serial] = {"name": device.get("name", serial), "error": str(err)}
 
+        powerstreams = {}
+        for device in settings.get(CONF_POWERSTREAMS, []):
+            serial = device.get("serial")
+            if not serial or "VUL_HIER" in serial:
+                continue
+            target_watts = float(self.powerstream_targets.get(serial, 0))
+            try:
+                response = await self.ecoflow.get_device_quotas(
+                    serial, device.get("quotas", DEFAULT_POWERSTREAM_QUOTAS)
+                )
+                values = _extract_values(response)
+                target_watts = _first_number(
+                    values,
+                    (
+                        "permanentWatts",
+                        "inv.outputWatts",
+                        "outputWatts",
+                        "gridOutputWatts",
+                    ),
+                    target_watts,
+                )
+                powerstreams[serial] = {
+                    "name": device.get("name", serial),
+                    "response": response,
+                    "values": values,
+                    "target_watts": target_watts,
+                    "phase": device.get("phase", "l1"),
+                }
+            except Exception as err:  # noqa: BLE001
+                errors[f"powerstream_{serial}"] = str(err)
+                powerstreams[serial] = {
+                    "name": device.get("name", serial),
+                    "values": {},
+                    "target_watts": target_watts,
+                    "phase": device.get("phase", "l1"),
+                    "error": str(err),
+                }
+
         inverters = {}
         sma_token = settings.get(CONF_SMA_TOKEN)
         sma_plant_id = settings.get(CONF_SMA_PLANT_ID)
@@ -166,6 +205,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "price_bands": bands,
             "prices": prices,
             "batteries": batteries,
+            "powerstreams": powerstreams,
             "inverters": inverters,
             "homewizard_meters": homewizard_meters,
             "solar_power": solar_power,
@@ -328,6 +368,20 @@ def _extract_values(response: dict[str, Any]) -> dict[str, Any]:
             return data["quotas"]
         return data
     return {}
+
+
+def _first_number(
+    values: dict[str, Any], keys: tuple[str, ...], default: float = 0.0
+) -> float:
+    for key in keys:
+        value = values.get(key)
+        if value is None:
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return default
 
 
 def _extract_serials(response: dict[str, Any]) -> list[str]:
