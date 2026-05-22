@@ -26,6 +26,9 @@ async def async_setup_entry(
         CheapBandSensor(coordinator),
         ExpensiveBandSensor(coordinator),
         TotalSolarPowerSensor(coordinator),
+        HomeWizardSolarPowerSensor(coordinator),
+        CorrectedSolarPowerSensor(coordinator),
+        PowerStreamExportSensor(coordinator),
         LastActionSensor(coordinator),
     ]
     for device in coordinator.settings.get("batteries", []):
@@ -77,6 +80,52 @@ class TotalSolarPowerSensor(BaseSensor):
     @property
     def native_value(self) -> float:
         return float(self.coordinator.data.get("solar_power") or 0)
+
+
+class HomeWizardSolarPowerSensor(BaseSensor):
+    """Raw HomeWizard solar power."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "homewizard_solar_power", "HomeWizard opwek ruw")
+
+    @property
+    def native_value(self) -> float:
+        return float(self.coordinator.data.get("homewizard_solar_power") or 0)
+
+
+class CorrectedSolarPowerSensor(BaseSensor):
+    """Solar power after subtracting controlled PowerStream export."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(
+            coordinator, "corrected_solar_power", "opwek gecorrigeerd"
+        )
+
+    @property
+    def native_value(self) -> float:
+        return float(self.coordinator.data.get("corrected_solar_power") or 0)
+
+
+class PowerStreamExportSensor(BaseSensor):
+    """Tracked PowerStream export controlled by this integration."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(
+            coordinator, "powerstream_export_w", "PowerStream teruglevering"
+        )
+
+    @property
+    def native_value(self) -> float:
+        return float(self.coordinator.data.get("powerstream_export_w") or 0)
 
 
 class CheapBandSensor(BaseSensor):

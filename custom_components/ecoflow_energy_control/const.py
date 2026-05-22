@@ -13,6 +13,7 @@ CONF_SMA_INVERTERS = "sma_inverters"
 CONF_BATTERIES = "batteries"
 CONF_POWERSTREAMS = "powerstreams"
 CONF_SMART_PLUGS = "smart_plugs"
+CONF_HOMEWIZARD_METERS = "homewizard_meters"
 CONF_DRY_RUN = "dry_run"
 CONF_SMA_API_HOST = "sma_api_host"
 CONF_SMA_TOKEN = "sma_token"
@@ -24,6 +25,7 @@ DEFAULT_PRICE_URL = "https://api.stekker.app/api/v1/market_price_forecast?region
 DEFAULT_SMA_API_HOST = "https://api.sma.energy"
 DEFAULT_SMA_ENDPOINT = "/monitoring/v1/plants/{plant_id}/devices/{device_id}/measurements/recent"
 DEFAULT_SCAN_INTERVAL = 60
+DEFAULT_HOMEWIZARD_ROLE = "solar_total"
 
 SERVICE_SET_POWERSTREAM_WATTS = "set_powerstream_watts"
 SERVICE_APPLY_STRATEGY = "apply_strategy"

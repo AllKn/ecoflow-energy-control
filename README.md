@@ -9,6 +9,7 @@ Lokale Home Assistant/HACS-integratie voor EcoFlow, EPEX day-ahead prijzen, SMA 
 - EcoFlow Smart Plugs toevoegen om bijvoorbeeld een Delta Pro te laden bij voldoende zonnestroom.
 - EPEX/day-ahead prijzen automatisch pollen via een externe JSON-feed.
 - SMA Sunny Boy/ennexOS omvormers uitlezen via de SMA cloud/API, dus zonder lokale Modbus TCP.
+- HomeWizard Energy lokale API uitlezen voor totale opwekking via een P1/kWh-meter/Socket in je LAN.
 - Apparaten 1 voor 1 toevoegen of verwijderen via het Home Assistant configuratiescherm.
 - Een vereenvoudigd controlpanel met strategie, testmodus, laad-/terugleverdoelen en automatische prijsgrenzen.
 
@@ -54,13 +55,31 @@ Instellingen > Apparaten & diensten > EcoFlow Energy Control > Configureren
 Daar kun je kiezen:
 
 - Algemene instellingen
-- Batterij toevoegen
-- PowerStream toevoegen
-- SMA omvormer toevoegen
-- Smart Plug toevoegen
+- Apparaat toevoegen
 - Apparaat verwijderen
 
-### Batterij
+### Grafische apparaatwizard
+
+Kies **Apparaat toevoegen** en selecteer daarna het type apparaat:
+
+- EcoFlow Delta Pro
+- EcoFlow Delta Pro 3
+- EcoFlow PowerStream
+- EcoFlow Smart Plug
+- HomeWizard lokale meter
+- SMA cloud omvormer
+
+De integratie controleert de verbinding voordat het apparaat wordt opgeslagen:
+
+- Delta Pro / Delta Pro 3: veilige EcoFlow Cloud quota-uitlezing
+- PowerStream: veilige EcoFlow Cloud apparaat-uitlezing
+- Smart Plug: veilige EcoFlow Cloud apparaat-uitlezing
+- HomeWizard: lokale `http://<ip>/api/v1/data` meting
+- SMA: het ingestelde SMA cloud endpoint
+
+Als deze controle faalt, blijft het apparaat uit de configuratie en krijg je een melding in de flow.
+
+### Delta Pro en Delta Pro 3
 
 Voor een Delta Pro of Delta Pro 3 vul je in:
 
@@ -76,6 +95,7 @@ Per PowerStream vul je in:
 - naam
 - serienummer
 - maximaal vermogen
+- fase waarop de PowerStream teruglevert
 - command-template
 
 Standaard command-template:
@@ -111,6 +131,28 @@ Het standaard endpoint-template is:
 
 Als jouw SMA Developer API of ennexOS endpoint een ander pad gebruikt, pas je alleen dit template aan.
 
+### HomeWizard lokale opwekmeting
+
+Zet in de HomeWizard Energy app de lokale API aan:
+
+```text
+Instellingen > Meters > jouw meter > Local API
+```
+
+Voeg daarna in deze integratie een HomeWizard meter toe met:
+
+- naam
+- lokaal IP-adres of hostnaam
+- rol `Totale opwekking`
+
+De integratie leest lokaal:
+
+```text
+http://<homewizard-ip>/api/v1/data
+```
+
+Gebruik bij voorkeur een HomeWizard kWh-meter of Energy Socket die echt de zonnepanelen/opwek meet. De integratie leest `active_power_w` en, indien aanwezig, `active_power_l1_w`, `active_power_l2_w` en `active_power_l3_w`.
+
 ### Smart Plug
 
 Per Smart Plug vul je in:
@@ -121,7 +163,33 @@ Per Smart Plug vul je in:
 - aan-command-template
 - uit-command-template
 
-De strategie zet Smart Plugs aan zodra de gemeten SMA-opwek boven de ingestelde zonnedrempel komt. Daarmee kun je bijvoorbeeld een Delta Pro automatisch laten laden bij zonneschijn.
+De strategie zet Smart Plugs aan zodra de gecorrigeerde opwek boven de ingestelde zonnedrempel komt. Daarmee kun je bijvoorbeeld een Delta Pro automatisch laten laden bij zonneschijn.
+
+## Opwekcorrectie voor PowerStream
+
+Als een of twee PowerStreams terugleveren, kan een totaalmeting lijken alsof er meer zon is dan er werkelijk is. Dat kan een foutieve lus veroorzaken:
+
+1. PowerStream levert bijvoorbeeld `600 W` terug.
+2. De totaalmeting ziet extra teruglevering.
+3. De laadlogica denkt dat de zon schijnt.
+4. De Smart Plug wordt aangezet en de Delta Pro begint te laden.
+
+Daarom rekent de integratie met:
+
+```text
+gecorrigeerde opwek = HomeWizard opwek ruw - door deze app aangestuurde PowerStream-teruglevering
+```
+
+Voorbeeld:
+
+```text
+HomeWizard opwek ruw: 1400 W
+PowerStream 1: 600 W
+PowerStream 2: 600 W
+Gecorrigeerde opwek: 200 W
+```
+
+De Smart Plug-laaddrempel gebruikt deze gecorrigeerde waarde, niet de ruwe meting. Per PowerStream kun je ook een fase kiezen, zodat fasecorrectie later zichtbaar en uitbreidbaar blijft.
 
 ## Controlpanel
 
@@ -134,7 +202,10 @@ De dashboard-entiteiten gebruiken nu de `_applicatie` naam, bijvoorbeeld:
 ```yaml
 sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
 select.ecoflow_energy_control_applicatie_strategie
-number.ecoflow_energy_control_applicatie_laadstekkers_aan_vanaf_zon
+number.ecoflow_energy_control_applicatie_laadstekkers_aan_vanaf_gecorrigeerde_zon
+sensor.ecoflow_energy_control_applicatie_homewizard_opwek_ruw
+sensor.ecoflow_energy_control_applicatie_powerstream_teruglevering
+sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
 ```
 
 Als Home Assistant andere entity_id's maakt, zoek dan bij **Instellingen > Apparaten & diensten > Entiteiten** op `EcoFlow Energy Control Applicatie` en pas de YAML daarop aan.
@@ -151,7 +222,7 @@ Gedrag:
 - goedkope uren: PowerStream doel naar `0 W`
 - dure uren: PowerStream doel naar `teruglever doel`
 - tussenliggende uren: PowerStream doel naar `eigen gebruik doel`
-- voldoende zon: Smart Plugs aan om ingestelde Delta Pro's te laden
+- voldoende gecorrigeerde zon: Smart Plugs aan om ingestelde Delta Pro's te laden
 
 Begin altijd met **testmodus aan**. Dan zie je de geplande acties zonder dat de PowerStreams of Smart Plugs echt worden aangestuurd.
 
@@ -188,3 +259,21 @@ service: ecoflow_energy_control.apply_strategy
 - SMA loopt in deze iteratie via de SMA cloud/API, niet meer via lokale Modbus.
 - Controleer command-templates altijd eerst in testmodus.
 
+## Eenvoudiger update-pad
+
+Als je via GitHub en HACS werkt:
+
+1. Upload alleen de gewijzigde bestanden naar GitHub via **Add file > Upload files** of sleep de hele inhoud van de projectmap opnieuw naar GitHub.
+2. Commit de wijziging op GitHub.
+3. Ga in Home Assistant naar **HACS > EcoFlow Energy Control**.
+4. Klik op de drie puntjes.
+5. Kies **Redownload** of **Update information** en daarna installeren/downloaden.
+6. Herstart Home Assistant.
+
+Als HACS de update niet meteen ziet, verhoog dan de versie in:
+
+```text
+custom_components/ecoflow_energy_control/manifest.json
+```
+
+Deze iteratie staat op versie `0.4.0`.

@@ -19,7 +19,8 @@
       }
     },
     "error": {
-      "invalid_json": "One of the JSON fields is invalid. Each field must contain a JSON list."
+      "invalid_json": "One of the JSON fields is invalid.",
+      "cannot_connect": "The connection could not be verified. Check the API settings, serial number, device id or IP address."
     }
   },
   "options": {
@@ -28,26 +29,32 @@
         "title": "EcoFlow Energy Control options",
         "menu_options": {
           "general": "General settings",
-          "add_battery": "Add battery",
-          "add_powerstream": "Add PowerStream",
-          "add_sma": "Add SMA inverter",
-          "add_smart_plug": "Add Smart Plug",
+          "add_device": "Add device",
           "remove_device": "Remove device"
         }
       },
       "general": {
         "title": "General settings"
       },
-      "add_battery": {
-        "title": "Add battery"
+      "add_device": {
+        "title": "Add device"
       },
-      "add_powerstream": {
+      "device_delta_pro": {
+        "title": "Add Delta Pro"
+      },
+      "device_delta_pro_3": {
+        "title": "Add Delta Pro 3"
+      },
+      "device_powerstream": {
         "title": "Add PowerStream"
       },
-      "add_sma": {
+      "device_sma": {
         "title": "Add SMA inverter"
       },
-      "add_smart_plug": {
+      "device_homewizard": {
+        "title": "Add HomeWizard meter"
+      },
+      "device_smart_plug": {
         "title": "Add Smart Plug"
       },
       "remove_device": {

@@ -23,7 +23,7 @@ async def async_setup_entry(
         [
             ThresholdNumber(coordinator, "export_watts", "teruglever doel", 0, 1600, 10, UnitOfPower.WATT),
             ThresholdNumber(coordinator, "self_use_watts", "eigen gebruik doel", 0, 1600, 10, UnitOfPower.WATT),
-            ThresholdNumber(coordinator, "solar_plug_threshold_watts", "laadstekkers aan vanaf zon", 0, 10000, 50, UnitOfPower.WATT),
+            ThresholdNumber(coordinator, "solar_plug_threshold_watts", "laadstekkers aan vanaf gecorrigeerde zon", 0, 10000, 50, UnitOfPower.WATT),
         ]
     )
 

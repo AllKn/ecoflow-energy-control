@@ -19,7 +19,8 @@
       }
     },
     "error": {
-      "invalid_json": "Een van de JSON-velden is ongeldig. Elk veld moet een JSON-lijst bevatten."
+      "invalid_json": "Een van de JSON-velden is ongeldig.",
+      "cannot_connect": "De verbinding kon niet worden gecontroleerd. Controleer de API-gegevens, het serienummer, device id of IP-adres."
     }
   },
   "options": {
@@ -28,26 +29,32 @@
         "title": "EcoFlow Energy Control opties",
         "menu_options": {
           "general": "Algemene instellingen",
-          "add_battery": "Batterij toevoegen",
-          "add_powerstream": "PowerStream toevoegen",
-          "add_sma": "SMA omvormer toevoegen",
-          "add_smart_plug": "Smart Plug toevoegen",
+          "add_device": "Apparaat toevoegen",
           "remove_device": "Apparaat verwijderen"
         }
       },
       "general": {
         "title": "Algemene instellingen"
       },
-      "add_battery": {
-        "title": "Batterij toevoegen"
+      "add_device": {
+        "title": "Apparaat toevoegen"
       },
-      "add_powerstream": {
+      "device_delta_pro": {
+        "title": "Delta Pro toevoegen"
+      },
+      "device_delta_pro_3": {
+        "title": "Delta Pro 3 toevoegen"
+      },
+      "device_powerstream": {
         "title": "PowerStream toevoegen"
       },
-      "add_sma": {
+      "device_sma": {
         "title": "SMA omvormer toevoegen"
       },
-      "add_smart_plug": {
+      "device_homewizard": {
+        "title": "HomeWizard meter toevoegen"
+      },
+      "device_smart_plug": {
         "title": "Smart Plug toevoegen"
       },
       "remove_device": {
