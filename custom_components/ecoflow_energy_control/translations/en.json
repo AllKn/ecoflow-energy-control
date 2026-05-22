@@ -20,7 +20,8 @@
     },
     "error": {
       "invalid_json": "One of the JSON fields is invalid.",
-      "cannot_connect": "The connection could not be verified. Check the API settings, serial number, device id or IP address."
+      "cannot_connect": "The connection could not be verified. Check the API settings, serial number, device id or IP address.",
+      "ecoflow_auth_failed": "The EcoFlow API keys could not be validated. Check access key, secret key and region host."
     }
   },
   "options": {

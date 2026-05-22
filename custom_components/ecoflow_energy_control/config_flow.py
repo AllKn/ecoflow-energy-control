@@ -50,16 +50,22 @@ class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            data = {
-                **user_input,
-                CONF_BATTERIES: [],
-                CONF_POWERSTREAMS: [],
-                CONF_SMA_INVERTERS: [],
-                CONF_SMART_PLUGS: [],
-                CONF_HOMEWIZARD_METERS: [],
-            }
-            return self.async_create_entry(title=user_input[CONF_NAME], data=data)
+            try:
+                await self._validate_ecoflow_credentials(user_input)
+            except Exception:  # noqa: BLE001
+                errors["base"] = "ecoflow_auth_failed"
+            else:
+                data = {
+                    **user_input,
+                    CONF_BATTERIES: [],
+                    CONF_POWERSTREAMS: [],
+                    CONF_SMA_INVERTERS: [],
+                    CONF_SMART_PLUGS: [],
+                    CONF_HOMEWIZARD_METERS: [],
+                }
+                return self.async_create_entry(title=user_input[CONF_NAME], data=data)
 
         schema = vol.Schema(
             {
@@ -77,7 +83,18 @@ class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_DRY_RUN, default=True): bool,
             }
         )
-        return self.async_show_form(step_id="user", data_schema=schema)
+        return self.async_show_form(
+            step_id="user", data_schema=schema, errors=errors
+        )
+
+    async def _validate_ecoflow_credentials(self, values: dict[str, Any]) -> None:
+        client = EcoFlowCloudClient(
+            async_get_clientsession(self.hass),
+            values[CONF_ECOFLOW_HOST],
+            values[CONF_ACCESS_KEY],
+            values[CONF_SECRET_KEY],
+        )
+        await client.get_devices()
 
     @staticmethod
     @callback
@@ -133,8 +150,16 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
         current = self._settings()
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self._save(user_input)
+            merged = self._settings()
+            merged.update(user_input)
+            try:
+                await self._validate_ecoflow_credentials(merged)
+            except Exception:  # noqa: BLE001
+                errors["base"] = "ecoflow_auth_failed"
+            else:
+                return self._save(user_input)
         schema = vol.Schema(
             {
                 vol.Required(
@@ -155,7 +180,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_DRY_RUN, default=current.get(CONF_DRY_RUN, True)): bool,
             }
         )
-        return self.async_show_form(step_id="general", data_schema=schema)
+        return self.async_show_form(
+            step_id="general", data_schema=schema, errors=errors
+        )
 
     async def async_step_add_battery(
         self, user_input: dict[str, Any] | None = None
@@ -180,9 +207,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                await self._validate_ecoflow_device(
-                    user_input["serial"], DEFAULT_BATTERY_QUOTAS
-                )
+                await self._validate_ecoflow_device(user_input["serial"])
             except Exception:  # noqa: BLE001
                 errors["base"] = "cannot_connect"
             else:
@@ -223,7 +248,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 errors["command"] = "invalid_json"
             else:
                 try:
-                    await self._validate_ecoflow_device(user_input["serial"], None)
+                    await self._validate_ecoflow_device(user_input["serial"])
                 except Exception:  # noqa: BLE001
                     errors["base"] = "cannot_connect"
                 else:
@@ -336,7 +361,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 errors["base"] = "invalid_json"
             else:
                 try:
-                    await self._validate_ecoflow_device(user_input["serial"], None)
+                    await self._validate_ecoflow_device(user_input["serial"])
                 except Exception:  # noqa: BLE001
                     errors["base"] = "cannot_connect"
                 else:
@@ -413,9 +438,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 choices[f"{group}:{index}"] = f"{label}: {item.get('name', index)}"
         return choices
 
-    async def _validate_ecoflow_device(
-        self, serial: str, quotas: list[str] | None
-    ) -> None:
+    async def _validate_ecoflow_device(self, serial: str) -> None:
         settings = self._settings()
         client = EcoFlowCloudClient(
             async_get_clientsession(self.hass),
@@ -423,7 +446,10 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
             settings[CONF_ACCESS_KEY],
             settings[CONF_SECRET_KEY],
         )
-        await client.get_device_quotas(serial, quotas)
+        response = await client.get_devices()
+        serials = _extract_ecoflow_serials(response)
+        if serials and serial not in serials:
+            raise ValueError("device_not_found")
 
     async def _validate_sma_device(self, device: dict[str, Any]) -> None:
         settings = self._settings()
@@ -435,3 +461,22 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
             device,
             settings[CONF_SMA_ENDPOINT],
         )
+
+
+def _extract_ecoflow_serials(response: dict[str, Any]) -> set[str]:
+    """Extract serial numbers from EcoFlow's device-list response variants."""
+    serials: set[str] = set()
+
+    def walk(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in {"sn", "serial", "serialNumber", "deviceSn"} and item:
+                    serials.add(str(item))
+                else:
+                    walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(response.get("data", response))
+    return serials

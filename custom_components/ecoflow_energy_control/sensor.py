@@ -29,6 +29,7 @@ async def async_setup_entry(
         HomeWizardSolarPowerSensor(coordinator),
         CorrectedSolarPowerSensor(coordinator),
         PowerStreamExportSensor(coordinator),
+        StatusSensor(coordinator),
         LastActionSensor(coordinator),
     ]
     for device in coordinator.settings.get("batteries", []):
@@ -65,7 +66,7 @@ class PriceSensor(BaseSensor):
 
     @property
     def native_value(self) -> float | None:
-        return self.coordinator.data.get("price_now")
+        return (self.coordinator.data or {}).get("price_now")
 
 
 class TotalSolarPowerSensor(BaseSensor):
@@ -79,7 +80,7 @@ class TotalSolarPowerSensor(BaseSensor):
 
     @property
     def native_value(self) -> float:
-        return float(self.coordinator.data.get("solar_power") or 0)
+        return float((self.coordinator.data or {}).get("solar_power") or 0)
 
 
 class HomeWizardSolarPowerSensor(BaseSensor):
@@ -93,7 +94,7 @@ class HomeWizardSolarPowerSensor(BaseSensor):
 
     @property
     def native_value(self) -> float:
-        return float(self.coordinator.data.get("homewizard_solar_power") or 0)
+        return float((self.coordinator.data or {}).get("homewizard_solar_power") or 0)
 
 
 class CorrectedSolarPowerSensor(BaseSensor):
@@ -109,7 +110,7 @@ class CorrectedSolarPowerSensor(BaseSensor):
 
     @property
     def native_value(self) -> float:
-        return float(self.coordinator.data.get("corrected_solar_power") or 0)
+        return float((self.coordinator.data or {}).get("corrected_solar_power") or 0)
 
 
 class PowerStreamExportSensor(BaseSensor):
@@ -125,7 +126,7 @@ class PowerStreamExportSensor(BaseSensor):
 
     @property
     def native_value(self) -> float:
-        return float(self.coordinator.data.get("powerstream_export_w") or 0)
+        return float((self.coordinator.data or {}).get("powerstream_export_w") or 0)
 
 
 class CheapBandSensor(BaseSensor):
@@ -138,7 +139,7 @@ class CheapBandSensor(BaseSensor):
 
     @property
     def native_value(self) -> float | None:
-        return (self.coordinator.data.get("price_bands") or {}).get("cheap")
+        return ((self.coordinator.data or {}).get("price_bands") or {}).get("cheap")
 
 
 class ExpensiveBandSensor(BaseSensor):
@@ -151,7 +152,7 @@ class ExpensiveBandSensor(BaseSensor):
 
     @property
     def native_value(self) -> float | None:
-        return (self.coordinator.data.get("price_bands") or {}).get("expensive")
+        return ((self.coordinator.data or {}).get("price_bands") or {}).get("expensive")
 
 
 class BatterySocSensor(BaseSensor):
@@ -169,11 +170,26 @@ class BatterySocSensor(BaseSensor):
     @property
     def native_value(self) -> Any:
         values = (
-            self.coordinator.data.get("batteries", {})
+            (self.coordinator.data or {}).get("batteries", {})
             .get(self._serial, {})
             .get("values", {})
         )
         return values.get("pd.soc") or values.get("soc")
+
+
+class StatusSensor(BaseSensor):
+    """Integration source status."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "status", "status")
+
+    @property
+    def native_value(self) -> str:
+        return (self.coordinator.data or {}).get("status", "wachten op data")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"errors": (self.coordinator.data or {}).get("errors", {})}
 
 
 class LastActionSensor(BaseSensor):
@@ -184,4 +200,4 @@ class LastActionSensor(BaseSensor):
 
     @property
     def native_value(self) -> str | None:
-        return self.coordinator.data.get("last_action")
+        return (self.coordinator.data or {}).get("last_action")

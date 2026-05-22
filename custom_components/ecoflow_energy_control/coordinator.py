@@ -71,9 +71,17 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         settings = {**self.entry.data, **self.entry.options}
-        prices = await fetch_prices(
-            self.session, settings.get(CONF_PRICE_URL, DEFAULT_PRICE_URL)
-        )
+        errors: dict[str, str] = {}
+        previous = self.data or {}
+
+        try:
+            prices = await fetch_prices(
+                self.session, settings.get(CONF_PRICE_URL, DEFAULT_PRICE_URL)
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Could not fetch electricity prices: %s", err)
+            errors["prices"] = str(err)
+            prices = previous.get("prices", [])
         price_now = current_price(prices, dt_util.now())
         bands = price_bands(prices)
 
@@ -92,6 +100,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "values": _extract_values(response),
                 }
             except Exception as err:  # noqa: BLE001
+                errors[f"battery_{serial}"] = str(err)
                 batteries[serial] = {"name": device.get("name", serial), "error": str(err)}
 
         inverters = {}
@@ -112,6 +121,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     settings.get(CONF_SMA_ENDPOINT, DEFAULT_SMA_ENDPOINT),
                 )
             except Exception as err:  # noqa: BLE001
+                errors[f"sma_{device_id}"] = str(err)
                 inverters[item.get("name", device_id)] = {
                     "available": False,
                     "error": str(err),
@@ -137,6 +147,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     for phase, watts in reading.get("phase_power_w", {}).items():
                         homewizard_phase_power[phase] += abs(float(watts or 0))
             except Exception as err:  # noqa: BLE001
+                errors[f"homewizard_{host}"] = str(err)
                 homewizard_meters[item.get("name", host)] = {
                     "available": False,
                     "error": str(err),
@@ -164,7 +175,9 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "corrected_phase_power": corrected_phase_power,
             "strategy": self.strategy,
             "dry_run": self.dry_run,
-            "last_action": self.data.get("last_action") if self.data else None,
+            "last_action": previous.get("last_action"),
+            "errors": errors,
+            "status": "ok" if not errors else f"{len(errors)} bron(nen) met fout",
         }
 
     async def async_set_powerstream_watts(self, serial: str, watts: int) -> None:

@@ -20,7 +20,8 @@
     },
     "error": {
       "invalid_json": "Een van de JSON-velden is ongeldig.",
-      "cannot_connect": "De verbinding kon niet worden gecontroleerd. Controleer de API-gegevens, het serienummer, device id of IP-adres."
+      "cannot_connect": "De verbinding kon niet worden gecontroleerd. Controleer de API-gegevens, het serienummer, device id of IP-adres.",
+      "ecoflow_auth_failed": "De EcoFlow API-sleutels konden niet worden gevalideerd. Controleer access key, secret key en de regio-host."
     }
   },
   "options": {

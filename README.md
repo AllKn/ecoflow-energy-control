@@ -71,9 +71,10 @@ Kies **Apparaat toevoegen** en selecteer daarna het type apparaat:
 
 De integratie controleert de verbinding voordat het apparaat wordt opgeslagen:
 
-- Delta Pro / Delta Pro 3: veilige EcoFlow Cloud quota-uitlezing
-- PowerStream: veilige EcoFlow Cloud apparaat-uitlezing
-- Smart Plug: veilige EcoFlow Cloud apparaat-uitlezing
+- Eerste setup en algemene instellingen: EcoFlow access key + secret key via de EcoFlow device-list
+- Delta Pro / Delta Pro 3: serienummer moet in jouw EcoFlow device-list voorkomen
+- PowerStream: serienummer moet in jouw EcoFlow device-list voorkomen
+- Smart Plug: serienummer moet in jouw EcoFlow device-list voorkomen
 - HomeWizard: lokale `http://<ip>/api/v1/data` meting
 - SMA: het ingestelde SMA cloud endpoint
 
@@ -276,4 +277,14 @@ Als HACS de update niet meteen ziet, verhoog dan de versie in:
 custom_components/ecoflow_energy_control/manifest.json
 ```
 
-Deze iteratie staat op versie `0.4.0`.
+Deze iteratie staat op versie `0.4.2`.
+
+### Entiteiten blijven unavailable
+
+Vanaf versie `0.4.1` maakt een fout in een losse bron niet meer alle entiteiten unavailable. Controleer dan deze entiteit:
+
+```text
+sensor.ecoflow_energy_control_applicatie_status
+```
+
+De attributen van deze sensor tonen welke bron faalt, bijvoorbeeld `prices`, `homewizard_<ip>`, `sma_<device_id>` of `battery_<serial>`.

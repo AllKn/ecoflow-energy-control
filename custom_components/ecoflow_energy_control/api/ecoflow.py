@@ -47,6 +47,10 @@ class EcoFlowCloudClient:
             "GET", "/iot-open/sign/device/quota/all", {"sn": serial}
         )
 
+    async def get_devices(self) -> dict[str, Any]:
+        """List devices linked to the EcoFlow developer account."""
+        return await self._request("GET", "/iot-open/sign/device/list", {})
+
     async def set_device_command(self, serial: str, command: Mapping[str, Any]) -> dict[str, Any]:
         """Send a configured command to a device."""
         payload = dict(command)
@@ -115,4 +119,3 @@ def render_template_dict(template: Mapping[str, Any], values: Mapping[str, Any])
         encoded = encoded.replace(f'"{{{{ {key} }}}}"', json.dumps(value))
         encoded = encoded.replace(f"{{{{ {key} }}}}", str(value))
     return json.loads(encoded)
-
