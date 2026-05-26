@@ -449,6 +449,8 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
             "api_connected": bool(item) and not item.get("error"),
             "telemetry_fields": len(values),
             "telemetry_keys": sorted(values.keys())[:40],
+            "quota_source": item.get("quota_source") if item else None,
+            "response_debug": item.get("response_debug") if item else None,
             "error": item.get("error") if item else None,
         }
         if self._device_type == "battery":

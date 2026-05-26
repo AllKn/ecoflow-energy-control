@@ -112,13 +112,25 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not serial or "VUL_HIER" in serial:
                 continue
             try:
-                response = await self.ecoflow.get_device_quotas(
-                    serial, device.get("quotas")
-                )
+                source = "selected"
+                try:
+                    response = await self.ecoflow.get_device_quotas(
+                        serial, device.get("quotas")
+                    )
+                except Exception:  # noqa: BLE001
+                    source = "all_after_selected_error"
+                    response = await self.ecoflow.get_device_quotas(serial, None)
+                values = _extract_values(response)
+                if not values:
+                    source = "all_after_empty_selected"
+                    response = await self.ecoflow.get_device_quotas(serial, None)
+                    values = _extract_values(response)
                 batteries[serial] = {
                     "name": device.get("name", serial),
                     "response": response,
-                    "values": _extract_values(response),
+                    "values": values,
+                    "quota_source": source,
+                    "response_debug": _response_debug(response),
                 }
             except Exception as err:  # noqa: BLE001
                 errors[f"battery_{serial}"] = str(err)
@@ -168,6 +180,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "target_watts": target_watts,
                     "raw_target_watts": raw_target_watts,
                     "phase": device.get("phase", "l1"),
+                    "response_debug": _response_debug(response),
                 }
             except Exception as err:  # noqa: BLE001
                 errors[f"powerstream_{serial}"] = str(err)
@@ -597,6 +610,18 @@ def _extract_values(response: dict[str, Any]) -> dict[str, Any]:
     if isinstance(data, list):
         return _quota_list_to_values(data)
     return {}
+
+
+def _response_debug(response: dict[str, Any]) -> dict[str, Any]:
+    data = response.get("data")
+    return {
+        "code": response.get("code"),
+        "message": response.get("message"),
+        "top_level_keys": sorted(response.keys()),
+        "data_type": type(data).__name__,
+        "data_keys": sorted(data.keys())[:40] if isinstance(data, dict) else [],
+        "data_length": len(data) if isinstance(data, list) else None,
+    }
 
 
 def _quota_list_to_values(records: list[Any]) -> dict[str, Any]:
