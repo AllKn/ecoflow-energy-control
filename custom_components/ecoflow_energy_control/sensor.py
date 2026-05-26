@@ -35,6 +35,17 @@ async def async_setup_entry(
         StatusSensor(coordinator),
         LastActionSensor(coordinator),
     ]
+    for scenario_key, label in SCENARIOS.items():
+        entities.extend(
+            [
+                ScenarioActionSensor(coordinator, scenario_key, label),
+                ScenarioPowerSensor(coordinator, scenario_key, label),
+                ScenarioMoneyRateSensor(coordinator, scenario_key, label),
+                ScenarioTotalSensor(coordinator, scenario_key, label, "day", "vandaag"),
+                ScenarioTotalSensor(coordinator, scenario_key, label, "week", "deze week"),
+                ScenarioTotalSensor(coordinator, scenario_key, label, "month", "deze maand"),
+            ]
+        )
     for device in coordinator.settings.get("batteries", []):
         serial = device.get("serial")
         if serial and "VUL_HIER" not in serial:
@@ -96,6 +107,13 @@ class BaseSensor(CoordinatorEntity[EcoFlowEnergyCoordinator], SensorEntity):
             "name": APP_NAME,
         }
         self._attr_name = name
+
+
+SCENARIOS = {
+    "self_use": "Eigen gebruik",
+    "trading": "Handelen",
+    "buffer_50": "Buffer 50%",
+}
 
 
 class PriceSensor(BaseSensor):
@@ -262,6 +280,106 @@ class ExpensiveBandSensor(BaseSensor):
     @property
     def native_value(self) -> float | None:
         return ((self.coordinator.data or {}).get("price_bands") or {}).get("expensive")
+
+
+class ScenarioActionSensor(BaseSensor):
+    """Simulated scenario action."""
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, scenario_key: str, label: str
+    ) -> None:
+        super().__init__(coordinator, f"scenario_{scenario_key}_action", f"{label} actie")
+        self._scenario_key = scenario_key
+
+    @property
+    def native_value(self) -> str:
+        return _scenario_data(self.coordinator, self._scenario_key).get("action", "wachten")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _scenario_attrs(self.coordinator, self._scenario_key, "action")
+
+
+class ScenarioPowerSensor(BaseSensor):
+    """Simulated scenario power."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, scenario_key: str, label: str
+    ) -> None:
+        super().__init__(coordinator, f"scenario_{scenario_key}_power", f"{label} vermogen")
+        self._scenario_key = scenario_key
+
+    @property
+    def native_value(self) -> float:
+        return float(_scenario_data(self.coordinator, self._scenario_key).get("power_w") or 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _scenario_attrs(self.coordinator, self._scenario_key, "power")
+
+
+class ScenarioMoneyRateSensor(BaseSensor):
+    """Simulated scenario live money rate."""
+
+    _attr_native_unit_of_measurement = "EUR/h"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, scenario_key: str, label: str
+    ) -> None:
+        super().__init__(
+            coordinator, f"scenario_{scenario_key}_eur_per_hour", f"{label} euro per uur"
+        )
+        self._scenario_key = scenario_key
+
+    @property
+    def native_value(self) -> float:
+        return float(
+            _scenario_data(self.coordinator, self._scenario_key).get("eur_per_hour") or 0
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _scenario_attrs(self.coordinator, self._scenario_key, "eur_per_hour")
+
+
+class ScenarioTotalSensor(BaseSensor):
+    """Simulated scenario cumulative money result."""
+
+    _attr_native_unit_of_measurement = "EUR"
+
+    def __init__(
+        self,
+        coordinator: EcoFlowEnergyCoordinator,
+        scenario_key: str,
+        label: str,
+        period: str,
+        period_label: str,
+    ) -> None:
+        super().__init__(
+            coordinator,
+            f"scenario_{scenario_key}_{period}_eur",
+            f"{label} {period_label}",
+        )
+        self._scenario_key = scenario_key
+        self._period = period
+
+    @property
+    def native_value(self) -> float:
+        return float(
+            _scenario_data(self.coordinator, self._scenario_key).get(
+                f"{self._period}_eur", 0
+            )
+            or 0
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _scenario_attrs(
+            self.coordinator, self._scenario_key, f"{self._period}_eur"
+        )
 
 
 class BatterySocSensor(BaseSensor):
@@ -763,6 +881,32 @@ def _battery_values(
         .get(serial, {})
         .get("values", {})
     )
+
+
+def _scenario_data(
+    coordinator: EcoFlowEnergyCoordinator, scenario_key: str
+) -> dict[str, Any]:
+    return (coordinator.data or {}).get("scenarios", {}).get(scenario_key, {})
+
+
+def _scenario_attrs(
+    coordinator: EcoFlowEnergyCoordinator, scenario_key: str, sensor_role: str
+) -> dict[str, Any]:
+    data = _scenario_data(coordinator, scenario_key)
+    return {
+        "eec_device_type": "scenario",
+        "eec_scenario": scenario_key,
+        "eec_sensor_role": f"scenario_{sensor_role}",
+        "label": data.get("label", SCENARIOS.get(scenario_key, scenario_key)),
+        "action": data.get("action"),
+        "power_w": data.get("power_w"),
+        "eur_per_hour": data.get("eur_per_hour"),
+        "day_eur": data.get("day_eur"),
+        "week_eur": data.get("week_eur"),
+        "month_eur": data.get("month_eur"),
+        "battery_soc": data.get("battery_soc"),
+        "price_eur_kwh": data.get("price_eur_kwh"),
+    }
 
 
 def _powerstream_values(

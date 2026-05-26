@@ -112,7 +112,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.11`
+`0.5.13`
 
 ## EcoFlow Signing
 
@@ -137,3 +137,7 @@ Versie `0.5.9` verbetert PowerStream-telemetrie: als de geselecteerde quota's ge
 Versie `0.5.10` toont de geladen app-versie op het dashboard, maakt de komende 24 uur stroomprijzen grafisch als staafdiagram en breidt HomeWizard-weergave uit met fasevermogen en import/export energie waar de lokale API die data levert.
 
 Versie `0.5.11` kan HomeWizard-apparaten importeren uit de officiële Home Assistant HomeWizard-integratie. EEC app leest dan de bestaande Home Assistant-entiteiten in plaats van dezelfde meters direct opnieuw via de lokale API te pollen.
+
+Versie `0.5.12` voegt een simulatie-laag toe voor scenario's: optimalisatie eigen gebruik, handelen en een 50%-buffer. De app rekent live geschatte besparing/winst in EUR per uur en cumulatief per dag/week/maand door en levert een apart scenario-dashboard in `dashboards/ecoflow-energy-scenarios.yaml`.
+
+Versie `0.5.13` corrigeert de HomeWizard-import via Home Assistant wanneer die vanuit Apparaat toevoegen wordt gestart en logt inspectiefouten voor HomeWizard-apparaten duidelijker.

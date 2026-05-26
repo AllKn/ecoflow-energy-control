@@ -81,6 +81,9 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.solar_plug_threshold_watts = 1200
         self.powerstream_targets: dict[str, int] = {}
         self.dry_run = bool(self.settings.get(CONF_DRY_RUN, True))
+        self._scenario_last_update = dt_util.now()
+        self._scenario_totals: dict[str, dict[str, float]] = {}
+        self._scenario_periods = self._scenario_period_keys(self._scenario_last_update)
         super().__init__(
             hass,
             _LOGGER,
@@ -255,6 +258,13 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             for phase, watts in homewizard_phase_power.items()
         }
         effective_solar_power = corrected_homewizard_solar if homewizard_meters else solar_power
+        scenarios = self._simulate_scenarios(
+            settings,
+            price_now,
+            bands,
+            batteries,
+            effective_solar_power,
+        )
 
         return {
             "price_now": price_now,
@@ -271,12 +281,137 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "powerstream_export_w": powerstream_export,
             "corrected_solar_power": effective_solar_power,
             "corrected_phase_power": corrected_phase_power,
+            "scenarios": scenarios,
             "strategy": self.strategy,
             "dry_run": self.dry_run,
             "last_action": previous.get("last_action"),
             "errors": errors,
             "status": "ok" if not errors else f"{len(errors)} bron(nen) met fout",
         }
+
+    def _simulate_scenarios(
+        self,
+        settings: dict[str, Any],
+        price_now: float | None,
+        bands: dict[str, float | None],
+        batteries: dict[str, Any],
+        solar_power_w: float,
+    ) -> dict[str, dict[str, Any]]:
+        now = dt_util.now()
+        elapsed_hours = max(
+            0.0, min((now - self._scenario_last_update).total_seconds() / 3600, 1.0)
+        )
+        self._scenario_last_update = now
+        periods = self._scenario_period_keys(now)
+        if periods != self._scenario_periods:
+            self._reset_changed_scenario_periods(periods)
+            self._scenario_periods = periods
+
+        price = float(price_now or 0)
+        cheap = bands.get("cheap")
+        expensive = bands.get("expensive")
+        spread = max(0.0, float(expensive or price) - float(cheap or price))
+        export_capacity_w = self._configured_powerstream_capacity(settings)
+        battery_soc = _battery_min_soc(batteries)
+        usable_export_w = export_capacity_w if battery_soc is None or battery_soc > 10 else 0.0
+        buffer_export_w = export_capacity_w if battery_soc is None or battery_soc > 50 else 0.0
+        solar_surplus_w = max(0.0, float(solar_power_w or 0))
+
+        simulated = {
+            "self_use": self._scenario_result(
+                label="Optimalisatie eigen gebruik",
+                action="solar laden" if solar_surplus_w > 100 else "stand-by",
+                power_w=min(solar_surplus_w, export_capacity_w),
+                eur_per_hour=(min(solar_surplus_w, export_capacity_w) / 1000) * max(price, spread),
+                price=price,
+                battery_soc=battery_soc,
+            ),
+            "trading": self._scenario_result(
+                label="Handelen",
+                action="terugleveren"
+                if expensive is not None and price >= expensive and usable_export_w > 0
+                else "laden"
+                if cheap is not None and price <= cheap
+                else "wachten",
+                power_w=usable_export_w
+                if expensive is not None and price >= expensive
+                else -min(solar_surplus_w or export_capacity_w, export_capacity_w)
+                if cheap is not None and price <= cheap
+                else 0.0,
+                eur_per_hour=(usable_export_w / 1000) * price
+                if expensive is not None and price >= expensive
+                else -(min(solar_surplus_w or export_capacity_w, export_capacity_w) / 1000) * price
+                if cheap is not None and price <= cheap
+                else 0.0,
+                price=price,
+                battery_soc=battery_soc,
+            ),
+            "buffer_50": self._scenario_result(
+                label="Buffer 50%",
+                action="terugleveren boven buffer"
+                if buffer_export_w > 0 and expensive is not None and price >= expensive
+                else "buffer bewaken",
+                power_w=buffer_export_w if expensive is not None and price >= expensive else 0.0,
+                eur_per_hour=(buffer_export_w / 1000) * price
+                if expensive is not None and price >= expensive
+                else 0.0,
+                price=price,
+                battery_soc=battery_soc,
+            ),
+        }
+
+        for key, item in simulated.items():
+            totals = self._scenario_totals.setdefault(
+                key, {"day": 0.0, "week": 0.0, "month": 0.0}
+            )
+            delta = float(item["eur_per_hour"]) * elapsed_hours
+            totals["day"] += delta
+            totals["week"] += delta
+            totals["month"] += delta
+            item["day_eur"] = round(totals["day"], 4)
+            item["week_eur"] = round(totals["week"], 4)
+            item["month_eur"] = round(totals["month"], 4)
+        return simulated
+
+    def _scenario_result(
+        self,
+        label: str,
+        action: str,
+        power_w: float,
+        eur_per_hour: float,
+        price: float,
+        battery_soc: float | None,
+    ) -> dict[str, Any]:
+        return {
+            "label": label,
+            "action": action,
+            "power_w": round(power_w, 1),
+            "eur_per_hour": round(eur_per_hour, 4),
+            "price_eur_kwh": price,
+            "battery_soc": battery_soc,
+        }
+
+    def _scenario_period_keys(self, now) -> dict[str, str]:
+        return {
+            "day": now.strftime("%Y-%m-%d"),
+            "week": f"{now.isocalendar().year}-W{now.isocalendar().week:02d}",
+            "month": now.strftime("%Y-%m"),
+        }
+
+    def _reset_changed_scenario_periods(self, periods: dict[str, str]) -> None:
+        for key, totals in self._scenario_totals.items():
+            for period, value in periods.items():
+                if self._scenario_periods.get(period) != value:
+                    totals[period] = 0.0
+
+    def _configured_powerstream_capacity(self, settings: dict[str, Any]) -> float:
+        capacity = 0.0
+        for device in settings.get(CONF_POWERSTREAMS, []):
+            try:
+                capacity += float(device.get("max_watts") or 0)
+            except (TypeError, ValueError):
+                continue
+        return capacity or float(self.export_watts or 0)
 
     async def async_set_powerstream_watts(self, serial: str, watts: int) -> None:
         """Set a PowerStream output target using configured command template."""
@@ -548,6 +683,18 @@ def _first_text(values: dict[str, Any], keys: tuple[str, ...]) -> str | None:
         if value is not None:
             return str(value)
     return None
+
+
+def _battery_min_soc(batteries: dict[str, Any]) -> float | None:
+    values: list[float] = []
+    for item in batteries.values():
+        battery_values = item.get("values", {}) if isinstance(item, dict) else {}
+        soc = _first_number(battery_values, ("pd.soc", "soc"), None)
+        if soc is not None:
+            values.append(float(soc))
+    if not values:
+        return None
+    return min(values)
 
 
 def _extract_serials(response: dict[str, Any]) -> list[str]:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -48,6 +49,8 @@ from .const import (
     DOMAIN,
     APP_NAME,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -155,13 +158,19 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
     async def async_step_import_homewizard(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
-        devices = self._homewizard_ha_devices()
+        try:
+            devices = self._homewizard_ha_devices()
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Could not inspect HomeWizard devices from Home Assistant")
+            devices = {}
+            errors = {"base": "cannot_connect"}
+        else:
+            errors = {}
         choices = {
             device_id: device["label"]
             for device_id, device in devices.items()
             if not self._homewizard_ha_configured(device_id)
         }
-        errors: dict[str, str] = {}
         if user_input is not None and choices:
             selected = devices[user_input["device_id"]]
             values = self._settings()
@@ -564,6 +573,11 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_add_homewizard_ha(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        return await self.async_step_import_homewizard(user_input)
+
+    async def async_step_device_homewizard_ha(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
         return await self.async_step_import_homewizard(user_input)
