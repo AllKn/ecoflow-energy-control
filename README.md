@@ -99,6 +99,7 @@ Het voorbeeld-dashboard staat in:
 
 ```text
 dashboards/ecoflow-energy-control.yaml
+dashboards/ecoflow-energy-powerstreams.yaml
 ```
 
 Het dashboard gebruikt dynamische kaarten zodat hardcoded device-namen zoals `Delta Pro` of `PowerStream 1` niet meer nodig zijn.
@@ -112,7 +113,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.22`
+`0.5.24`
 
 ## EcoFlow Signing
 
@@ -159,3 +160,7 @@ Versie `0.5.20` splitst batterij-laadvermogen naar bron. De hoofdwaarde `laadver
 Versie `0.5.21` gebruikt de actuele publieke EnergyZero API per dag (`public.api.energyzero.nl/public/v1/prices`) en haalt vandaag en morgen apart op. Daardoor worden de uurtarieven weer gevuld in plaats van `n/a/loading`.
 
 Versie `0.5.22` maakt de prijsgrafiek robuuster door de grafiekdata ook op de laagste-prijs sensor te zetten. Daarnaast krijgen PowerStreams een eigen wattage-regelaar op het dashboard en kan per PowerStream in de configuratie worden ingesteld welke Delta Pro erbij hoort.
+
+Versie `0.5.23` voegt een apart PowerStream-dashboard toe met per PowerStream + Delta Pro groep: accupercentage, beschikbare Wh, instelbaar terugleververmogen, strategie en adviesactie op basis van prijsdata en gecorrigeerde HomeWizard-zonopwek.
+
+Versie `0.5.24` corrigeert het PowerStream command voor teruglevering: `operateType` wordt vervangen door `cmdCode` voor `WN511_SET_PERMANENT_WATTS_PACK`. Bestaande oude templates worden automatisch genormaliseerd en bij fout `1008` probeert de app een compacte fallback-commandvorm.

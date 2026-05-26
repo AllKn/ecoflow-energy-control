@@ -1,0 +1,110 @@
+title: EEC PowerStreams
+views:
+  - title: PowerStreams
+    path: eec-powerstreams
+    icon: mdi:solar-power-variant
+    cards:
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
+            name: EUR/kWh
+            min: -0.2
+            max: 0.8
+            severity:
+              green: -0.2
+              yellow: 0.2
+              red: 0.35
+          - type: gauge
+            entity: sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
+            name: Zon W
+            min: 0
+            max: 8000
+            severity:
+              red: 0
+              yellow: 500
+              green: 1500
+
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Accu %
+          columns: 2
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_battery_soc
+              options:
+                type: gauge
+                min: 0
+                max: 100
+                severity:
+                  red: 0
+                  yellow: 30
+                  green: 60
+        sort:
+          method: name
+
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Wh
+          columns: 2
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_available_wh
+              options:
+                type: gauge
+                min: 0
+                max: 12000
+                severity:
+                  red: 0
+                  yellow: 2500
+                  green: 6000
+        sort:
+          method: name
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Strategie
+          show_header_toggle: false
+        filter:
+          include:
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_strategy
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_action
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: powerstream_setpoint
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: power
+        sort:
+          method: name
+
+      - type: custom:auto-entities
+        card:
+          type: history-graph
+          title: 24 uur
+          hours_to_show: 24
+        filter:
+          include:
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: power
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_battery_soc
+        sort:
+          method: name
