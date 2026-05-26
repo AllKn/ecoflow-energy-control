@@ -78,16 +78,21 @@ class EcoFlowCloudClient:
     async def _send(
         self, method: str, url: str, body: dict[str, Any], legacy: bool
     ) -> dict[str, Any]:
-        nonce = str(int(time.time() * 1000)) if legacy else str(random.randint(100000, 999999))
+        if legacy:
+            nonce = str(int(time.time() * 1000))
+            timestamp = nonce
+        else:
+            nonce = str(random.randint(100000, 999999))
+            timestamp = str(int(time.time() * 1000))
         sign_params = self._flatten(body)
         sign_params["accessKey"] = self._access_key
         sign_params["nonce"] = nonce
-        sign_params["timestamp"] = nonce
+        sign_params["timestamp"] = timestamp
         sign = self._legacy_sign(sign_params) if legacy else self._sign(sign_params)
         headers = {
             "accessKey": self._access_key,
             "nonce": nonce,
-            "timestamp": nonce,
+            "timestamp": timestamp,
             "sign": sign,
         }
         if legacy or method != "GET":
