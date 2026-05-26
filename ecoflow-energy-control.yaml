@@ -1,24 +1,61 @@
-title: EcoFlow Energy Control
+title: EEC app
 views:
   - title: Energie
     path: ecoflow-energy
     icon: mdi:home-lightning-bolt
     cards:
       - type: entities
-        title: EEC app controlpanel
+        title: EEC app - instellingen
         entities:
-          - select.ecoflow_energy_control_applicatie_strategie
-          - switch.ecoflow_energy_control_applicatie_testmodus
-          - button.ecoflow_energy_control_applicatie_ecoflow_api_controleren
-          - button.ecoflow_energy_control_applicatie_epex_prijzen_ophalen
-          - button.ecoflow_energy_control_applicatie_strategie_nu_toepassen
-          - sensor.ecoflow_energy_control_applicatie_status
-          - sensor.ecoflow_energy_control_applicatie_laatste_actie
+          - entity: select.ecoflow_energy_control_applicatie_strategie
+            name: Strategie
+          - entity: switch.ecoflow_energy_control_applicatie_testmodus
+            name: Testmodus
+          - entity: sensor.ecoflow_energy_control_applicatie_status
+            name: Status
+          - entity: sensor.ecoflow_energy_control_applicatie_laatste_actie
+            name: Laatste actie
+
+      - type: grid
+        title: EEC app - acties
+        columns: 3
+        square: false
+        cards:
+          - type: button
+            entity: button.ecoflow_energy_control_applicatie_ecoflow_api_controleren
+            name: EcoFlow API
+            icon: mdi:cloud-check
+            show_state: false
+            tap_action:
+              action: call-service
+              service: button.press
+              service_data:
+                entity_id: button.ecoflow_energy_control_applicatie_ecoflow_api_controleren
+          - type: button
+            entity: button.ecoflow_energy_control_applicatie_epex_prijzen_ophalen
+            name: Prijzen ophalen
+            icon: mdi:currency-eur
+            show_state: false
+            tap_action:
+              action: call-service
+              service: button.press
+              service_data:
+                entity_id: button.ecoflow_energy_control_applicatie_epex_prijzen_ophalen
+          - type: button
+            entity: button.ecoflow_energy_control_applicatie_strategie_nu_toepassen
+            name: Strategie starten
+            icon: mdi:play-circle
+            show_state: false
+            tap_action:
+              action: call-service
+              service: button.press
+              service_data:
+                entity_id: button.ecoflow_energy_control_applicatie_strategie_nu_toepassen
 
       - type: custom:auto-entities
         card:
           type: entities
-          title: EEC app - status per toegevoegd EcoFlow device
+          title: EEC app - apparaatstatus
           show_header_toggle: false
         filter:
           include:
@@ -29,9 +66,9 @@ views:
 
       - type: custom:auto-entities
         card:
-          type: glance
-          title: EEC app - batterijstatus per device
-          columns: 3
+          type: entities
+          title: EEC app - batterijen
+          show_header_toggle: false
         filter:
           include:
             - attributes:
@@ -44,9 +81,9 @@ views:
 
       - type: custom:auto-entities
         card:
-          type: glance
+          type: entities
           title: EEC app - PowerStreams
-          columns: 2
+          show_header_toggle: false
         filter:
           include:
             - attributes:
@@ -59,14 +96,14 @@ views:
 
       - type: gauge
         entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
-        name: Quatt prijs nu
+        name: Prijs nu
         min: -0.2
         max: 0.8
 
       - type: custom:apexcharts-card
         header:
           show: true
-          title: Quatt Energy prijzen tot einde morgen
+          title: Prijzen tot einde morgen
           show_states: true
         graph_span: 36h
         now:

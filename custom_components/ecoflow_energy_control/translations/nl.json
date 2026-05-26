@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "EcoFlow Energy Control",
+        "title": "EEC app",
         "description": "Stel EcoFlow Cloud, spotprijzen, PowerStreams en lokale SMA omvormers in.",
         "data": {
           "name": "Naam",
@@ -33,7 +33,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "EcoFlow Energy Control opties",
+        "title": "EEC app opties",
         "menu_options": {
           "general": "Algemene instellingen",
           "add_device": "Apparaat toevoegen",

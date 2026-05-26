@@ -1,6 +1,6 @@
 {
   "domain": "ecoflow_energy_control",
-  "name": "EcoFlow Energy Control",
+  "name": "EEC app",
   "codeowners": ["@local"],
   "config_flow": true,
   "dependencies": [],
@@ -8,5 +8,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/local/ecoflow-energy-control/issues",
   "requirements": [],
-  "version": "0.5.7"
+  "version": "0.5.8"
 }

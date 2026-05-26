@@ -1,4 +1,4 @@
-# EcoFlow Energy Control Applicatie
+# EEC app
 
 Lokale Home Assistant-integratie voor EcoFlow opslag, PowerStream-sturing, EnergyZero/spotprijzen, HomeWizard-opwekmeting en eenvoudige diagnose per toegevoegd apparaat.
 
@@ -32,7 +32,7 @@ Lokale Home Assistant-integratie voor EcoFlow opslag, PowerStream-sturing, Energ
 Ga naar:
 
 ```text
-Instellingen > Apparaten & diensten > EcoFlow Energy Control > Configureren
+Instellingen > Apparaten & diensten > EEC app > Configureren
 ```
 
 Beschikbare acties:
@@ -112,7 +112,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.7`
+`0.5.8`
 
 ## EcoFlow Signing
 
@@ -129,3 +129,5 @@ Versie `0.5.5` maakt EnergyZero de standaard prijsbron. De app haalt EnergyZero-
 Versie `0.5.6` maakt het dashboard minder afhankelijk van entity_id-namen. Batterij- en PowerStream-sensoren krijgen nu eigen `eec_device_type` en `eec_sensor_role` attributen, zodat dynamische dashboardkaarten ook werken als apparaten een eigen naam hebben. De EcoFlow quota-parser accepteert nu ook lijstvormen zoals `{name, value}`.
 
 Versie `0.5.7` forceert een integratie-reload na apparaat toevoegen, wijzigen of verwijderen, zodat Home Assistant de nieuwe entiteiten meteen aanmaakt. EcoFlow apparaten en HomeWizard meters krijgen nu ook eigen Home Assistant devices onder de integratie, met per-device status- en vermogenssensoren.
+
+Versie `0.5.8` maakt het dashboard leesbaarder: batterijen staan in één gegroepeerd overzicht onder elkaar, het controlpanel gebruikt echte knoppen met korte labels, en zichtbare lange applicatienamen zijn ingekort naar `EEC app`.
