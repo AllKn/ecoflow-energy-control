@@ -70,6 +70,9 @@ async def async_setup_entry(
                     EcoFlowDeviceStatusSensor(coordinator, serial, name, "powerstream"),
                     PowerStreamTargetSensor(coordinator, serial, name),
                     PowerStreamModeSensor(coordinator, serial, name),
+                    PowerStreamGroupBatterySocSensor(coordinator, serial, name),
+                    PowerStreamGroupAvailableEnergySensor(coordinator, serial, name),
+                    PowerStreamGroupActionSensor(coordinator, serial, name),
                 ]
             )
     for device in coordinator.settings.get("smart_plugs", []):
@@ -715,6 +718,100 @@ class PowerStreamModeSensor(BaseSensor):
         }
 
 
+class PowerStreamGroupBatterySocSensor(BaseSensor):
+    """Battery SoC for the battery linked to a PowerStream."""
+
+    _attr_native_unit_of_measurement = "%"
+    _attr_device_class = "battery"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"{serial}_group_battery_soc", f"{name} accu")
+        self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
+
+    @property
+    def native_value(self) -> float | None:
+        return _powerstream_data(self.coordinator, self._serial).get("battery_soc")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = _powerstream_data(self.coordinator, self._serial)
+        return {
+            **_device_attrs("powerstream", self._serial, "group_battery_soc"),
+            "managed_battery_serial": data.get("battery_serial"),
+            "managed_battery_name": data.get("battery_name"),
+            "available_wh": _powerstream_group_available_wh(
+                self.coordinator, self._serial
+            ),
+        }
+
+
+class PowerStreamGroupAvailableEnergySensor(BaseSensor):
+    """Available battery energy for the battery linked to a PowerStream."""
+
+    _attr_native_unit_of_measurement = "Wh"
+    _attr_device_class = "energy"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(
+            coordinator, f"{serial}_group_available_wh", f"{name} beschikbaar"
+        )
+        self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
+
+    @property
+    def native_value(self) -> float | None:
+        return _powerstream_group_available_wh(self.coordinator, self._serial)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = _powerstream_data(self.coordinator, self._serial)
+        battery_values = _linked_battery_values(self.coordinator, self._serial)
+        return {
+            **_device_attrs("powerstream", self._serial, "group_available_wh"),
+            "managed_battery_serial": data.get("battery_serial"),
+            "managed_battery_name": data.get("battery_name"),
+            "battery_soc": data.get("battery_soc"),
+            "capacity_wh": _battery_capacity_wh(battery_values),
+            "energy_candidates": _battery_energy_candidates(battery_values),
+        }
+
+
+class PowerStreamGroupActionSensor(BaseSensor):
+    """Suggested group action based on strategy, price and corrected solar."""
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"{serial}_group_action", f"{name} actie")
+        self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
+
+    @property
+    def native_value(self) -> str:
+        return str(_powerstream_data(self.coordinator, self._serial).get("group_action") or "wachten")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = _powerstream_data(self.coordinator, self._serial)
+        return {
+            **_device_attrs("powerstream", self._serial, "group_action"),
+            "strategy": data.get("group_strategy"),
+            "suggested_watts": data.get("suggested_watts"),
+            "decision_reason": data.get("decision_reason"),
+            "managed_battery_name": data.get("battery_name"),
+            "managed_battery_soc": data.get("battery_soc"),
+            "corrected_solar_power": (self.coordinator.data or {}).get(
+                "corrected_solar_power"
+            ),
+            "price_now": (self.coordinator.data or {}).get("price_now"),
+        }
+
+
 class HomeWizardMeterStatusSensor(BaseSensor):
     """Per-meter HomeWizard local API status."""
 
@@ -915,6 +1012,8 @@ class StatusSensor(BaseSensor):
         return {
             "errors": data.get("errors", {}),
             "ecoflow_devices": data.get("ecoflow_devices", []),
+            "last_powerstream_command": data.get("last_powerstream_command"),
+            "last_powerstream_error": data.get("last_powerstream_error"),
         }
 
 
@@ -1262,6 +1361,64 @@ def _powerstream_values(
         .get(serial, {})
         .get("values", {})
     )
+
+
+def _powerstream_data(
+    coordinator: EcoFlowEnergyCoordinator, serial: str
+) -> dict[str, Any]:
+    return (coordinator.data or {}).get("powerstreams", {}).get(serial, {})
+
+
+def _linked_battery_values(
+    coordinator: EcoFlowEnergyCoordinator, powerstream_serial: str
+) -> dict[str, Any]:
+    data = _powerstream_data(coordinator, powerstream_serial)
+    battery_serial = data.get("battery_serial")
+    if not battery_serial:
+        return {}
+    return _battery_values(coordinator, str(battery_serial))
+
+
+def _powerstream_group_available_wh(
+    coordinator: EcoFlowEnergyCoordinator, powerstream_serial: str
+) -> float | None:
+    data = _powerstream_data(coordinator, powerstream_serial)
+    soc = data.get("battery_soc")
+    capacity = _battery_capacity_wh(_linked_battery_values(coordinator, powerstream_serial))
+    if soc is None or capacity is None:
+        return None
+    return round(capacity * float(soc) / 100, 0)
+
+
+def _battery_capacity_wh(values: dict[str, Any]) -> float | None:
+    capacity = _first_value(
+        values,
+        (
+            "cmsBattFullEnergy",
+            "ems.fullEnergy",
+            "pd.fullEnergy",
+            "fullEnergy",
+            "fullEnergyWh",
+            "batteryFullEnergy",
+            "bmsDesignCap",
+            "bms_emsStatus.designCap",
+            "bms_bmsStatus.designCap",
+        ),
+    )
+    if capacity <= 0:
+        return None
+    if capacity < 100:
+        capacity = capacity * 1000
+    return round(capacity, 0)
+
+
+def _battery_energy_candidates(values: dict[str, Any]) -> dict[str, Any]:
+    candidates: dict[str, Any] = {}
+    for key, value in values.items():
+        normalized = _normalize_key(key)
+        if any(part in normalized for part in ("energy", "capacity", "designcap", "full")):
+            candidates[key] = value
+    return dict(sorted(candidates.items())[:30])
 
 
 def _powerstream_power_candidates(values: dict[str, Any]) -> dict[str, Any]:

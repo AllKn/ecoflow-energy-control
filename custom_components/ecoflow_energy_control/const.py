@@ -4,7 +4,7 @@ from __future__ import annotations
 
 DOMAIN = "ecoflow_energy_control"
 APP_NAME = "EEC app"
-APP_VERSION = "0.5.22"
+APP_VERSION = "0.5.25"
 
 CONF_ACCESS_KEY = "access_key"
 CONF_SECRET_KEY = "secret_key"
@@ -51,13 +51,20 @@ STRATEGY_SELF_USE = "self_use"
 STRATEGY_EXPORT = "export"
 STRATEGY_IDLE = "idle"
 STRATEGIES = [STRATEGY_SELF_USE, STRATEGY_EXPORT, STRATEGY_IDLE]
+POWERSTREAM_STRATEGY_SELF_USE = "max_self_use"
+POWERSTREAM_STRATEGY_TRADING = "max_trading"
+POWERSTREAM_STRATEGY_IDLE = "idle"
+POWERSTREAM_STRATEGIES = [
+    POWERSTREAM_STRATEGY_SELF_USE,
+    POWERSTREAM_STRATEGY_TRADING,
+    POWERSTREAM_STRATEGY_IDLE,
+]
 
 DEFAULT_POWERSTREAM_COMMAND = {
     "id": 1,
     "version": "1.0",
-    "moduleType": 1,
-    "operateType": "WN511_SET_PERMANENT_WATTS_PACK",
-    "params": {"permanentWatts": "{{ watts }}"},
+    "cmdCode": "WN511_SET_PERMANENT_WATTS_PACK",
+    "params": {"permanentWatts": "{{ deciwatts }}"},
 }
 
 DEFAULT_BATTERY_QUOTAS = [

@@ -113,7 +113,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.24`
+`0.5.25`
 
 ## EcoFlow Signing
 
@@ -164,3 +164,5 @@ Versie `0.5.22` maakt de prijsgrafiek robuuster door de grafiekdata ook op de la
 Versie `0.5.23` voegt een apart PowerStream-dashboard toe met per PowerStream + Delta Pro groep: accupercentage, beschikbare Wh, instelbaar terugleververmogen, strategie en adviesactie op basis van prijsdata en gecorrigeerde HomeWizard-zonopwek.
 
 Versie `0.5.24` corrigeert het PowerStream command voor teruglevering: `operateType` wordt vervangen door `cmdCode` voor `WN511_SET_PERMANENT_WATTS_PACK`. Bestaande oude templates worden automatisch genormaliseerd en bij fout `1008` probeert de app een compacte fallback-commandvorm.
+
+Versie `0.5.25` stuurt PowerStream `permanentWatts` standaard als deciwatt, dus 590 W wordt als `5900` verzonden. Mislukte echte commando's worden nu ook zichtbaar in `last_powerstream_command` en `last_powerstream_error`.
