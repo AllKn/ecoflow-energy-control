@@ -141,7 +141,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if not values:
                     response = await self.ecoflow.get_device_quotas(serial, None)
                     values = _extract_values(response)
-                target_watts = _first_number_or_match(
+                raw_target_watts = _first_number_or_match(
                     values,
                     (
                         "permanentWatts",
@@ -157,11 +157,16 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     ),
                     target_watts,
                 )
+                target_watts = _normalize_powerstream_watts(
+                    raw_target_watts,
+                    float(device.get("max_watts") or 0),
+                )
                 powerstreams[serial] = {
                     "name": device.get("name", serial),
                     "response": response,
                     "values": values,
                     "target_watts": target_watts,
+                    "raw_target_watts": raw_target_watts,
                     "phase": device.get("phase", "l1"),
                 }
             except Exception as err:  # noqa: BLE001
@@ -689,12 +694,52 @@ def _battery_min_soc(batteries: dict[str, Any]) -> float | None:
     values: list[float] = []
     for item in batteries.values():
         battery_values = item.get("values", {}) if isinstance(item, dict) else {}
-        soc = _first_number(battery_values, ("pd.soc", "soc"), None)
+        soc = _battery_soc_value(battery_values)
         if soc is not None:
             values.append(float(soc))
     if not values:
         return None
     return min(values)
+
+
+def _battery_soc_value(values: dict[str, Any]) -> float | None:
+    soc = _first_number(
+        values,
+        (
+            "pd.soc",
+            "ems.soc",
+            "bms.soc",
+            "bms_emsStatus.soc",
+            "bms_bmsStatus.soc",
+            "soc",
+            "socLevel",
+            "batteryLevel",
+        ),
+        None,
+    )
+    if soc is not None:
+        return max(0.0, min(float(soc), 100.0))
+    for key, value in values.items():
+        normalized = key.lower().replace("_", "").replace("-", "")
+        if "soc" not in normalized and "batterylevel" not in normalized:
+            continue
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= numeric <= 100:
+            return numeric
+    return None
+
+
+def _normalize_powerstream_watts(value: float | None, max_watts: float) -> float:
+    if value is None:
+        return 0.0
+    normalized = float(value)
+    if max_watts > 0 and abs(normalized) > max_watts * 1.5:
+        if abs(normalized / 10) <= max_watts * 1.5:
+            normalized = normalized / 10
+    return round(normalized, 1)
 
 
 def _extract_serials(response: dict[str, Any]) -> list[str]:

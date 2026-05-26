@@ -397,16 +397,15 @@ class BatterySocSensor(BaseSensor):
 
     @property
     def native_value(self) -> Any:
-        values = (
-            (self.coordinator.data or {}).get("batteries", {})
-            .get(self._serial, {})
-            .get("values", {})
-        )
-        return values.get("pd.soc") or values.get("soc")
+        return _battery_soc_value(_battery_values(self.coordinator, self._serial))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return _device_attrs("battery", self._serial, "soc")
+        values = _battery_values(self.coordinator, self._serial)
+        return {
+            **_device_attrs("battery", self._serial, "soc"),
+            "soc_candidates": _battery_soc_candidates(values),
+        }
 
 
 class EcoFlowDeviceStatusSensor(BaseSensor):
@@ -455,7 +454,8 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
         if self._device_type == "battery":
             attrs.update(
                 {
-                    "soc": values.get("pd.soc") or values.get("soc"),
+                    "soc": _battery_soc_value(values),
+                    "soc_candidates": _battery_soc_candidates(values),
                     "charge_w": _first_value(
                         values,
                         ("pd.inputWatts", "inv.inputWatts", "inputWatts", "chargeWatts"),
@@ -476,6 +476,7 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
             attrs.update(
                 {
                     "target_w": float(item.get("target_watts") or 0) if item else 0,
+                    "raw_target_w": float(item.get("raw_target_watts") or 0) if item else 0,
                     "phase": item.get("phase") if item else None,
                     "power_candidates": _powerstream_power_candidates(values),
                 }
@@ -623,6 +624,7 @@ class PowerStreamTargetSensor(BaseSensor):
             **_device_attrs("powerstream", self._serial, "power"),
             "telemetry_fields": len(values),
             "telemetry_keys": sorted(values.keys())[:40],
+            "raw_target_w": data.get("raw_target_watts"),
             "power_candidates": _powerstream_power_candidates(values),
         }
 
@@ -654,6 +656,7 @@ class PowerStreamModeSensor(BaseSensor):
             **_device_attrs("powerstream", self._serial, "mode"),
             "telemetry_fields": len(values),
             "telemetry_keys": sorted(values.keys())[:40],
+            "raw_target_w": data.get("raw_target_watts"),
             "power_candidates": _powerstream_power_candidates(values),
         }
 
@@ -881,6 +884,47 @@ def _battery_values(
         .get(serial, {})
         .get("values", {})
     )
+
+
+def _battery_soc_value(values: dict[str, Any]) -> float | None:
+    for key in (
+        "pd.soc",
+        "ems.soc",
+        "bms.soc",
+        "bms_emsStatus.soc",
+        "bms_bmsStatus.soc",
+        "soc",
+        "socLevel",
+        "batteryLevel",
+    ):
+        value = values.get(key)
+        if value is None:
+            continue
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        return max(0.0, min(numeric, 100.0))
+    for key, value in values.items():
+        normalized = key.lower().replace("_", "").replace("-", "")
+        if "soc" not in normalized and "batterylevel" not in normalized:
+            continue
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= numeric <= 100:
+            return numeric
+    return None
+
+
+def _battery_soc_candidates(values: dict[str, Any]) -> dict[str, Any]:
+    candidates: dict[str, Any] = {}
+    for key, value in values.items():
+        normalized = key.lower().replace("_", "").replace("-", "")
+        if "soc" in normalized or "batterylevel" in normalized:
+            candidates[key] = value
+    return dict(sorted(candidates.items())[:20])
 
 
 def _scenario_data(
