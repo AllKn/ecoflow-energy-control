@@ -10,6 +10,7 @@ import time
 from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
+from urllib.parse import urlencode
 
 from aiohttp import ClientSession
 
@@ -60,29 +61,12 @@ class EcoFlowCloudClient:
     async def _request(
         self, method: str, path: str, payload: Mapping[str, Any]
     ) -> dict[str, Any]:
-        nonce = str(random.randint(100000, 999999))
         body = dict(payload)
-        sign_params = self._flatten(body)
-        sign_params["accessKey"] = self._access_key
-        sign_params["nonce"] = nonce
-        sign_params["timestamp"] = nonce
-        sign = self._sign(sign_params)
-
-        headers = {
-            "accessKey": self._access_key,
-            "nonce": nonce,
-            "timestamp": nonce,
-            "sign": sign,
-        }
         url = f"{self._host}{path}"
+        data = await self._send(method, url, body, legacy=False)
 
-        if method == "GET":
-            async with self._session.get(url, headers=headers, params=body) as resp:
-                data = await resp.json(content_type=None)
-        else:
-            headers["Content-Type"] = "application/json;charset=UTF-8"
-            async with self._session.request(method, url, headers=headers, json=body) as resp:
-                data = await resp.json(content_type=None)
+        if self._is_signature_error(data):
+            data = await self._send(method, url, body, legacy=True)
 
         if not isinstance(data, dict):
             raise EcoFlowApiError(f"Unexpected EcoFlow response: {data!r}")
@@ -91,12 +75,49 @@ class EcoFlowCloudClient:
             raise EcoFlowApiError(str(data))
         return data
 
+    async def _send(
+        self, method: str, url: str, body: dict[str, Any], legacy: bool
+    ) -> dict[str, Any]:
+        nonce = str(int(time.time() * 1000)) if legacy else str(random.randint(100000, 999999))
+        sign_params = self._flatten(body)
+        sign_params["accessKey"] = self._access_key
+        sign_params["nonce"] = nonce
+        sign_params["timestamp"] = nonce
+        sign = self._legacy_sign(sign_params) if legacy else self._sign(sign_params)
+        headers = {
+            "accessKey": self._access_key,
+            "nonce": nonce,
+            "timestamp": nonce,
+            "sign": sign,
+        }
+        if legacy or method != "GET":
+            headers["Content-Type"] = "application/json;charset=UTF-8"
+
+        if method == "GET":
+            async with self._session.get(url, headers=headers, params=body) as resp:
+                return await resp.json(content_type=None)
+        async with self._session.request(method, url, headers=headers, json=body) as resp:
+            return await resp.json(content_type=None)
+
     def _sign(self, params: Mapping[str, Any]) -> str:
         encoded = "&".join(f"{key}={params[key]}" for key in sorted(params))
         digest = hmac.new(
             self._secret_key.encode(), encoded.encode(), hashlib.sha256
         ).hexdigest()
         return digest
+
+    def _legacy_sign(self, params: Mapping[str, Any]) -> str:
+        encoded = urlencode(sorted((key, str(value)) for key, value in params.items()))
+        return hmac.new(
+            self._secret_key.encode(), encoded.encode(), hashlib.sha256
+        ).hexdigest()
+
+    def _is_signature_error(self, data: Any) -> bool:
+        if not isinstance(data, dict):
+            return False
+        return str(data.get("code")) == "8521" or "signature is wrong" in str(
+            data.get("message", "")
+        ).lower()
 
     def _flatten(self, value: Any, prefix: str = "") -> dict[str, Any]:
         flattened: dict[str, Any] = {}
