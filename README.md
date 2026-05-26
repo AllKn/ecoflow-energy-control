@@ -112,7 +112,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.18`
+`0.5.19`
 
 ## EcoFlow Signing
 
@@ -151,3 +151,5 @@ Versie `0.5.16` corrigeert Delta Pro 3 SoC-herkenning: `cmsBattSoc` krijgt prior
 Versie `0.5.17` verbetert batterij-vermogensherkenning en toont `power_candidates` als diagnose-attribuut bij batterijvermogens. De PowerStream-dashboarddata herstelt een attribuutfout waardoor kaarten leeg konden blijven, en de prijsgrafieken negeren nu ongeldige `n/a` punten zodat ze niet op `loading` blijven hangen.
 
 Versie `0.5.18` vraagt bij batterijen automatisch bredere EcoFlow-telemetrie op als de standaardvelden wel SoC maar geen live vermogen bevatten. Dit helpt vooral bij oudere Delta Pro-modellen die andere veldnamen gebruiken voor laad- en ontlaadvermogen.
+
+Versie `0.5.19` maakt die Delta Pro fallback strenger: een enkel nulveld zoals `inv.inputWatts: 0` telt niet meer als volledige vermogensmeting. De app vraagt dan alsnog bredere batterijtelemetrie op.

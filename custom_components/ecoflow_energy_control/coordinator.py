@@ -125,7 +125,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     source = "all_after_empty_selected"
                     response = await self.ecoflow.get_device_quotas(serial, None)
                     values = _extract_values(response)
-                elif not _has_battery_live_power(values):
+                elif _needs_battery_power_fallback(values):
                     source = "all_after_missing_power"
                     response = await self.ecoflow.get_device_quotas(serial, None)
                     all_values = _extract_values(response)
@@ -699,52 +699,67 @@ def _first_number_or_match(
     return default
 
 
-def _has_battery_live_power(values: dict[str, Any]) -> bool:
+def _needs_battery_power_fallback(values: dict[str, Any]) -> bool:
+    power_fields = _battery_live_power_fields(values)
+    if not power_fields:
+        return True
+    if len(values) <= 3 and not any(abs(value) > 0 for value in power_fields):
+        return True
+    if not _has_directional_power_field(values, "charge"):
+        return True
+    if not _has_directional_power_field(values, "discharge"):
+        return True
+    return False
+
+
+def _battery_live_power_fields(values: dict[str, Any]) -> list[float]:
+    fields: list[float] = []
     for key, value in values.items():
         normalized = key.lower().replace("_", "").replace("-", "").replace(".", "")
-        if not any(part in normalized for part in ("watt", "power", "pow")):
+        if not _is_battery_live_power_key(normalized):
             continue
-        if any(
-            part in normalized
-            for part in (
-                "max",
-                "min",
-                "limit",
-                "design",
-                "fullenergy",
-                "remain",
-                "remtime",
-                "standby",
-                "soc",
-                "soh",
-                "temp",
-            )
-        ):
+        numeric = _coerce_float(value)
+        if numeric is not None:
+            fields.append(numeric)
+    return fields
+
+
+def _has_directional_power_field(values: dict[str, Any], direction: str) -> bool:
+    parts = (
+        ("input", "charge", "chg", "powin", "wattsin", "acin", "dcin", "pvin")
+        if direction == "charge"
+        else ("output", "discharge", "dsg", "powout", "wattsout", "acout", "dcout", "invout")
+    )
+    for key, value in values.items():
+        normalized = key.lower().replace("_", "").replace("-", "").replace(".", "")
+        if not _is_battery_live_power_key(normalized):
             continue
-        if not any(
-            part in normalized
-            for part in (
-                "input",
-                "output",
-                "charge",
-                "discharge",
-                "chg",
-                "dsg",
-                "powin",
-                "powout",
-                "wattsin",
-                "wattsout",
-                "acin",
-                "acout",
-                "dcin",
-                "dcout",
-                "invout",
-            )
-        ):
+        if not any(part in normalized for part in parts):
             continue
         if _coerce_float(value) is not None:
             return True
     return False
+
+
+def _is_battery_live_power_key(normalized: str) -> bool:
+    if not any(part in normalized for part in ("watt", "power", "pow")):
+        return False
+    return not any(
+        part in normalized
+        for part in (
+            "max",
+            "min",
+            "limit",
+            "design",
+            "fullenergy",
+            "remain",
+            "remtime",
+            "standby",
+            "soc",
+            "soh",
+            "temp",
+        )
+    )
 
 
 def _coerce_float(value: Any) -> float | None:
