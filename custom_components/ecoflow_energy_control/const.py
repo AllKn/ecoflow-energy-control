@@ -4,7 +4,7 @@ from __future__ import annotations
 
 DOMAIN = "ecoflow_energy_control"
 APP_NAME = "EEC app"
-APP_VERSION = "0.5.10"
+APP_VERSION = "0.5.11"
 
 CONF_ACCESS_KEY = "access_key"
 CONF_SECRET_KEY = "secret_key"

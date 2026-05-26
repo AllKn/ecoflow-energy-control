@@ -10,6 +10,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .const import (
     CONF_ACCESS_KEY,
@@ -145,9 +146,51 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 "general",
                 "add_device",
                 "import_ecoflow",
+                "import_homewizard",
                 "edit_device",
                 "remove_device",
             ],
+        )
+
+    async def async_step_import_homewizard(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        devices = self._homewizard_ha_devices()
+        choices = {
+            device_id: device["label"]
+            for device_id, device in devices.items()
+            if not self._homewizard_ha_configured(device_id)
+        }
+        errors: dict[str, str] = {}
+        if user_input is not None and choices:
+            selected = devices[user_input["device_id"]]
+            values = self._settings()
+            values.setdefault(CONF_HOMEWIZARD_METERS, []).append(
+                {
+                    "name": selected["name"],
+                    "source": "homeassistant",
+                    "device_id": user_input["device_id"],
+                    "role": user_input["role"],
+                    "model": selected.get("model"),
+                    "entities": selected["entities"],
+                }
+            )
+            return self._save(values)
+        if not choices:
+            errors["base"] = "no_importable_devices"
+        return self.async_show_form(
+            step_id="import_homewizard",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("device_id"): vol.In(
+                        choices or {"": "Geen nieuwe HomeWizard apparaten gevonden"}
+                    ),
+                    vol.Required("role", default=DEFAULT_HOMEWIZARD_ROLE): vol.In(
+                        {"solar_total": "Totale opwekking"}
+                    ),
+                }
+            ),
+            errors=errors,
         )
 
     async def async_step_import_ecoflow(
@@ -286,6 +329,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                             "powerstream": "EcoFlow PowerStream",
                             "smart_plug": "EcoFlow Smart Plug",
                             "homewizard": "HomeWizard lokale meter",
+                            "homewizard_ha": "HomeWizard via Home Assistant",
                             "sma": "SMA cloud omvormer",
                         }
                     )
@@ -519,6 +563,11 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
         )
 
+    async def async_step_add_homewizard_ha(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        return await self.async_step_import_homewizard(user_input)
+
     async def async_step_add_smart_plug(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
@@ -708,6 +757,27 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
         group, index, current = self._edit_context(CONF_HOMEWIZARD_METERS)
+        if current.get("source") == "homeassistant":
+            if user_input is not None:
+                updated = {
+                    **current,
+                    "name": user_input["name"],
+                    "role": user_input["role"],
+                }
+                return self._replace_device(group, index, updated)
+            return self.async_show_form(
+                step_id="edit_homewizard_meters",
+                data_schema=vol.Schema(
+                    {
+                        vol.Required(
+                            "name", default=current.get("name", "HomeWizard")
+                        ): str,
+                        vol.Required(
+                            "role", default=current.get("role", DEFAULT_HOMEWIZARD_ROLE)
+                        ): vol.In({"solar_total": "Totale opwekking"}),
+                    }
+                ),
+            )
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -931,6 +1001,50 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 choices[str(serial)] = f"{name} ({serial})"
         return choices
 
+    def _homewizard_ha_configured(self, device_id: str) -> bool:
+        for item in self._settings().get(CONF_HOMEWIZARD_METERS, []):
+            if item.get("source") == "homeassistant" and item.get("device_id") == device_id:
+                return True
+        return False
+
+    def _homewizard_ha_devices(self) -> dict[str, dict[str, Any]]:
+        entity_registry = er.async_get(self.hass)
+        device_registry = dr.async_get(self.hass)
+        devices: dict[str, dict[str, Any]] = {}
+        for entity in entity_registry.entities.values():
+            if entity.platform != "homewizard" or not entity.device_id:
+                continue
+            device = device_registry.async_get(entity.device_id)
+            name = (
+                device.name_by_user
+                if device and device.name_by_user
+                else device.name
+                if device and device.name
+                else entity.device_id
+            )
+            item = devices.setdefault(
+                entity.device_id,
+                {
+                    "name": name,
+                    "model": device.model if device else None,
+                    "label": f"{name} ({device.model or 'HomeWizard'})"
+                    if device
+                    else name,
+                    "entities": {},
+                },
+            )
+            role = _homewizard_entity_role(entity)
+            if role:
+                item["entities"].setdefault(role, entity.entity_id)
+        return {
+            device_id: item
+            for device_id, item in devices.items()
+            if item["entities"].get("power") or any(
+                item["entities"].get(key)
+                for key in ("power_l1", "power_l2", "power_l3")
+            )
+        }
+
     async def _validate_sma_device(self, device: dict[str, Any]) -> None:
         from .api.sma_cloud import read_sma_device
 
@@ -971,6 +1085,61 @@ def _extract_ecoflow_devices(response: dict[str, Any]) -> list[dict[str, Any]]:
 
     walk(response.get("data", response))
     return devices
+
+
+def _homewizard_entity_role(entity: Any) -> str | None:
+    text = " ".join(
+        str(value or "").lower()
+        for value in (
+            getattr(entity, "translation_key", None),
+            getattr(entity, "original_name", None),
+            getattr(entity, "name", None),
+            getattr(entity, "unique_id", None),
+            getattr(entity, "entity_id", None),
+        )
+    )
+    compact = text.replace("_", " ").replace("-", " ")
+    if "voltage" in compact or "spanning" in compact:
+        if "l1" in compact or "phase 1" in compact:
+            return "voltage_l1"
+        if "l2" in compact or "phase 2" in compact:
+            return "voltage_l2"
+        if "l3" in compact or "phase 3" in compact:
+            return "voltage_l3"
+    if "current" in compact or "stroom" in compact:
+        if "l1" in compact or "phase 1" in compact:
+            return "current_l1"
+        if "l2" in compact or "phase 2" in compact:
+            return "current_l2"
+        if "l3" in compact or "phase 3" in compact:
+            return "current_l3"
+    if "power" in compact or "vermogen" in compact:
+        if "import" in compact and "energy" in compact:
+            return "energy_import"
+        if "export" in compact and "energy" in compact:
+            return "energy_export"
+        if "l1" in compact or "phase 1" in compact:
+            return "power_l1"
+        if "l2" in compact or "phase 2" in compact:
+            return "power_l2"
+        if "l3" in compact or "phase 3" in compact:
+            return "power_l3"
+        if "active" in compact or "total" in compact or "w" in compact:
+            return "power"
+    if "energy" in compact or "kwh" in compact:
+        if "import" in compact and ("t1" in compact or "tariff 1" in compact):
+            return "energy_import_t1"
+        if "import" in compact and ("t2" in compact or "tariff 2" in compact):
+            return "energy_import_t2"
+        if "export" in compact and ("t1" in compact or "tariff 1" in compact):
+            return "energy_export_t1"
+        if "export" in compact and ("t2" in compact or "tariff 2" in compact):
+            return "energy_export_t2"
+        if "import" in compact:
+            return "energy_import"
+        if "export" in compact:
+            return "energy_export"
+    return None
 
 
 def _ecoflow_serial(device: dict[str, Any]) -> str:

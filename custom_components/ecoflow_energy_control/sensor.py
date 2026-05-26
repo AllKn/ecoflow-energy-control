@@ -66,7 +66,7 @@ async def async_setup_entry(
             name = device.get("name", serial)
             entities.append(EcoFlowDeviceStatusSensor(coordinator, serial, name, "smart_plug"))
     for device in coordinator.settings.get("homewizard_meters", []):
-        host = device.get("host")
+        host = device.get("host") or device.get("device_id")
         if host:
             name = device.get("name", host)
             entities.extend(

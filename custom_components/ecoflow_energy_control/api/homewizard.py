@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from aiohttp import ClientSession
+from homeassistant.core import HomeAssistant
 
 
 async def read_homewizard_meter(
@@ -56,6 +57,52 @@ async def read_homewizard_meter(
     }
 
 
+def read_homewizard_ha_meter(hass: HomeAssistant, meter: dict[str, Any]) -> dict[str, Any]:
+    """Read a HomeWizard device through existing Home Assistant entities."""
+    entities = meter.get("entities", {})
+    phases = {
+        "l1": _state_number(hass, entities.get("power_l1")),
+        "l2": _state_number(hass, entities.get("power_l2")),
+        "l3": _state_number(hass, entities.get("power_l3")),
+    }
+    active_power = _state_number(hass, entities.get("power"))
+    if active_power is None:
+        active_power = _sum_existing(*phases.values())
+    return {
+        "available": True,
+        "name": meter.get("name", "HomeWizard"),
+        "host": meter.get("device_id", meter.get("name", "homewizard")),
+        "role": meter.get("role", "solar_total"),
+        "source": "homeassistant",
+        "active_power_w": active_power,
+        "phase_power_w": phases,
+        "phase_voltage_v": {
+            "l1": _state_number(hass, entities.get("voltage_l1")),
+            "l2": _state_number(hass, entities.get("voltage_l2")),
+            "l3": _state_number(hass, entities.get("voltage_l3")),
+        },
+        "phase_current_a": {
+            "l1": _state_number(hass, entities.get("current_l1")),
+            "l2": _state_number(hass, entities.get("current_l2")),
+            "l3": _state_number(hass, entities.get("current_l3")),
+        },
+        "total_power_import_kwh": _sum_states(
+            hass,
+            entities.get("energy_import"),
+            entities.get("energy_import_t1"),
+            entities.get("energy_import_t2"),
+        ),
+        "total_power_export_kwh": _sum_states(
+            hass,
+            entities.get("energy_export"),
+            entities.get("energy_export_t1"),
+            entities.get("energy_export_t2"),
+        ),
+        "meter_model": meter.get("model"),
+        "raw": {"entities": entities},
+    }
+
+
 def _number(value: Any) -> float | None:
     try:
         if value is None:
@@ -68,6 +115,26 @@ def _number(value: Any) -> float | None:
 def _sum_numbers(*values: Any) -> float | None:
     numbers = [_number(value) for value in values]
     valid = [value for value in numbers if value is not None]
+    if not valid:
+        return None
+    return round(sum(valid), 5)
+
+
+def _state_number(hass: HomeAssistant, entity_id: str | None) -> float | None:
+    if not entity_id:
+        return None
+    state = hass.states.get(entity_id)
+    if state is None or state.state in ("unknown", "unavailable"):
+        return None
+    return _number(state.state)
+
+
+def _sum_states(hass: HomeAssistant, *entity_ids: str | None) -> float | None:
+    return _sum_existing(*(_state_number(hass, entity_id) for entity_id in entity_ids))
+
+
+def _sum_existing(*values: float | None) -> float | None:
+    valid = [value for value in values if value is not None]
     if not valid:
         return None
     return round(sum(valid), 5)

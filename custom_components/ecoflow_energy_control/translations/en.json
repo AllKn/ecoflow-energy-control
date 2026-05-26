@@ -38,6 +38,7 @@
           "general": "General settings",
           "add_device": "Add device",
           "import_ecoflow": "Import EcoFlow devices",
+          "import_homewizard": "Import HomeWizard from Home Assistant",
           "edit_device": "Edit device",
           "remove_device": "Remove device"
         }

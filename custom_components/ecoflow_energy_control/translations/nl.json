@@ -38,6 +38,7 @@
           "general": "Algemene instellingen",
           "add_device": "Apparaat toevoegen",
           "import_ecoflow": "EcoFlow apparaten importeren",
+          "import_homewizard": "HomeWizard uit Home Assistant importeren",
           "edit_device": "Apparaat wijzigen",
           "remove_device": "Apparaat verwijderen"
         }

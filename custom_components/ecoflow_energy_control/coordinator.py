@@ -13,7 +13,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .api.ecoflow import EcoFlowCloudClient, render_template_dict
-from .api.homewizard import read_homewizard_meter
+from .api.homewizard import read_homewizard_ha_meter, read_homewizard_meter
 from .api.prices import (
     current_price,
     energyzero_url,
@@ -65,6 +65,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Collect data and apply local policy."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self.hass = hass
         self.entry = entry
         self.settings = {**entry.data, **entry.options}
         self.session = async_get_clientsession(hass)
@@ -225,12 +226,15 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         homewizard_solar_power = 0.0
         homewizard_phase_power = {"l1": 0.0, "l2": 0.0, "l3": 0.0}
         for item in settings.get(CONF_HOMEWIZARD_METERS, []):
-            host = item.get("host")
-            if not host:
+            source_id = item.get("host") or item.get("device_id")
+            if not source_id:
                 continue
             try:
-                reading = await read_homewizard_meter(self.session, item)
-                name = item.get("name", host)
+                if item.get("source") == "homeassistant":
+                    reading = read_homewizard_ha_meter(self.hass, item)
+                else:
+                    reading = await read_homewizard_meter(self.session, item)
+                name = item.get("name", source_id)
                 homewizard_meters[name] = reading
                 if reading.get("role") == "solar_total":
                     active_power = float(reading.get("active_power_w") or 0)
@@ -238,8 +242,8 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     for phase, watts in reading.get("phase_power_w", {}).items():
                         homewizard_phase_power[phase] += abs(float(watts or 0))
             except Exception as err:  # noqa: BLE001
-                errors[f"homewizard_{host}"] = str(err)
-                homewizard_meters[item.get("name", host)] = {
+                errors[f"homewizard_{source_id}"] = str(err)
+                homewizard_meters[item.get("name", source_id)] = {
                     "available": False,
                     "error": str(err),
                 }
