@@ -85,10 +85,11 @@ class EcoFlowCloudClient:
             nonce = str(random.randint(100000, 999999))
             timestamp = str(int(time.time() * 1000))
         sign_params = self._flatten(body)
-        sign_params["accessKey"] = self._access_key
-        sign_params["nonce"] = nonce
-        sign_params["timestamp"] = timestamp
-        sign = self._legacy_sign(sign_params) if legacy else self._sign(sign_params)
+        sign = (
+            self._legacy_sign(sign_params, nonce, timestamp)
+            if legacy
+            else self._sign(sign_params, nonce, timestamp)
+        )
         headers = {
             "accessKey": self._access_key,
             "nonce": nonce,
@@ -104,14 +105,22 @@ class EcoFlowCloudClient:
         async with self._session.request(method, url, headers=headers, json=body) as resp:
             return await resp.json(content_type=None)
 
-    def _sign(self, params: Mapping[str, Any]) -> str:
-        encoded = "&".join(f"{key}={params[key]}" for key in sorted(params))
+    def _sign(self, params: Mapping[str, Any], nonce: str, timestamp: str) -> str:
+        payload = "&".join(f"{key}={params[key]}" for key in sorted(params))
+        auth = f"accessKey={self._access_key}&nonce={nonce}&timestamp={timestamp}"
+        encoded = f"{payload}&{auth}" if payload else auth
         digest = hmac.new(
             self._secret_key.encode(), encoded.encode(), hashlib.sha256
         ).hexdigest()
         return digest
 
-    def _legacy_sign(self, params: Mapping[str, Any]) -> str:
+    def _legacy_sign(self, params: Mapping[str, Any], nonce: str, timestamp: str) -> str:
+        params = {
+            **params,
+            "accessKey": self._access_key,
+            "nonce": nonce,
+            "timestamp": timestamp,
+        }
         encoded = urlencode(sorted((key, str(value)) for key, value in params.items()))
         return hmac.new(
             self._secret_key.encode(), encoded.encode(), hashlib.sha256

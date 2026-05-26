@@ -70,6 +70,14 @@ Open de attributen van die sensor om te zien:
 
 Als de EcoFlow API wel devices vindt maar telemetrie niet werkt, zie je hier precies welk apparaat faalt en welke fout de quota-uitlezing teruggeeft.
 
+Voor testen buiten Home Assistant is er een losse lokale tool:
+
+```text
+tools/ecoflow_api_tester
+```
+
+Daarmee kun je device-list en quota-uitlezing rechtstreeks vanaf je eigen machine/netwerk testen.
+
 ## Prijzen
 
 Standaard:
@@ -101,8 +109,10 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.1`
+`0.5.2`
 
 ## EcoFlow Signing
 
 Versie `0.5.1` corrigeert de EcoFlow signing voor quota-uitlezingen: `nonce` is nu een 6-cijferige waarde en `timestamp` is weer de actuele milliseconden-timestamp. Dat voorkomt `8521 signature is wrong` bij quota-routes terwijl device-list wel werkt.
+
+Versie `0.5.2` corrigeert de volgorde van de sign-string: eerst de gesorteerde request-parameters, daarna pas `accessKey`, `nonce` en `timestamp`. Dit is vooral nodig voor quota-routes met `sn` en `params`.
