@@ -56,6 +56,7 @@ Daar kun je kiezen:
 
 - Algemene instellingen
 - Apparaat toevoegen
+- EcoFlow apparaten importeren
 - Apparaat wijzigen
 - Apparaat verwijderen
 
@@ -82,6 +83,15 @@ De integratie controleert de verbinding voordat het apparaat wordt opgeslagen:
 Als deze controle faalt, blijft het apparaat uit de configuratie en krijg je een melding in de flow.
 
 Met **Apparaat wijzigen** kun je bestaande apparaten aanpassen zonder ze eerst te verwijderen. De wizard vult de huidige waarden alvast in en controleert bij opslaan opnieuw de verbinding.
+
+Met **EcoFlow apparaten importeren** haalt de integratie eerst de EcoFlow device-list op via je access key en secret key. Daarna kies je een gevonden serienummer en stel je zelf in wat het apparaat in deze applicatie is:
+
+- Delta Pro
+- Delta Pro 3
+- PowerStream
+- Smart Plug
+
+Voor PowerStream kun je direct fase en maximaal vermogen instellen. Voor Smart Plug kun je instellen welke Delta ermee geladen wordt.
 
 ## Handmatige controles
 
@@ -217,6 +227,17 @@ Gebruik het voorbeeld:
 
 [dashboards/ecoflow-energy-control.yaml](dashboards/ecoflow-energy-control.yaml)
 
+Het dashboard toont de EcoFlow-apparaten nu grafischer:
+
+- batterijlading per Delta als gauge
+- laadvermogen per Delta
+- ontlaadvermogen per Delta
+- netto vermogen per Delta, negatief is laden en positief is ontladen
+- PowerStream vermogen per apparaat
+- PowerStream status, zoals `terugleveren` of `stand-by`
+
+Na deze update moet Home Assistant opnieuw worden gestart, omdat er nieuwe sensoren per batterij en per PowerStream worden aangemaakt.
+
 De dashboard-entiteiten gebruiken nu de `_applicatie` naam, bijvoorbeeld:
 
 ```yaml
@@ -296,7 +317,25 @@ Als HACS de update niet meteen ziet, verhoog dan de versie in:
 custom_components/ecoflow_energy_control/manifest.json
 ```
 
-Deze iteratie staat op versie `0.4.3`.
+Deze iteratie staat op versie `0.4.6`.
+
+### Config flow could not be loaded
+
+Vanaf `0.4.6` laadt de configuratieflow externe API-helpers pas wanneer je de bijbehorende stap gebruikt. Dit voorkomt dat een ontbrekend helperbestand of API-module de hele integratiehandler blokkeert.
+
+Blijft Home Assistant toch melden `Invalid handler specified`, open dan:
+
+```text
+Instellingen > Systeem > Logs
+```
+
+Zoek op:
+
+```text
+custom_components.ecoflow_energy_control.config_flow
+```
+
+De eerste Python foutregel daaronder is de oorzaak.
 
 ### Entiteiten blijven unavailable
 

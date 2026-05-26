@@ -11,9 +11,6 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api.ecoflow import EcoFlowCloudClient
-from .api.homewizard import read_homewizard_meter
-from .api.sma_cloud import read_sma_device
 from .const import (
     CONF_ACCESS_KEY,
     CONF_BATTERIES,
@@ -88,6 +85,8 @@ class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def _validate_ecoflow_credentials(self, values: dict[str, Any]) -> None:
+        from .api.ecoflow import EcoFlowCloudClient
+
         client = EcoFlowCloudClient(
             async_get_clientsession(self.hass),
             values[CONF_ECOFLOW_HOST],
@@ -111,6 +110,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         self._entry = config_entry
         self._pending_remove: str | None = None
         self._pending_edit: tuple[str, int] | None = None
+        self._pending_import_device: dict[str, Any] | None = None
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -120,9 +120,120 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
             menu_options=[
                 "general",
                 "add_device",
+                "import_ecoflow",
                 "edit_device",
                 "remove_device",
             ],
+        )
+
+    async def async_step_import_ecoflow(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        errors: dict[str, str] = {}
+        devices: list[dict[str, Any]] = []
+        try:
+            devices = await self._fetch_ecoflow_devices()
+        except Exception:  # noqa: BLE001
+            errors["base"] = "ecoflow_auth_failed"
+
+        choices = self._import_device_choices(devices)
+        if user_input is not None and choices:
+            self._pending_import_device = next(
+                item for item in devices if _ecoflow_serial(item) == user_input["serial"]
+            )
+            return await self.async_step_import_ecoflow_configure()
+
+        if not choices and not errors:
+            errors["base"] = "no_importable_devices"
+
+        return self.async_show_form(
+            step_id="import_ecoflow",
+            data_schema=vol.Schema({vol.Required("serial"): vol.In(choices)}),
+            errors=errors,
+        )
+
+    async def async_step_import_ecoflow_configure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        if self._pending_import_device is None:
+            return await self.async_step_import_ecoflow()
+
+        serial = _ecoflow_serial(self._pending_import_device)
+        default_name = _ecoflow_name(self._pending_import_device)
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            try:
+                await self._validate_ecoflow_device(serial)
+            except Exception:  # noqa: BLE001
+                errors["base"] = "cannot_connect"
+            else:
+                values = self._settings()
+                device_type = user_input["device_type"]
+                if device_type in ("delta_pro", "delta_pro_3"):
+                    values.setdefault(CONF_BATTERIES, []).append(
+                        {
+                            "name": user_input["name"],
+                            "model": "Delta Pro 3"
+                            if device_type == "delta_pro_3"
+                            else "Delta Pro",
+                            "serial": serial,
+                            "quotas": DEFAULT_BATTERY_QUOTAS,
+                        }
+                    )
+                elif device_type == "powerstream":
+                    values.setdefault(CONF_POWERSTREAMS, []).append(
+                        {
+                            "name": user_input["name"],
+                            "serial": serial,
+                            "max_watts": user_input["max_watts"],
+                            "phase": user_input["phase"],
+                            "command": DEFAULT_POWERSTREAM_COMMAND,
+                        }
+                    )
+                else:
+                    values.setdefault(CONF_SMART_PLUGS, []).append(
+                        {
+                            "name": user_input["name"],
+                            "serial": serial,
+                            "charges": user_input["charges"],
+                            "on_command": DEFAULT_SMART_PLUG_ON_COMMAND,
+                            "off_command": DEFAULT_SMART_PLUG_OFF_COMMAND,
+                        }
+                    )
+                self._pending_import_device = None
+                return self._save(values)
+
+        return self.async_show_form(
+            step_id="import_ecoflow_configure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name", default=default_name): str,
+                    vol.Required("device_type"): vol.In(
+                        {
+                            "delta_pro": "EcoFlow Delta Pro",
+                            "delta_pro_3": "EcoFlow Delta Pro 3",
+                            "powerstream": "EcoFlow PowerStream",
+                            "smart_plug": "EcoFlow Smart Plug",
+                        }
+                    ),
+                    vol.Optional("max_watts", default=800): int,
+                    vol.Optional("phase", default="l1"): vol.In(
+                        {"l1": "Fase 1", "l2": "Fase 2", "l3": "Fase 3"}
+                    ),
+                    vol.Optional("charges", default="Delta Pro"): str,
+                }
+            ),
+            errors=errors,
+            description_placeholders={
+                "serial": serial,
+                "raw_type": str(
+                    self._pending_import_device.get("deviceType")
+                    or self._pending_import_device.get("productName")
+                    or self._pending_import_device.get("model")
+                    or "onbekend"
+                ),
+            },
         )
 
     async def async_step_add_device(
@@ -323,6 +434,8 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
+                from .api.homewizard import read_homewizard_meter
+
                 await read_homewizard_meter(
                     async_get_clientsession(self.hass), dict(user_input)
                 )
@@ -536,6 +649,8 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
+                from .api.homewizard import read_homewizard_meter
+
                 await read_homewizard_meter(
                     async_get_clientsession(self.hass), dict(user_input)
                 )
@@ -657,19 +772,48 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         return choices
 
     async def _validate_ecoflow_device(self, serial: str) -> None:
+        response = await self._ecoflow_client().get_devices()
+        serials = _extract_ecoflow_serials(response)
+        if serials and serial not in serials:
+            raise ValueError("device_not_found")
+
+    async def _fetch_ecoflow_devices(self) -> list[dict[str, Any]]:
+        response = await self._ecoflow_client().get_devices()
+        return _extract_ecoflow_devices(response)
+
+    def _ecoflow_client(self) -> EcoFlowCloudClient:
+        from .api.ecoflow import EcoFlowCloudClient
+
         settings = self._settings()
-        client = EcoFlowCloudClient(
+        return EcoFlowCloudClient(
             async_get_clientsession(self.hass),
             settings[CONF_ECOFLOW_HOST],
             settings[CONF_ACCESS_KEY],
             settings[CONF_SECRET_KEY],
         )
-        response = await client.get_devices()
-        serials = _extract_ecoflow_serials(response)
-        if serials and serial not in serials:
-            raise ValueError("device_not_found")
+
+    def _import_device_choices(self, devices: list[dict[str, Any]]) -> dict[str, str]:
+        existing = self._configured_ecoflow_serials()
+        choices: dict[str, str] = {}
+        for device in devices:
+            serial = _ecoflow_serial(device)
+            if not serial or serial in existing:
+                continue
+            choices[serial] = f"{_ecoflow_name(device)} ({serial})"
+        return choices
+
+    def _configured_ecoflow_serials(self) -> set[str]:
+        values = self._settings()
+        serials: set[str] = set()
+        for group in (CONF_BATTERIES, CONF_POWERSTREAMS, CONF_SMART_PLUGS):
+            for item in values.get(group, []):
+                if item.get("serial"):
+                    serials.add(str(item["serial"]))
+        return serials
 
     async def _validate_sma_device(self, device: dict[str, Any]) -> None:
+        from .api.sma_cloud import read_sma_device
+
         settings = self._settings()
         await read_sma_device(
             async_get_clientsession(self.hass),
@@ -683,18 +827,44 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
 
 def _extract_ecoflow_serials(response: dict[str, Any]) -> set[str]:
     """Extract serial numbers from EcoFlow's device-list response variants."""
-    serials: set[str] = set()
+    return {
+        serial
+        for serial in (_ecoflow_serial(device) for device in _extract_ecoflow_devices(response))
+        if serial
+    }
+
+
+def _extract_ecoflow_devices(response: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract device dictionaries from EcoFlow device-list response variants."""
+    devices: list[dict[str, Any]] = []
 
     def walk(value: Any) -> None:
         if isinstance(value, dict):
-            for key, item in value.items():
-                if key in {"sn", "serial", "serialNumber", "deviceSn"} and item:
-                    serials.add(str(item))
-                else:
-                    walk(item)
+            if _ecoflow_serial(value):
+                devices.append(value)
+                return
+            for item in value.values():
+                walk(item)
         elif isinstance(value, list):
             for item in value:
                 walk(item)
 
     walk(response.get("data", response))
-    return serials
+    return devices
+
+
+def _ecoflow_serial(device: dict[str, Any]) -> str:
+    for key in ("sn", "serial", "serialNumber", "deviceSn"):
+        value = device.get(key)
+        if value:
+            return str(value)
+    return ""
+
+
+def _ecoflow_name(device: dict[str, Any]) -> str:
+    for key in ("deviceName", "name", "productName", "model"):
+        value = device.get(key)
+        if value:
+            return str(value)
+    serial = _ecoflow_serial(device)
+    return f"EcoFlow {serial}" if serial else "EcoFlow apparaat"

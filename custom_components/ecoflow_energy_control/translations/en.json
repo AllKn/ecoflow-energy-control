@@ -21,7 +21,8 @@
     "error": {
       "invalid_json": "One of the JSON fields is invalid.",
       "cannot_connect": "The connection could not be verified. Check the API settings, serial number, device id or IP address.",
-      "ecoflow_auth_failed": "The EcoFlow API keys could not be validated. Check access key, secret key and region host."
+      "ecoflow_auth_failed": "The EcoFlow API keys could not be validated. Check access key, secret key and region host.",
+      "no_importable_devices": "No new EcoFlow devices were found to import."
     }
   },
   "options": {
@@ -31,6 +32,7 @@
         "menu_options": {
           "general": "General settings",
           "add_device": "Add device",
+          "import_ecoflow": "Import EcoFlow devices",
           "edit_device": "Edit device",
           "remove_device": "Remove device"
         }
@@ -40,6 +42,13 @@
       },
       "add_device": {
         "title": "Add device"
+      },
+      "import_ecoflow": {
+        "title": "Import EcoFlow devices"
+      },
+      "import_ecoflow_configure": {
+        "title": "Configure EcoFlow device",
+        "description": "Serial number: {serial}\nEcoFlow type: {raw_type}"
       },
       "edit_device": {
         "title": "Edit device"

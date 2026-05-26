@@ -6,7 +6,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfEnergy, UnitOfPower
+from homeassistant.const import UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -35,7 +35,26 @@ async def async_setup_entry(
     for device in coordinator.settings.get("batteries", []):
         serial = device.get("serial")
         if serial and "VUL_HIER" not in serial:
-            entities.append(BatterySocSensor(coordinator, serial, device.get("name", serial)))
+            name = device.get("name", serial)
+            entities.extend(
+                [
+                    BatterySocSensor(coordinator, serial, name),
+                    BatteryChargePowerSensor(coordinator, serial, name),
+                    BatteryDischargePowerSensor(coordinator, serial, name),
+                    BatteryNetPowerSensor(coordinator, serial, name),
+                    BatteryModeSensor(coordinator, serial, name),
+                ]
+            )
+    for device in coordinator.settings.get("powerstreams", []):
+        serial = device.get("serial")
+        if serial and "VUL_HIER" not in serial:
+            name = device.get("name", serial)
+            entities.extend(
+                [
+                    PowerStreamTargetSensor(coordinator, serial, name),
+                    PowerStreamModeSensor(coordinator, serial, name),
+                ]
+            )
     async_add_entities(entities)
 
 
@@ -177,6 +196,128 @@ class BatterySocSensor(BaseSensor):
         return values.get("pd.soc") or values.get("soc")
 
 
+class BatteryChargePowerSensor(BaseSensor):
+    """Battery charge power."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"{serial}_charge_power", f"{name} laadvermogen")
+        self._serial = serial
+
+    @property
+    def native_value(self) -> float:
+        return max(
+            0.0,
+            _first_value(
+                _battery_values(self.coordinator, self._serial),
+                ("pd.inputWatts", "inv.inputWatts", "inputWatts", "chargeWatts"),
+            ),
+        )
+
+
+class BatteryDischargePowerSensor(BaseSensor):
+    """Battery discharge power."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(
+            coordinator, f"{serial}_discharge_power", f"{name} ontlaadvermogen"
+        )
+        self._serial = serial
+
+    @property
+    def native_value(self) -> float:
+        return max(
+            0.0,
+            _first_value(
+                _battery_values(self.coordinator, self._serial),
+                ("pd.outputWatts", "pd.invOutWatts", "outputWatts", "dischargeWatts"),
+            ),
+        )
+
+
+class BatteryNetPowerSensor(BaseSensor):
+    """Battery net power: positive means discharging, negative means charging."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"{serial}_net_power", f"{name} netto vermogen")
+        self._serial = serial
+
+    @property
+    def native_value(self) -> float:
+        return _battery_net_power(self.coordinator, self._serial)
+
+
+class BatteryModeSensor(BaseSensor):
+    """Battery direction."""
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"{serial}_mode", f"{name} status")
+        self._serial = serial
+
+    @property
+    def native_value(self) -> str:
+        net = _battery_net_power(self.coordinator, self._serial)
+        if net > 20:
+            return "ontladen"
+        if net < -20:
+            return "laden"
+        return "stand-by"
+
+
+class PowerStreamTargetSensor(BaseSensor):
+    """PowerStream target/export power."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"{serial}_powerstream_power", f"{name} vermogen")
+        self._serial = serial
+
+    @property
+    def native_value(self) -> float:
+        data = (self.coordinator.data or {}).get("powerstreams", {}).get(self._serial, {})
+        return float(data.get("target_watts") or 0)
+
+
+class PowerStreamModeSensor(BaseSensor):
+    """PowerStream status."""
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"{serial}_powerstream_mode", f"{name} status")
+        self._serial = serial
+
+    @property
+    def native_value(self) -> str:
+        data = (self.coordinator.data or {}).get("powerstreams", {}).get(self._serial, {})
+        watts = float(data.get("target_watts") or 0)
+        if watts > 20:
+            return "terugleveren"
+        if watts < -20:
+            return "laden"
+        return "stand-by"
+
+
 class StatusSensor(BaseSensor):
     """Integration source status."""
 
@@ -205,3 +346,37 @@ class LastActionSensor(BaseSensor):
     @property
     def native_value(self) -> str | None:
         return (self.coordinator.data or {}).get("last_action")
+
+
+def _battery_values(
+    coordinator: EcoFlowEnergyCoordinator, serial: str
+) -> dict[str, Any]:
+    return (
+        (coordinator.data or {})
+        .get("batteries", {})
+        .get(serial, {})
+        .get("values", {})
+    )
+
+
+def _first_value(values: dict[str, Any], keys: tuple[str, ...]) -> float:
+    for key in keys:
+        value = values.get(key)
+        if value is None:
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def _battery_net_power(coordinator: EcoFlowEnergyCoordinator, serial: str) -> float:
+    values = _battery_values(coordinator, serial)
+    charge = _first_value(
+        values, ("pd.inputWatts", "inv.inputWatts", "inputWatts", "chargeWatts")
+    )
+    discharge = _first_value(
+        values, ("pd.outputWatts", "pd.invOutWatts", "outputWatts", "dischargeWatts")
+    )
+    return round(discharge - charge, 1)

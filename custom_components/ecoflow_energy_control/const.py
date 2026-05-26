@@ -59,6 +59,15 @@ DEFAULT_BATTERY_QUOTAS = [
     "bms_emsStatus.dsgRemainTime",
 ]
 
+DEFAULT_POWERSTREAM_QUOTAS = [
+    "permanentWatts",
+    "inv.outputWatts",
+    "inv.inputWatts",
+    "pv.inputWatts",
+    "bat.inputWatts",
+    "bat.outputWatts",
+]
+
 DEFAULT_SMART_PLUG_ON_COMMAND = {
     "id": 1,
     "version": "1.0",

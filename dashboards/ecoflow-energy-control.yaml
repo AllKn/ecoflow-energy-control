@@ -22,6 +22,68 @@ views:
         name: Stroomprijs nu
         min: -0.2
         max: 0.8
+      - type: vertical-stack
+        title: EcoFlow batterijen
+        cards:
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.ecoflow_energy_control_applicatie_delta_pro_soc
+                name: Delta Pro
+                min: 0
+                max: 100
+                severity:
+                  green: 60
+                  yellow: 25
+                  red: 0
+              - type: gauge
+                entity: sensor.ecoflow_energy_control_applicatie_delta_pro_3_soc
+                name: Delta Pro 3
+                min: 0
+                max: 100
+                severity:
+                  green: 60
+                  yellow: 25
+                  red: 0
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.ecoflow_energy_control_applicatie_delta_pro_netto_vermogen
+                name: Delta Pro netto
+                min: -2000
+                max: 2000
+              - type: gauge
+                entity: sensor.ecoflow_energy_control_applicatie_delta_pro_3_netto_vermogen
+                name: Delta Pro 3 netto
+                min: -3000
+                max: 3000
+          - type: entities
+            entities:
+              - sensor.ecoflow_energy_control_applicatie_delta_pro_status
+              - sensor.ecoflow_energy_control_applicatie_delta_pro_laadvermogen
+              - sensor.ecoflow_energy_control_applicatie_delta_pro_ontlaadvermogen
+              - sensor.ecoflow_energy_control_applicatie_delta_pro_3_status
+              - sensor.ecoflow_energy_control_applicatie_delta_pro_3_laadvermogen
+              - sensor.ecoflow_energy_control_applicatie_delta_pro_3_ontlaadvermogen
+      - type: vertical-stack
+        title: PowerStreams
+        cards:
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                entity: sensor.ecoflow_energy_control_applicatie_powerstream_1_vermogen
+                name: PowerStream 1
+                min: 0
+                max: 800
+              - type: gauge
+                entity: sensor.ecoflow_energy_control_applicatie_powerstream_2_vermogen
+                name: PowerStream 2
+                min: 0
+                max: 800
+          - type: entities
+            entities:
+              - sensor.ecoflow_energy_control_applicatie_powerstream_1_status
+              - sensor.ecoflow_energy_control_applicatie_powerstream_2_status
       - type: entities
         title: Automatische prijsgrenzen
         entities:

@@ -21,7 +21,8 @@
     "error": {
       "invalid_json": "Een van de JSON-velden is ongeldig.",
       "cannot_connect": "De verbinding kon niet worden gecontroleerd. Controleer de API-gegevens, het serienummer, device id of IP-adres.",
-      "ecoflow_auth_failed": "De EcoFlow API-sleutels konden niet worden gevalideerd. Controleer access key, secret key en de regio-host."
+      "ecoflow_auth_failed": "De EcoFlow API-sleutels konden niet worden gevalideerd. Controleer access key, secret key en de regio-host.",
+      "no_importable_devices": "Er zijn geen nieuwe EcoFlow apparaten gevonden om te importeren."
     }
   },
   "options": {
@@ -31,6 +32,7 @@
         "menu_options": {
           "general": "Algemene instellingen",
           "add_device": "Apparaat toevoegen",
+          "import_ecoflow": "EcoFlow apparaten importeren",
           "edit_device": "Apparaat wijzigen",
           "remove_device": "Apparaat verwijderen"
         }
@@ -40,6 +42,13 @@
       },
       "add_device": {
         "title": "Apparaat toevoegen"
+      },
+      "import_ecoflow": {
+        "title": "EcoFlow apparaten importeren"
+      },
+      "import_ecoflow_configure": {
+        "title": "EcoFlow apparaat instellen",
+        "description": "Serienummer: {serial}\nEcoFlow type: {raw_type}"
       },
       "edit_device": {
         "title": "Apparaat wijzigen"
