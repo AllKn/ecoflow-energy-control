@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, STRATEGIES
+from .const import APP_NAME, DOMAIN, STRATEGIES
 from .coordinator import EcoFlowEnergyCoordinator
 
 
@@ -33,7 +33,7 @@ class StrategySelect(CoordinatorEntity[EcoFlowEnergyCoordinator], SelectEntity):
         self._attr_unique_id = f"{DOMAIN}_strategy"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control Applicatie",
+            "name": APP_NAME,
         }
 
     @property

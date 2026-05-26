@@ -19,7 +19,9 @@ from .const import (
     CONF_HOMEWIZARD_METERS,
     CONF_POWERSTREAMS,
     CONF_PRICE_INTERVAL,
+    CONF_PRICE_INCL_VAT,
     CONF_PRICE_PROVIDER,
+    CONF_PRICE_SOURCE,
     CONF_PRICE_SURCHARGE,
     CONF_PRICE_URL,
     CONF_SECRET_KEY,
@@ -34,14 +36,16 @@ from .const import (
     DEFAULT_HOMEWIZARD_ROLE,
     DEFAULT_POWERSTREAM_COMMAND,
     DEFAULT_PRICE_INTERVAL,
+    DEFAULT_PRICE_INCL_VAT,
     DEFAULT_PRICE_PROVIDER,
+    DEFAULT_PRICE_SOURCE,
     DEFAULT_PRICE_SURCHARGE,
-    DEFAULT_PRICE_URL,
     DEFAULT_SMA_API_HOST,
     DEFAULT_SMA_ENDPOINT,
     DEFAULT_SMART_PLUG_OFF_COMMAND,
     DEFAULT_SMART_PLUG_ON_COMMAND,
     DOMAIN,
+    APP_NAME,
 )
 
 
@@ -73,16 +77,24 @@ class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required(
-                    CONF_NAME, default="EcoFlow Energy Control Applicatie"
+                    CONF_NAME, default=APP_NAME
                 ): str,
                 vol.Required(CONF_ACCESS_KEY): str,
                 vol.Required(CONF_SECRET_KEY): str,
                 vol.Required(CONF_ECOFLOW_HOST, default=DEFAULT_ECOFLOW_HOST): str,
+                vol.Optional(CONF_PRICE_SOURCE, default=DEFAULT_PRICE_SOURCE): vol.In(
+                    {
+                        "energyzero": "EnergyZero",
+                        "epexprijzen": "epexprijzen.nl",
+                        "epexspot": "epexspot.com",
+                    }
+                ),
                 vol.Optional(CONF_PRICE_PROVIDER, default=DEFAULT_PRICE_PROVIDER): str,
                 vol.Optional(CONF_PRICE_INTERVAL, default=DEFAULT_PRICE_INTERVAL): vol.In(
                     {"hourly": "Uurprijzen", "quarterly": "Kwartierprijzen"}
                 ),
                 vol.Optional(CONF_PRICE_SURCHARGE, default=DEFAULT_PRICE_SURCHARGE): float,
+                vol.Optional(CONF_PRICE_INCL_VAT, default=DEFAULT_PRICE_INCL_VAT): bool,
                 vol.Optional(CONF_PRICE_URL, default=""): str,
                 vol.Optional(CONF_SMA_API_HOST, default=DEFAULT_SMA_API_HOST): str,
                 vol.Optional(CONF_SMA_TOKEN, default=""): str,
@@ -298,6 +310,16 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required(
+                    CONF_PRICE_SOURCE,
+                    default=current.get(CONF_PRICE_SOURCE, DEFAULT_PRICE_SOURCE),
+                ): vol.In(
+                    {
+                        "energyzero": "EnergyZero",
+                        "epexprijzen": "epexprijzen.nl",
+                        "epexspot": "epexspot.com",
+                    }
+                ),
+                vol.Required(
                     CONF_PRICE_PROVIDER,
                     default=current.get(CONF_PRICE_PROVIDER, DEFAULT_PRICE_PROVIDER),
                 ): str,
@@ -309,6 +331,10 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     CONF_PRICE_SURCHARGE,
                     default=current.get(CONF_PRICE_SURCHARGE, DEFAULT_PRICE_SURCHARGE),
                 ): float,
+                vol.Required(
+                    CONF_PRICE_INCL_VAT,
+                    default=current.get(CONF_PRICE_INCL_VAT, DEFAULT_PRICE_INCL_VAT),
+                ): bool,
                 vol.Optional(
                     CONF_PRICE_URL, default=current.get(CONF_PRICE_URL, "")
                 ): str,
@@ -776,7 +802,10 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
     def _save(self, values: dict[str, Any]) -> config_entries.FlowResult:
         merged = self._settings()
         merged.update(values)
-        return self.async_create_entry(title="", data=merged)
+        self.hass.config_entries.async_update_entry(
+            self._entry, data=merged, options={}
+        )
+        return self.async_create_entry(title="", data={})
 
     def _edit_context(self, expected_group: str) -> tuple[str, int, dict[str, Any]]:
         if self._pending_edit is None:

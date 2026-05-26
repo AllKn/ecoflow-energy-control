@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import APP_NAME, DOMAIN
 from .coordinator import EcoFlowEnergyCoordinator
 
 
@@ -38,7 +38,7 @@ class ApplyStrategyButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEnt
         self._attr_unique_id = f"{DOMAIN}_apply_strategy"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control Applicatie",
+            "name": APP_NAME,
         }
 
     async def async_press(self) -> None:
@@ -56,7 +56,7 @@ class CheckEcoFlowApiButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonE
         self._attr_unique_id = f"{DOMAIN}_check_ecoflow_api"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control Applicatie",
+            "name": APP_NAME,
         }
 
     async def async_press(self) -> None:
@@ -64,17 +64,17 @@ class CheckEcoFlowApiButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonE
 
 
 class RefreshPricesButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEntity):
-    """Manually refresh EPEX/day-ahead prices."""
+    """Manually refresh day-ahead prices."""
 
     _attr_has_entity_name = True
-    _attr_name = "EPEX prijzen ophalen"
+    _attr_name = "prijzen ophalen"
 
     def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{DOMAIN}_refresh_prices"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control Applicatie",
+            "name": APP_NAME,
         }
 
     async def async_press(self) -> None:

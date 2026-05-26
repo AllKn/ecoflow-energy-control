@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import APP_NAME, DOMAIN
 from .coordinator import EcoFlowEnergyCoordinator
 
 
@@ -77,7 +77,7 @@ class BaseSensor(CoordinatorEntity[EcoFlowEnergyCoordinator], SensorEntity):
         self._attr_unique_id = f"{DOMAIN}_{key}"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control Applicatie",
+            "name": APP_NAME,
         }
         self._attr_name = name
 
@@ -110,7 +110,7 @@ class PriceSensor(BaseSensor):
 
 
 class PriceMinimumSensor(BaseSensor):
-    """Lowest upcoming Quatt/EPEX price."""
+    """Lowest upcoming electricity price."""
 
     _attr_native_unit_of_measurement = "EUR/kWh"
 
@@ -131,7 +131,7 @@ class PriceMinimumSensor(BaseSensor):
 
 
 class PriceMaximumSensor(BaseSensor):
-    """Highest upcoming Quatt/EPEX price."""
+    """Highest upcoming electricity price."""
 
     _attr_native_unit_of_measurement = "EUR/kWh"
 
@@ -270,7 +270,7 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
         device_type: str,
     ) -> None:
         super().__init__(
-            coordinator, f"{serial}_api_status", f"{name} API status"
+            coordinator, f"{serial}_api_status", f"{_status_label(device_type)} {name}"
         )
         self._serial = serial
         self._device_type = device_type
@@ -501,6 +501,14 @@ def _battery_values(
         .get(serial, {})
         .get("values", {})
     )
+
+
+def _status_label(device_type: str) -> str:
+    return {
+        "battery": "batterijstatus",
+        "powerstream": "PowerStream",
+        "smart_plug": "Smart Plug",
+    }.get(device_type, "EcoFlow")
 
 
 def _first_value(values: dict[str, Any], keys: tuple[str, ...]) -> float:

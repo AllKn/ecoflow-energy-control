@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import APP_NAME, DOMAIN
 from .coordinator import EcoFlowEnergyCoordinator
 
 
@@ -53,7 +53,7 @@ class ThresholdNumber(CoordinatorEntity[EcoFlowEnergyCoordinator], NumberEntity)
         self._attr_native_unit_of_measurement = unit
         self._attr_device_info = {
             "identifiers": {(DOMAIN, "controller")},
-            "name": "EcoFlow Energy Control Applicatie",
+            "name": APP_NAME,
         }
 
     @property

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+import re
 from typing import Any
+from urllib.parse import urlencode
 
 from aiohttp import ClientSession
 
@@ -13,6 +15,29 @@ def epexprijzen_url(provider: str, interval: str) -> str:
     provider = (provider or "quatt-energy").strip().lower()
     interval = (interval or "hourly").strip().lower()
     return f"https://epexprijzen.nl/api/v1/prices/{provider}/{interval}"
+
+
+def epexspot_url(delivery_date: date, market_area: str = "NL") -> str:
+    """Build the public EPEX SPOT market-results URL for day-ahead prices."""
+    return (
+        "https://www.epexspot.com/en/market-results"
+        f"?auction=MRC&data_mode=table&delivery_date={delivery_date.isoformat()}"
+        f"&market_area={market_area}&modality=Auction&sub_modality=DayAhead"
+    )
+
+
+def energyzero_url(start: datetime, end: datetime, incl_vat: bool = False) -> str:
+    """Build an EnergyZero electricity price API URL."""
+    query = urlencode(
+        {
+            "fromDate": start.isoformat(),
+            "tillDate": end.isoformat(),
+            "interval": 4,
+            "usageType": 1,
+            "inclBtw": str(bool(incl_vat)).lower(),
+        }
+    )
+    return f"https://api.energyzero.nl/v1/energyprices?{query}"
 
 
 async def fetch_prices(
@@ -25,7 +50,12 @@ async def fetch_prices(
     where the source is clearly EUR/MWh.
     """
     async with session.get(url) as resp:
-        data = await resp.json(content_type=None)
+        text = await resp.text()
+
+    try:
+        data = json_loads(text)
+    except ValueError:
+        return parse_epexspot_html(text, surcharge_eur_kwh)
 
     records: list[Any]
     if isinstance(data, dict) and (
@@ -35,7 +65,7 @@ async def fetch_prices(
     elif isinstance(data, list):
         records = data
     elif isinstance(data, dict):
-        for key in ("data", "prices", "records", "items", "marketPrices"):
+        for key in ("data", "prices", "Prices", "records", "items", "marketPrices"):
             if isinstance(data.get(key), list):
                 records = data[key]
                 break
@@ -58,11 +88,23 @@ async def fetch_prices(
                 "electricity_price",
                 "value",
                 "marketprice",
+                "Price",
             ),
         )
         starts_at = _first_text(
             item,
-            ("t", "period_start", "datum", "datetime", "time", "start", "from", "timestamp"),
+            (
+                "t",
+                "period_start",
+                "datum",
+                "datetime",
+                "time",
+                "start",
+                "from",
+                "timestamp",
+                "readingDate",
+                "DateTime",
+            ),
         )
         if price is None:
             continue
@@ -175,6 +217,49 @@ def _first_number(item: dict[str, Any], keys: tuple[str, ...]) -> float | None:
         except ValueError:
             continue
     return None
+
+
+def parse_epexspot_html(text: str, surcharge_eur_kwh: float = 0.0) -> list[dict[str, Any]]:
+    """Best-effort parser for EPEX SPOT public market-results HTML.
+
+    EPEX's supported API access is commercial. The public page can change, so
+    this parser intentionally accepts broad table/text shapes and returns an
+    empty list when no hour-price pairs can be found.
+    """
+    cleaned = re.sub(r"<[^>]+>", " ", text)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    delivery_match = re.search(r"delivery_date=(\d{4}-\d{2}-\d{2})", text)
+    delivery = delivery_match.group(1) if delivery_match else datetime.now().date().isoformat()
+    records: list[dict[str, Any]] = []
+    pattern = re.compile(
+        r"(?P<hour>\b(?:[01]\d|2[0-3]):00\b).*?(?P<price>-?\d{1,4}[,.]\d{1,3})",
+        re.IGNORECASE,
+    )
+    for match in pattern.finditer(cleaned):
+        hour = match.group("hour")
+        price = float(match.group("price").replace(",", "."))
+        if abs(price) > 5:
+            price = price / 1000
+        price = price + surcharge_eur_kwh
+        records.append(
+            {
+                "start": f"{delivery}T{hour}:00+01:00",
+                "price_eur_kwh": round(price, 5),
+                "base_price_eur_kwh": round(price - surcharge_eur_kwh, 5),
+                "surcharge_eur_kwh": surcharge_eur_kwh,
+                "raw": {"source": "epexspot.com"},
+            }
+        )
+    return records
+
+
+def json_loads(text: str) -> Any:
+    import json
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as err:
+        raise ValueError from err
 
 
 def _first_text(item: dict[str, Any], keys: tuple[str, ...]) -> str | None:

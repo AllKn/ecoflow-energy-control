@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "ecoflow_energy_control"
+APP_NAME = "EEC app"
 
 CONF_ACCESS_KEY = "access_key"
 CONF_SECRET_KEY = "secret_key"
@@ -10,8 +11,10 @@ CONF_ECOFLOW_HOST = "ecoflow_host"
 CONF_PRICE_URL = "price_url"
 CONF_PRICE_AREA = "price_area"
 CONF_PRICE_PROVIDER = "price_provider"
+CONF_PRICE_SOURCE = "price_source"
 CONF_PRICE_INTERVAL = "price_interval"
 CONF_PRICE_SURCHARGE = "price_surcharge"
+CONF_PRICE_INCL_VAT = "price_incl_vat"
 CONF_SMA_INVERTERS = "sma_inverters"
 CONF_BATTERIES = "batteries"
 CONF_POWERSTREAMS = "powerstreams"
@@ -25,9 +28,11 @@ CONF_SMA_ENDPOINT = "sma_endpoint"
 
 DEFAULT_ECOFLOW_HOST = "https://api-e.ecoflow.com"
 DEFAULT_PRICE_PROVIDER = "quatt-energy"
+DEFAULT_PRICE_SOURCE = "energyzero"
 DEFAULT_PRICE_INTERVAL = "hourly"
 DEFAULT_PRICE_SURCHARGE = 0.015
-DEFAULT_PRICE_URL = "https://epexprijzen.nl/api/v1/prices/quatt-energy/hourly"
+DEFAULT_PRICE_INCL_VAT = False
+DEFAULT_PRICE_URL = ""
 DEFAULT_SMA_API_HOST = "https://api.sma.energy"
 DEFAULT_SMA_ENDPOINT = "/monitoring/v1/plants/{plant_id}/devices/{device_id}/measurements/recent"
 DEFAULT_SCAN_INTERVAL = 60

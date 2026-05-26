@@ -13,6 +13,14 @@ from .const import (
     ATTR_SERIAL,
     ATTR_ON,
     ATTR_WATTS,
+    CONF_BATTERIES,
+    CONF_HOMEWIZARD_METERS,
+    CONF_POWERSTREAMS,
+    CONF_PRICE_SOURCE,
+    CONF_PRICE_URL,
+    CONF_SMA_INVERTERS,
+    CONF_SMART_PLUGS,
+    DEFAULT_PRICE_SOURCE,
     DOMAIN,
     SERVICE_APPLY_STRATEGY,
     SERVICE_SET_SMART_PLUG,
@@ -29,10 +37,12 @@ PLATFORMS: list[Platform] = [
 ]
 
 _LOGGER = logging.getLogger(__name__)
+_OLD_DEFAULT_PRICE_URL = "https://epexprijzen.nl/api/v1/prices/quatt-energy/hourly"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up EcoFlow Energy Control from a config entry."""
+    _normalize_entry_storage(hass, entry)
     coordinator = EcoFlowEnergyCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
 
@@ -85,3 +95,22 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id, None)
     return unload_ok
+
+
+def _normalize_entry_storage(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Persist device lists from options into entry data after upgrades/reloads."""
+    merged = {**entry.data, **entry.options}
+    for key in (
+        CONF_BATTERIES,
+        CONF_POWERSTREAMS,
+        CONF_SMA_INVERTERS,
+        CONF_SMART_PLUGS,
+        CONF_HOMEWIZARD_METERS,
+    ):
+        merged.setdefault(key, [])
+    if merged.get(CONF_PRICE_URL) == _OLD_DEFAULT_PRICE_URL:
+        merged[CONF_PRICE_URL] = ""
+        merged[CONF_PRICE_SOURCE] = DEFAULT_PRICE_SOURCE
+    merged.setdefault(CONF_PRICE_SOURCE, DEFAULT_PRICE_SOURCE)
+    if merged != entry.data or entry.options:
+        hass.config_entries.async_update_entry(entry, data=merged, options={})

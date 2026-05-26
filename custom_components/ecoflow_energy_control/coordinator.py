@@ -16,6 +16,7 @@ from .api.ecoflow import EcoFlowCloudClient, render_template_dict
 from .api.homewizard import read_homewizard_meter
 from .api.prices import (
     current_price,
+    energyzero_url,
     epexspot_url,
     epexprijzen_url,
     fetch_prices,
@@ -31,6 +32,7 @@ from .const import (
     CONF_HOMEWIZARD_METERS,
     CONF_POWERSTREAMS,
     CONF_PRICE_INTERVAL,
+    CONF_PRICE_INCL_VAT,
     CONF_PRICE_PROVIDER,
     CONF_PRICE_SOURCE,
     CONF_PRICE_SURCHARGE,
@@ -44,8 +46,8 @@ from .const import (
     CONF_SMART_PLUGS,
     DEFAULT_ECOFLOW_HOST,
     DEFAULT_POWERSTREAM_QUOTAS,
-    DEFAULT_PRICE_URL,
     DEFAULT_PRICE_INTERVAL,
+    DEFAULT_PRICE_INCL_VAT,
     DEFAULT_PRICE_PROVIDER,
     DEFAULT_PRICE_SOURCE,
     DEFAULT_PRICE_SURCHARGE,
@@ -305,7 +307,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.async_set_updated_data(data)
 
     async def async_refresh_prices_now(self) -> None:
-        """Manually fetch EPEX/day-ahead prices."""
+        """Manually fetch day-ahead prices."""
         data = dict(self.data or {})
         errors = dict(data.get("errors") or {})
         settings = {**self.entry.data, **self.entry.options}
@@ -346,8 +348,17 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         surcharge = float(settings.get(CONF_PRICE_SURCHARGE, DEFAULT_PRICE_SURCHARGE))
         if settings.get(CONF_PRICE_URL):
             return await fetch_prices(self.session, settings[CONF_PRICE_URL], surcharge)
+        today = dt_util.now().date()
+        if source == "energyzero":
+            start = dt_util.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            end = start + timedelta(days=2) - timedelta(seconds=1)
+            incl_vat = bool(settings.get(CONF_PRICE_INCL_VAT, DEFAULT_PRICE_INCL_VAT))
+            return await fetch_prices(
+                self.session,
+                energyzero_url(start, end, incl_vat),
+                surcharge,
+            )
         if source == "epexspot":
-            today = dt_util.now().date()
             prices: list[dict[str, Any]] = []
             for day in (today, today + timedelta(days=1)):
                 prices.extend(await fetch_prices(self.session, epexspot_url(day), surcharge))

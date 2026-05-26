@@ -1,6 +1,6 @@
 # EcoFlow Energy Control Applicatie
 
-Lokale Home Assistant-integratie voor EcoFlow opslag, PowerStream-sturing, Quatt/EPEX prijzen, HomeWizard-opwekmeting en eenvoudige diagnose per toegevoegd apparaat.
+Lokale Home Assistant-integratie voor EcoFlow opslag, PowerStream-sturing, EnergyZero/spotprijzen, HomeWizard-opwekmeting en eenvoudige diagnose per toegevoegd apparaat.
 
 ## Kernfuncties
 
@@ -22,7 +22,8 @@ Lokale Home Assistant-integratie voor EcoFlow opslag, PowerStream-sturing, Quatt
   - vermogen
   - status
   - fase
-- Quatt/EPEX prijzen via epexprijzen.nl, inclusief instelbare opslag van standaard `0.015 EUR/kWh`.
+- EnergyZero prijzen als standaard prijsbron, inclusief instelbare Quatt-opslag van standaard `0.015 EUR/kWh`.
+- Alternatieve prijsbronnen via epexprijzen.nl of epexspot.com blijven beschikbaar.
 - Dagelijkse prijs-refresh om 15:00 voor planning tot en met einde volgende dag.
 - HomeWizard lokale API voor ruwe opwek, met correctie voor PowerStream-teruglevering.
 
@@ -80,15 +81,17 @@ Daarmee kun je device-list en quota-uitlezing rechtstreeks vanaf je eigen machin
 
 ## Prijzen
 
-Standaard:
+Standaard gebruikt de integratie EnergyZero:
 
 ```text
-https://epexprijzen.nl/api/v1/prices/quatt-energy/hourly
+https://api.energyzero.nl/v1/energyprices
 ```
 
-De integratie telt standaard `0.015 EUR/kWh` opslag bij de EPEX-prijs op. Als epexprijzen.nl een andere provider-slug voor Quatt gebruikt, pas je alleen **epexprijzen.nl provider** aan bij Algemene instellingen.
+De integratie vraagt uurprijzen op voor vandaag en morgen met `usageType=1`, `interval=4` en standaard `inclBtw=false`. De Quatt-opslag van `0.015 EUR/kWh` wordt daar apart bij opgeteld, zodat de opslag zichtbaar en aanpasbaar blijft.
 
-Prijsdata wordt dagelijks om **15:00** opgehaald en is ook handmatig te verversen met **EPEX prijzen ophalen**.
+Je kunt in Algemene instellingen terugschakelen naar epexprijzen.nl of epexspot.com. Een eigen prijs-URL blijft mogelijk; als die is ingevuld, gaat die voor op de gekozen bron.
+
+Prijsdata wordt dagelijks om **15:00** opgehaald en is ook handmatig te verversen met de prijs-ophaalknop.
 
 ## Dashboard
 
@@ -109,10 +112,16 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.2`
+`0.5.5`
 
 ## EcoFlow Signing
 
 Versie `0.5.1` corrigeert de EcoFlow signing voor quota-uitlezingen: `nonce` is nu een 6-cijferige waarde en `timestamp` is weer de actuele milliseconden-timestamp. Dat voorkomt `8521 signature is wrong` bij quota-routes terwijl device-list wel werkt.
 
 Versie `0.5.2` corrigeert de volgorde van de sign-string: eerst de gesorteerde request-parameters, daarna pas `accessKey`, `nonce` en `timestamp`. Dit is vooral nodig voor quota-routes met `sn` en `params`.
+
+Versie `0.5.3` bewaart toegevoegde devices voortaan in de hoofdconfiguratie in plaats van alleen in options. Dit voorkomt dat apparaten na een update/reload verdwijnen. De displaynaam is ingekort naar `EEC app`, en per-device statusentiteiten heten nu bijvoorbeeld `batterijstatus Delta Pro 3` of `PowerStream <naam>`.
+
+Versie `0.5.4` voegt `epexspot.com` toe als alternatieve prijsbron. De Quatt-opslag van `0.015 EUR/kWh` blijft apart instelbaar en wordt op beide bronnen toegepast. Let op: de officiële realtime EPEX SPOT API is marktdata-abonnement; de publieke epexspot.com bron is een best-effort parser van de market-results pagina.
+
+Versie `0.5.5` maakt EnergyZero de standaard prijsbron. De app haalt EnergyZero-prijzen rechtstreeks op, ondersteunt de bekende `prices`/`timestamp` responsvorm en blijft de Quatt-opslag apart tonen.

@@ -5,7 +5,7 @@ views:
     icon: mdi:home-lightning-bolt
     cards:
       - type: entities
-        title: Controlpanel
+        title: EEC app controlpanel
         entities:
           - select.ecoflow_energy_control_applicatie_strategie
           - switch.ecoflow_energy_control_applicatie_testmodus
@@ -18,39 +18,47 @@ views:
       - type: custom:auto-entities
         card:
           type: entities
-          title: EcoFlow API status per toegevoegd device
+          title: EEC app - status per toegevoegd EcoFlow device
           show_header_toggle: false
         filter:
           include:
             - entity_id: sensor.ecoflow_energy_control_applicatie_*_api_status
+            - entity_id: sensor.eec_app_*_api_status
         sort:
           method: name
 
       - type: custom:auto-entities
         card:
           type: glance
-          title: Batterijstatus
+          title: EEC app - batterijstatus per device
           columns: 3
         filter:
           include:
             - entity_id: sensor.ecoflow_energy_control_applicatie_*_soc
             - entity_id: sensor.ecoflow_energy_control_applicatie_*_netto_vermogen
             - entity_id: sensor.ecoflow_energy_control_applicatie_*_status
+            - entity_id: sensor.eec_app_*_soc
+            - entity_id: sensor.eec_app_*_netto_vermogen
+            - entity_id: sensor.eec_app_*_status
           exclude:
             - entity_id: sensor.ecoflow_energy_control_applicatie_status
             - entity_id: sensor.ecoflow_energy_control_applicatie_*powerstream*
+            - entity_id: sensor.eec_app_status
+            - entity_id: sensor.eec_app_*powerstream*
         sort:
           method: name
 
       - type: custom:auto-entities
         card:
           type: glance
-          title: PowerStreams
+          title: EEC app - PowerStreams
           columns: 2
         filter:
           include:
             - entity_id: sensor.ecoflow_energy_control_applicatie_*powerstream*_vermogen
             - entity_id: sensor.ecoflow_energy_control_applicatie_*powerstream*_status
+            - entity_id: sensor.eec_app_*powerstream*_vermogen
+            - entity_id: sensor.eec_app_*powerstream*_status
         sort:
           method: name
 
