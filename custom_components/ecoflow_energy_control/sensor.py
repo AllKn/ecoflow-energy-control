@@ -258,6 +258,10 @@ class BatterySocSensor(BaseSensor):
         )
         return values.get("pd.soc") or values.get("soc")
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _device_attrs("battery", self._serial, "soc")
+
 
 class EcoFlowDeviceStatusSensor(BaseSensor):
     """Per-device EcoFlow API and telemetry status."""
@@ -294,6 +298,8 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
         attrs = {
             "serial": self._serial,
             "device_type": self._device_type,
+            "eec_device_type": self._device_type,
+            "eec_sensor_role": "api_status",
             "api_connected": bool(item) and not item.get("error"),
             "telemetry_fields": len(values),
             "telemetry_keys": sorted(values.keys())[:40],
@@ -362,6 +368,10 @@ class BatteryChargePowerSensor(BaseSensor):
             ),
         )
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _device_attrs("battery", self._serial, "charge_power")
+
 
 class BatteryDischargePowerSensor(BaseSensor):
     """Battery discharge power."""
@@ -387,6 +397,10 @@ class BatteryDischargePowerSensor(BaseSensor):
             ),
         )
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _device_attrs("battery", self._serial, "discharge_power")
+
 
 class BatteryNetPowerSensor(BaseSensor):
     """Battery net power: positive means discharging, negative means charging."""
@@ -403,6 +417,10 @@ class BatteryNetPowerSensor(BaseSensor):
     @property
     def native_value(self) -> float:
         return _battery_net_power(self.coordinator, self._serial)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _device_attrs("battery", self._serial, "net_power")
 
 
 class BatteryModeSensor(BaseSensor):
@@ -423,6 +441,10 @@ class BatteryModeSensor(BaseSensor):
             return "laden"
         return "stand-by"
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _device_attrs("battery", self._serial, "mode")
+
 
 class PowerStreamTargetSensor(BaseSensor):
     """PowerStream target/export power."""
@@ -440,6 +462,10 @@ class PowerStreamTargetSensor(BaseSensor):
     def native_value(self) -> float:
         data = (self.coordinator.data or {}).get("powerstreams", {}).get(self._serial, {})
         return float(data.get("target_watts") or 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _device_attrs("powerstream", self._serial, "power")
 
 
 class PowerStreamModeSensor(BaseSensor):
@@ -460,6 +486,10 @@ class PowerStreamModeSensor(BaseSensor):
         if watts < -20:
             return "laden"
         return "stand-by"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return _device_attrs("powerstream", self._serial, "mode")
 
 
 class StatusSensor(BaseSensor):
@@ -509,6 +539,14 @@ def _status_label(device_type: str) -> str:
         "powerstream": "PowerStream",
         "smart_plug": "Smart Plug",
     }.get(device_type, "EcoFlow")
+
+
+def _device_attrs(device_type: str, serial: str, sensor_role: str) -> dict[str, Any]:
+    return {
+        "eec_device_type": device_type,
+        "eec_sensor_role": sensor_role,
+        "serial": serial,
+    }
 
 
 def _first_value(values: dict[str, Any], keys: tuple[str, ...]) -> float:

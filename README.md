@@ -112,7 +112,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.5`
+`0.5.6`
 
 ## EcoFlow Signing
 
@@ -125,3 +125,5 @@ Versie `0.5.3` bewaart toegevoegde devices voortaan in de hoofdconfiguratie in p
 Versie `0.5.4` voegt `epexspot.com` toe als alternatieve prijsbron. De Quatt-opslag van `0.015 EUR/kWh` blijft apart instelbaar en wordt op beide bronnen toegepast. Let op: de officiële realtime EPEX SPOT API is marktdata-abonnement; de publieke epexspot.com bron is een best-effort parser van de market-results pagina.
 
 Versie `0.5.5` maakt EnergyZero de standaard prijsbron. De app haalt EnergyZero-prijzen rechtstreeks op, ondersteunt de bekende `prices`/`timestamp` responsvorm en blijft de Quatt-opslag apart tonen.
+
+Versie `0.5.6` maakt het dashboard minder afhankelijk van entity_id-namen. Batterij- en PowerStream-sensoren krijgen nu eigen `eec_device_type` en `eec_sensor_role` attributen, zodat dynamische dashboardkaarten ook werken als apparaten een eigen naam hebben. De EcoFlow quota-parser accepteert nu ook lijstvormen zoals `{name, value}`.

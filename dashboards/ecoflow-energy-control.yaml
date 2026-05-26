@@ -22,8 +22,8 @@ views:
           show_header_toggle: false
         filter:
           include:
-            - entity_id: sensor.ecoflow_energy_control_applicatie_*_api_status
-            - entity_id: sensor.eec_app_*_api_status
+            - attributes:
+                eec_sensor_role: api_status
         sort:
           method: name
 
@@ -34,17 +34,11 @@ views:
           columns: 3
         filter:
           include:
-            - entity_id: sensor.ecoflow_energy_control_applicatie_*_soc
-            - entity_id: sensor.ecoflow_energy_control_applicatie_*_netto_vermogen
-            - entity_id: sensor.ecoflow_energy_control_applicatie_*_status
-            - entity_id: sensor.eec_app_*_soc
-            - entity_id: sensor.eec_app_*_netto_vermogen
-            - entity_id: sensor.eec_app_*_status
+            - attributes:
+                eec_device_type: battery
           exclude:
-            - entity_id: sensor.ecoflow_energy_control_applicatie_status
-            - entity_id: sensor.ecoflow_energy_control_applicatie_*powerstream*
-            - entity_id: sensor.eec_app_status
-            - entity_id: sensor.eec_app_*powerstream*
+            - attributes:
+                eec_sensor_role: api_status
         sort:
           method: name
 
@@ -55,10 +49,11 @@ views:
           columns: 2
         filter:
           include:
-            - entity_id: sensor.ecoflow_energy_control_applicatie_*powerstream*_vermogen
-            - entity_id: sensor.ecoflow_energy_control_applicatie_*powerstream*_status
-            - entity_id: sensor.eec_app_*powerstream*_vermogen
-            - entity_id: sensor.eec_app_*powerstream*_status
+            - attributes:
+                eec_device_type: powerstream
+          exclude:
+            - attributes:
+                eec_sensor_role: api_status
         sort:
           method: name
 

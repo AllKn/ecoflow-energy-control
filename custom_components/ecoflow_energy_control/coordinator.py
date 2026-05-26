@@ -433,10 +433,41 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 def _extract_values(response: dict[str, Any]) -> dict[str, Any]:
     data = response.get("data")
     if isinstance(data, dict):
+        if isinstance(data.get("quotas"), list):
+            return _quota_list_to_values(data["quotas"])
         if isinstance(data.get("quotas"), dict):
-            return data["quotas"]
-        return data
+            return _flatten_value_dict(data["quotas"])
+        return _flatten_value_dict(data)
+    if isinstance(data, list):
+        return _quota_list_to_values(data)
     return {}
+
+
+def _quota_list_to_values(records: list[Any]) -> dict[str, Any]:
+    values: dict[str, Any] = {}
+    for item in records:
+        if not isinstance(item, dict):
+            continue
+        key = _first_text(item, ("name", "key", "quota", "param", "code", "id"))
+        if not key:
+            continue
+        if "value" in item:
+            values[key] = item["value"]
+        elif "val" in item:
+            values[key] = item["val"]
+        elif "data" in item:
+            values[key] = item["data"]
+    return values
+
+
+def _flatten_value_dict(data: dict[str, Any]) -> dict[str, Any]:
+    values: dict[str, Any] = {}
+    for key, value in data.items():
+        if isinstance(value, dict) and "value" in value:
+            values[key] = value["value"]
+        else:
+            values[key] = value
+    return values
 
 
 def _first_number(
@@ -451,6 +482,14 @@ def _first_number(
         except (TypeError, ValueError):
             continue
     return default
+
+
+def _first_text(values: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+    for key in keys:
+        value = values.get(key)
+        if value is not None:
+            return str(value)
+    return None
 
 
 def _extract_serials(response: dict[str, Any]) -> list[str]:
