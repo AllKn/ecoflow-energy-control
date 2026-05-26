@@ -127,17 +127,29 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 continue
             target_watts = float(self.powerstream_targets.get(serial, 0))
             try:
-                response = await self.ecoflow.get_device_quotas(
-                    serial, device.get("quotas", DEFAULT_POWERSTREAM_QUOTAS)
-                )
+                try:
+                    response = await self.ecoflow.get_device_quotas(
+                        serial, device.get("quotas", DEFAULT_POWERSTREAM_QUOTAS)
+                    )
+                except Exception:  # noqa: BLE001
+                    response = await self.ecoflow.get_device_quotas(serial, None)
                 values = _extract_values(response)
-                target_watts = _first_number(
+                if not values:
+                    response = await self.ecoflow.get_device_quotas(serial, None)
+                    values = _extract_values(response)
+                target_watts = _first_number_or_match(
                     values,
                     (
                         "permanentWatts",
                         "inv.outputWatts",
+                        "invOutputWatts",
+                        "invOutWatts",
                         "outputWatts",
+                        "outputPower",
                         "gridOutputWatts",
+                        "gridOutputPower",
+                        "acOutputWatts",
+                        "ac.outputWatts",
                     ),
                     target_watts,
                 )
@@ -462,17 +474,59 @@ def _quota_list_to_values(records: list[Any]) -> dict[str, Any]:
 
 def _flatten_value_dict(data: dict[str, Any]) -> dict[str, Any]:
     values: dict[str, Any] = {}
-    for key, value in data.items():
-        if isinstance(value, dict) and "value" in value:
-            values[key] = value["value"]
-        else:
-            values[key] = value
+    _flatten_values(data, "", values)
     return values
 
 
-def _first_number(
+def _flatten_values(data: Any, prefix: str, values: dict[str, Any]) -> None:
+    if isinstance(data, dict):
+        if "value" in data and prefix:
+            values[prefix] = data["value"]
+            return
+        for key, value in data.items():
+            child_key = f"{prefix}.{key}" if prefix else str(key)
+            _flatten_values(value, child_key, values)
+        return
+    if isinstance(data, list):
+        quota_values = _quota_list_to_values(data)
+        if quota_values:
+            for key, value in quota_values.items():
+                values[f"{prefix}.{key}" if prefix else key] = value
+            return
+        for index, value in enumerate(data):
+            child_key = f"{prefix}[{index}]" if prefix else f"[{index}]"
+            _flatten_values(value, child_key, values)
+        return
+    if prefix:
+        values[prefix] = data
+
+
+def _first_number_or_match(
     values: dict[str, Any], keys: tuple[str, ...], default: float = 0.0
 ) -> float:
+    exact = _first_number(values, keys, None)
+    if exact is not None:
+        return exact
+    for key, value in values.items():
+        normalized = key.lower().replace("_", "").replace("-", "")
+        if "watt" not in normalized and "power" not in normalized:
+            continue
+        if "input" in normalized or "pv" in normalized or "solar" in normalized:
+            continue
+        if not any(part in normalized for part in ("output", "out", "grid", "inv", "permanent", "ac")):
+            continue
+        if isinstance(value, dict) and "value" in value:
+            value = value["value"]
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return default
+
+
+def _first_number(
+    values: dict[str, Any], keys: tuple[str, ...], default: float | None = 0.0
+) -> float | None:
     for key in keys:
         value = values.get(key)
         if value is None:
