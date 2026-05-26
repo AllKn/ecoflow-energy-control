@@ -124,7 +124,7 @@ views:
               datetimeFormatter:
                 hour: HH:mm
         series:
-          - entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
+          - entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
             name: EUR/kWh
             type: column
             data_generator: |

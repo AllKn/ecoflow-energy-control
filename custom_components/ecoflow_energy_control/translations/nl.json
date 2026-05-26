@@ -57,7 +57,12 @@
         "description": "Serienummer: {serial}\nEcoFlow type: {raw_type}"
       },
       "import_ecoflow_powerstream": {
-        "title": "PowerStream instellingen"
+        "title": "PowerStream instellingen",
+        "data": {
+          "max_watts": "Maximaal terugleververmogen",
+          "phase": "Fase",
+          "battery_serial": "Gekoppelde Delta Pro"
+        }
       },
       "import_ecoflow_smart_plug": {
         "title": "Smart Plug instellingen"
@@ -72,7 +77,15 @@
         "title": "Delta Pro 3 toevoegen"
       },
       "device_powerstream": {
-        "title": "PowerStream toevoegen"
+        "title": "PowerStream toevoegen",
+        "data": {
+          "name": "Naam",
+          "serial": "Serienummer",
+          "max_watts": "Maximaal terugleververmogen",
+          "phase": "Fase",
+          "battery_serial": "Gekoppelde Delta Pro",
+          "command": "EcoFlow command JSON"
+        }
       },
       "device_sma": {
         "title": "SMA omvormer toevoegen"
@@ -87,7 +100,15 @@
         "title": "Batterij wijzigen"
       },
       "edit_powerstreams": {
-        "title": "PowerStream wijzigen"
+        "title": "PowerStream wijzigen",
+        "data": {
+          "name": "Naam",
+          "serial": "Serienummer",
+          "max_watts": "Maximaal terugleververmogen",
+          "phase": "Fase",
+          "battery_serial": "Gekoppelde Delta Pro",
+          "command": "EcoFlow command JSON"
+        }
       },
       "edit_sma_inverters": {
         "title": "SMA omvormer wijzigen"

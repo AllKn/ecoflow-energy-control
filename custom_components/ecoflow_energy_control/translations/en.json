@@ -57,7 +57,12 @@
         "description": "Serial number: {serial}\nEcoFlow type: {raw_type}"
       },
       "import_ecoflow_powerstream": {
-        "title": "PowerStream settings"
+        "title": "PowerStream settings",
+        "data": {
+          "max_watts": "Maximum export power",
+          "phase": "Phase",
+          "battery_serial": "Linked Delta Pro"
+        }
       },
       "import_ecoflow_smart_plug": {
         "title": "Smart Plug settings"
@@ -72,7 +77,15 @@
         "title": "Add Delta Pro 3"
       },
       "device_powerstream": {
-        "title": "Add PowerStream"
+        "title": "Add PowerStream",
+        "data": {
+          "name": "Name",
+          "serial": "Serial number",
+          "max_watts": "Maximum export power",
+          "phase": "Phase",
+          "battery_serial": "Linked Delta Pro",
+          "command": "EcoFlow command JSON"
+        }
       },
       "device_sma": {
         "title": "Add SMA inverter"
@@ -87,7 +100,15 @@
         "title": "Edit battery"
       },
       "edit_powerstreams": {
-        "title": "Edit PowerStream"
+        "title": "Edit PowerStream",
+        "data": {
+          "name": "Name",
+          "serial": "Serial number",
+          "max_watts": "Maximum export power",
+          "phase": "Phase",
+          "battery_serial": "Linked Delta Pro",
+          "command": "EcoFlow command JSON"
+        }
       },
       "edit_sma_inverters": {
         "title": "Edit SMA inverter"

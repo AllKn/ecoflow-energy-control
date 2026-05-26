@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import APP_NAME, DOMAIN
+from .const import APP_NAME, CONF_POWERSTREAMS, DOMAIN
 from .coordinator import EcoFlowEnergyCoordinator
 
 
@@ -19,13 +19,23 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: EcoFlowEnergyCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
-        [
-            ThresholdNumber(coordinator, "export_watts", "teruglever doel", 0, 1600, 10, UnitOfPower.WATT),
-            ThresholdNumber(coordinator, "self_use_watts", "eigen gebruik doel", 0, 1600, 10, UnitOfPower.WATT),
-            ThresholdNumber(coordinator, "solar_plug_threshold_watts", "laadstekkers aan vanaf gecorrigeerde zon", 0, 10000, 50, UnitOfPower.WATT),
-        ]
-    )
+    entities: list[NumberEntity] = [
+        ThresholdNumber(coordinator, "export_watts", "teruglever doel", 0, 1600, 10, UnitOfPower.WATT),
+        ThresholdNumber(coordinator, "self_use_watts", "eigen gebruik doel", 0, 1600, 10, UnitOfPower.WATT),
+        ThresholdNumber(coordinator, "solar_plug_threshold_watts", "laadstekkers aan vanaf gecorrigeerde zon", 0, 10000, 50, UnitOfPower.WATT),
+    ]
+    for device in coordinator.settings.get(CONF_POWERSTREAMS, []):
+        serial = device.get("serial")
+        if serial and "VUL_HIER" not in serial:
+            entities.append(
+                PowerStreamOutputNumber(
+                    coordinator,
+                    str(serial),
+                    str(device.get("name") or serial),
+                    float(device.get("max_watts") or 800),
+                )
+            )
+    async_add_entities(entities)
 
 
 class ThresholdNumber(CoordinatorEntity[EcoFlowEnergyCoordinator], NumberEntity):
@@ -63,3 +73,59 @@ class ThresholdNumber(CoordinatorEntity[EcoFlowEnergyCoordinator], NumberEntity)
     async def async_set_native_value(self, value: float) -> None:
         setattr(self.coordinator, self._attr, value)
         self.async_write_ha_state()
+
+
+class PowerStreamOutputNumber(CoordinatorEntity[EcoFlowEnergyCoordinator], NumberEntity):
+    """Per-PowerStream export target."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: EcoFlowEnergyCoordinator,
+        serial: str,
+        name: str,
+        max_watts: float,
+    ) -> None:
+        super().__init__(coordinator)
+        self._serial = serial
+        self._attr_name = f"{name} teruglevering instellen"
+        self._attr_unique_id = f"{DOMAIN}_{serial}_powerstream_output_setpoint"
+        self._attr_native_min_value = 0
+        self._attr_native_max_value = max(0, max_watts)
+        self._attr_native_step = 10
+        self._attr_native_unit_of_measurement = UnitOfPower.WATT
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, f"ecoflow_{serial}")},
+            "name": name,
+            "manufacturer": "EcoFlow",
+            "model": "PowerStream",
+            "via_device": (DOMAIN, "controller"),
+        }
+
+    @property
+    def native_value(self) -> float:
+        data = self._powerstream_data()
+        if data.get("target_watts") is not None:
+            return float(data.get("target_watts") or 0)
+        return float(self.coordinator.powerstream_targets.get(self._serial, 0))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        data = self._powerstream_data()
+        return {
+            "eec_device_type": "powerstream",
+            "eec_sensor_role": "powerstream_setpoint",
+            "serial": self._serial,
+            "managed_battery_serial": data.get("battery_serial"),
+            "managed_battery_name": data.get("battery_name"),
+            "managed_battery_soc": data.get("battery_soc"),
+            "phase": data.get("phase"),
+        }
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self.coordinator.async_set_powerstream_watts(self._serial, int(value))
+        self.async_write_ha_state()
+
+    def _powerstream_data(self) -> dict[str, object]:
+        return (self.coordinator.data or {}).get("powerstreams", {}).get(self._serial, {})

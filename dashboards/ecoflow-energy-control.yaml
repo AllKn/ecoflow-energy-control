@@ -103,7 +103,7 @@ views:
       - type: custom:auto-entities
         card:
           type: entities
-          title: EEC app - PowerStreams
+          title: PowerStream + Delta Pro sturing
           show_header_toggle: false
         filter:
           include:
@@ -152,7 +152,7 @@ views:
               datetimeFormatter:
                 hour: HH:mm
         series:
-          - entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
+          - entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
             name: EUR/kWh
             type: column
             data_generator: |
@@ -170,7 +170,7 @@ views:
             data_generator: |
               const now = Date.now();
               const end = now + 24 * 60 * 60 * 1000;
-              const source = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'];
+              const source = hass.states['sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen'];
               const prices = source ? source.attributes.prices || [] : [];
               const value = Number(entity.state);
               if (!Number.isFinite(value)) return [];
@@ -185,7 +185,7 @@ views:
             data_generator: |
               const now = Date.now();
               const end = now + 24 * 60 * 60 * 1000;
-              const source = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'];
+              const source = hass.states['sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen'];
               const prices = source ? source.attributes.prices || [] : [];
               const value = Number(entity.state);
               if (!Number.isFinite(value)) return [];

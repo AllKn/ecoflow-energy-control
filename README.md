@@ -112,7 +112,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.21`
+`0.5.22`
 
 ## EcoFlow Signing
 
@@ -157,3 +157,5 @@ Versie `0.5.19` maakt die Delta Pro fallback strenger: een enkel nulveld zoals `
 Versie `0.5.20` splitst batterij-laadvermogen naar bron. De hoofdwaarde `laadvermogen` telt alleen nog AC- en zonne-input mee; DC/input vanuit een Extra Battery wordt apart zichtbaar via attributen zoals `dc_charge_w`, `unclassified_input_w` en `charge_source`. PowerStream-waarden die zonder ingestelde maximumwaarde als deciwatt binnenkomen, worden nu ook naar watt genormaliseerd.
 
 Versie `0.5.21` gebruikt de actuele publieke EnergyZero API per dag (`public.api.energyzero.nl/public/v1/prices`) en haalt vandaag en morgen apart op. Daardoor worden de uurtarieven weer gevuld in plaats van `n/a/loading`.
+
+Versie `0.5.22` maakt de prijsgrafiek robuuster door de grafiekdata ook op de laagste-prijs sensor te zetten. Daarnaast krijgen PowerStreams een eigen wattage-regelaar op het dashboard en kan per PowerStream in de configuratie worden ingesteld welke Delta Pro erbij hoort.

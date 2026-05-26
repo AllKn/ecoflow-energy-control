@@ -186,6 +186,13 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "target_watts": target_watts,
                     "raw_target_watts": raw_target_watts,
                     "phase": device.get("phase", "l1"),
+                    "battery_serial": device.get("battery_serial"),
+                    "battery_name": _battery_name(
+                        settings, device.get("battery_serial")
+                    ),
+                    "battery_soc": _battery_soc_for_serial(
+                        batteries, device.get("battery_serial")
+                    ),
                     "response_debug": _response_debug(response),
                 }
             except Exception as err:  # noqa: BLE001
@@ -195,6 +202,13 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "values": {},
                     "target_watts": target_watts,
                     "phase": device.get("phase", "l1"),
+                    "battery_serial": device.get("battery_serial"),
+                    "battery_name": _battery_name(
+                        settings, device.get("battery_serial")
+                    ),
+                    "battery_soc": _battery_soc_for_serial(
+                        batteries, device.get("battery_serial")
+                    ),
                     "error": str(err),
                 }
 
@@ -442,13 +456,13 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         device = self._powerstream(serial)
         watts = max(0, min(watts, int(device.get("max_watts", watts))))
         command = render_template_dict(device["command"], {"watts": watts})
+        self.powerstream_targets[serial] = watts
         if self.dry_run:
             self.async_set_updated_data(
                 {**(self.data or {}), "last_action": f"dry-run {serial} -> {watts} W"}
             )
             return
         await self.ecoflow.set_device_command(serial, command)
-        self.powerstream_targets[serial] = watts
         self.async_set_updated_data(
             {**(self.data or {}), "last_action": f"{serial} -> {watts} W"}
         )
@@ -808,6 +822,24 @@ def _battery_min_soc(batteries: dict[str, Any]) -> float | None:
     if not values:
         return None
     return min(values)
+
+
+def _battery_soc_for_serial(
+    batteries: dict[str, Any], serial: str | None
+) -> float | None:
+    if not serial:
+        return None
+    item = batteries.get(str(serial)) or {}
+    return _battery_soc_value(item.get("values", {}))
+
+
+def _battery_name(settings: dict[str, Any], serial: str | None) -> str | None:
+    if not serial:
+        return None
+    for device in settings.get(CONF_BATTERIES, []):
+        if str(device.get("serial")) == str(serial):
+            return str(device.get("name") or serial)
+    return str(serial)
 
 
 def _battery_soc_value(values: dict[str, Any]) -> float | None:

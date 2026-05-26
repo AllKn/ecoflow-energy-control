@@ -172,10 +172,13 @@ class PriceMinimumSensor(BaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        summary = (self.coordinator.data or {}).get("price_summary") or {}
         return {
-            "start": ((self.coordinator.data or {}).get("price_summary") or {}).get(
-                "min_start"
-            )
+            "start": summary.get("min_start"),
+            "prices": summary.get("chart", []),
+            "price_count": len(summary.get("chart", [])),
+            "maximum": summary.get("max"),
+            "maximum_start": summary.get("max_start"),
         }
 
 
@@ -193,10 +196,13 @@ class PriceMaximumSensor(BaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        summary = (self.coordinator.data or {}).get("price_summary") or {}
         return {
-            "start": ((self.coordinator.data or {}).get("price_summary") or {}).get(
-                "max_start"
-            )
+            "start": summary.get("max_start"),
+            "prices": summary.get("chart", []),
+            "price_count": len(summary.get("chart", [])),
+            "minimum": summary.get("min"),
+            "minimum_start": summary.get("min_start"),
         }
 
 
@@ -481,6 +487,9 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
                     "target_w": float(item.get("target_watts") or 0) if item else 0,
                     "raw_target_w": float(item.get("raw_target_watts") or 0) if item else 0,
                     "phase": item.get("phase") if item else None,
+                    "managed_battery_serial": item.get("battery_serial") if item else None,
+                    "managed_battery_name": item.get("battery_name") if item else None,
+                    "managed_battery_soc": item.get("battery_soc") if item else None,
                     "power_candidates": _powerstream_power_candidates(values),
                 }
             )
@@ -661,6 +670,10 @@ class PowerStreamTargetSensor(BaseSensor):
             "telemetry_fields": len(values),
             "telemetry_keys": sorted(values.keys())[:40],
             "raw_target_w": data.get("raw_target_watts"),
+            "managed_battery_serial": data.get("battery_serial"),
+            "managed_battery_name": data.get("battery_name"),
+            "managed_battery_soc": data.get("battery_soc"),
+            "phase": data.get("phase"),
             "power_candidates": _powerstream_power_candidates(values),
         }
 
@@ -694,6 +707,10 @@ class PowerStreamModeSensor(BaseSensor):
             "telemetry_fields": len(values),
             "telemetry_keys": sorted(values.keys())[:40],
             "raw_target_w": data.get("raw_target_watts"),
+            "managed_battery_serial": data.get("battery_serial"),
+            "managed_battery_name": data.get("battery_name"),
+            "managed_battery_soc": data.get("battery_soc"),
+            "phase": data.get("phase"),
             "power_candidates": _powerstream_power_candidates(values),
         }
 

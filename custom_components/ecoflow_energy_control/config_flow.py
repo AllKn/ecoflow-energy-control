@@ -290,6 +290,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             self._pending_import_config.update(user_input)
             return self._save_imported_ecoflow_device()
+        batteries = self._battery_choices_with_none()
         return self.async_show_form(
             step_id="import_ecoflow_powerstream",
             data_schema=vol.Schema(
@@ -298,6 +299,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("phase", default="l1"): vol.In(
                         {"l1": "Fase 1", "l2": "Fase 2", "l3": "Fase 3"}
                     ),
+                    vol.Required("battery_serial", default=""): vol.In(batteries),
                 }
             ),
         )
@@ -485,6 +487,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                             "serial": user_input["serial"],
                             "max_watts": user_input["max_watts"],
                             "phase": user_input["phase"],
+                            "battery_serial": user_input["battery_serial"],
                             "command": command,
                         }
                     )
@@ -498,6 +501,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("max_watts", default=800): int,
                     vol.Required("phase", default="l1"): vol.In(
                         {"l1": "Fase 1", "l2": "Fase 2", "l3": "Fase 3"}
+                    ),
+                    vol.Required("battery_serial", default=""): vol.In(
+                        self._battery_choices_with_none()
                     ),
                     vol.Required(
                         "command", default=json.dumps(DEFAULT_POWERSTREAM_COMMAND)
@@ -720,6 +726,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                         "serial": user_input["serial"],
                         "max_watts": user_input["max_watts"],
                         "phase": user_input["phase"],
+                        "battery_serial": user_input["battery_serial"],
                         "command": command,
                     }
                     return self._replace_device(group, index, item)
@@ -733,6 +740,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("phase", default=current.get("phase", "l1")): vol.In(
                         {"l1": "Fase 1", "l2": "Fase 2", "l3": "Fase 3"}
                     ),
+                    vol.Required(
+                        "battery_serial", default=current.get("battery_serial", "")
+                    ): vol.In(self._battery_choices_with_none()),
                     vol.Required(
                         "command",
                         default=json.dumps(
@@ -935,6 +945,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     "serial": config["serial"],
                     "max_watts": config["max_watts"],
                     "phase": config["phase"],
+                    "battery_serial": config.get("battery_serial", ""),
                     "command": DEFAULT_POWERSTREAM_COMMAND,
                 }
             )
@@ -1014,6 +1025,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
             if serial:
                 choices[str(serial)] = f"{name} ({serial})"
         return choices
+
+    def _battery_choices_with_none(self) -> dict[str, str]:
+        return {"": "Geen batterij gekoppeld", **self._battery_choices()}
 
     def _homewizard_ha_configured(self, device_id: str) -> bool:
         for item in self._settings().get(CONF_HOMEWIZARD_METERS, []):
