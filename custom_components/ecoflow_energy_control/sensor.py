@@ -55,6 +55,7 @@ async def async_setup_entry(
                     EcoFlowDeviceStatusSensor(coordinator, serial, name, "battery"),
                     BatterySocSensor(coordinator, serial, name),
                     BatteryChargePowerSensor(coordinator, serial, name),
+                    BatteryChargeSourceSensor(coordinator, serial, name),
                     BatteryDischargePowerSensor(coordinator, serial, name),
                     BatteryNetPowerSensor(coordinator, serial, name),
                     BatteryModeSensor(coordinator, serial, name),
@@ -138,6 +139,7 @@ class PriceSensor(BaseSensor):
             "prices": summary.get("chart", []),
             "price_count": len(summary.get("chart", [])),
             "raw_price_count": len(data.get("prices", [])),
+            "price_error": (data.get("errors") or {}).get("prices"),
             "minimum": summary.get("min"),
             "minimum_start": summary.get("min_start"),
             "maximum": summary.get("max"),
@@ -463,6 +465,11 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
                     **_battery_soc_detail(values),
                     "soc_candidates": _battery_soc_candidates(values),
                     "charge_w": _battery_charge_power(values),
+                    "charge_source": _battery_charge_source(values),
+                    "ac_charge_w": _battery_ac_charge_power(values),
+                    "solar_charge_w": _battery_solar_charge_power(values),
+                    "dc_charge_w": _battery_dc_charge_power(values),
+                    "unclassified_input_w": _battery_unclassified_input_power(values),
                     "discharge_w": _battery_discharge_power(values),
                     "net_w": _battery_net_power(self.coordinator, self._serial),
                     "power_candidates": _battery_power_candidates(values),
@@ -513,6 +520,11 @@ class BatteryChargePowerSensor(BaseSensor):
         values = _battery_values(self.coordinator, self._serial)
         return {
             **_device_attrs("battery", self._serial, "charge_power"),
+            "charge_source": _battery_charge_source(values),
+            "ac_charge_w": _battery_ac_charge_power(values),
+            "solar_charge_w": _battery_solar_charge_power(values),
+            "dc_charge_w": _battery_dc_charge_power(values),
+            "unclassified_input_w": _battery_unclassified_input_power(values),
             "power_candidates": _battery_power_candidates(values),
         }
 
@@ -541,6 +553,33 @@ class BatteryDischargePowerSensor(BaseSensor):
         values = _battery_values(self.coordinator, self._serial)
         return {
             **_device_attrs("battery", self._serial, "discharge_power"),
+            "power_candidates": _battery_power_candidates(values),
+        }
+
+
+class BatteryChargeSourceSensor(BaseSensor):
+    """Battery charge source."""
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"{serial}_charge_source", f"{name} laadbron")
+        self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
+
+    @property
+    def native_value(self) -> str:
+        return _battery_charge_source(_battery_values(self.coordinator, self._serial))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        values = _battery_values(self.coordinator, self._serial)
+        return {
+            **_device_attrs("battery", self._serial, "charge_source"),
+            "ac_charge_w": _battery_ac_charge_power(values),
+            "solar_charge_w": _battery_solar_charge_power(values),
+            "dc_charge_w": _battery_dc_charge_power(values),
+            "unclassified_input_w": _battery_unclassified_input_power(values),
             "power_candidates": _battery_power_candidates(values),
         }
 
@@ -938,43 +977,113 @@ def _battery_soc_candidates(values: dict[str, Any]) -> dict[str, Any]:
 
 
 def _battery_charge_power(values: dict[str, Any]) -> float:
+    return round(
+        _battery_ac_charge_power(values) + _battery_solar_charge_power(values), 1
+    )
+
+
+def _battery_charge_source(values: dict[str, Any]) -> str:
+    ac = _battery_ac_charge_power(values)
+    solar = _battery_solar_charge_power(values)
+    dc = _battery_dc_charge_power(values)
+    unclassified = _battery_unclassified_input_power(values)
+    sources = []
+    if ac > 0:
+        sources.append("AC")
+    if solar > 0:
+        sources.append("zon")
+    if sources:
+        return " + ".join(sources)
+    if dc > 0:
+        return "DC/extra batterij"
+    if unclassified > 0:
+        return "onbekende input"
+    return "geen"
+
+
+def _battery_ac_charge_power(values: dict[str, Any]) -> float:
+    return max(
+        0.0,
+        _first_value(
+            values,
+            (
+                "pd.acInWatts",
+                "inv.acInWatts",
+                "acInWatts",
+                "ac.inputWatts",
+                "acInPower",
+                "gridInputWatts",
+                "gridInputPower",
+            ),
+        ),
+    )
+
+
+def _battery_solar_charge_power(values: dict[str, Any]) -> float:
     explicit = _first_value(
         values,
         (
-            "pd.inputWatts",
-            "pd.wattsInSum",
-            "pd.acInWatts",
-            "pd.dcInWatts",
             "pd.solarWatts",
-            "bms_emsStatus.inputWatts",
-            "bms_emsStatus.wattsInSum",
-            "bms_bmsStatus.inputWatts",
-            "bms_bmsStatus.wattsInSum",
             "mppt.inWatts",
-            "inv.acInWatts",
-            "inv.inputWatts",
-            "inputWatts",
-            "wattsInSum",
-            "chargeWatts",
-            "chgWatts",
-            "chgPower",
-            "chargePower",
-            "bmsChgPower",
-            "cmsChgPower",
-            "acInPower",
-            "dcInPower",
+            "mppt.inputWatts",
+            "mppt.inputPower",
+            "pv.inputWatts",
+            "pv.inputPower",
+            "solarInputWatts",
+            "solarInputPower",
             "pvInPower",
-            "bmsInputWatts",
-            "cmsInputWatts",
-            "powIn",
-            "powerIn",
-            "powInSumW",
-            "inputPower",
+            "pvInWatts",
         ),
     )
     if explicit:
         return max(0.0, explicit)
-    return max(0.0, _classified_battery_power(values, "charge"))
+    return max(0.0, _classified_battery_power(values, "solar_charge"))
+
+
+def _battery_dc_charge_power(values: dict[str, Any]) -> float:
+    return max(
+        0.0,
+        _first_value(
+            values,
+            (
+                "pd.dcInWatts",
+                "dcInWatts",
+                "dcInPower",
+                "bms_emsStatus.inputWatts",
+                "bms_emsStatus.wattsInSum",
+                "bms_bmsStatus.inputWatts",
+                "bms_bmsStatus.wattsInSum",
+            ),
+        ),
+    )
+
+
+def _battery_unclassified_input_power(values: dict[str, Any]) -> float:
+    return max(
+        0.0,
+        _first_value(
+            values,
+            (
+                "pd.inputWatts",
+                "pd.wattsInSum",
+                "inv.inputWatts",
+                "inputWatts",
+                "wattsInSum",
+                "chargeWatts",
+                "chgWatts",
+                "chgPower",
+                "chargePower",
+                "bmsChgPower",
+                "cmsChgPower",
+                "bmsInputWatts",
+                "cmsInputWatts",
+                "powIn",
+                "powerIn",
+                "powInSumW",
+                "inputPower",
+            ),
+        ),
+    )
 
 
 def _battery_discharge_power(values: dict[str, Any]) -> float:
@@ -1023,6 +1132,11 @@ def _classified_battery_power(values: dict[str, Any], direction: str) -> float:
         numeric = _to_float(value)
         if numeric is None:
             continue
+        if direction == "solar_charge" and any(
+            part in normalized
+            for part in ("solar", "pv", "mppt")
+        ):
+            return numeric
         if direction == "charge" and any(
             part in normalized
             for part in (

@@ -26,22 +26,24 @@ def epexspot_url(delivery_date: date, market_area: str = "NL") -> str:
     )
 
 
-def energyzero_url(start: datetime, end: datetime, incl_vat: bool = False) -> str:
+def energyzero_url(day: date, interval: str = "hourly") -> str:
     """Build an EnergyZero electricity price API URL."""
+    interval_value = _energyzero_interval(interval)
     query = urlencode(
         {
-            "fromDate": start.isoformat(),
-            "tillDate": end.isoformat(),
-            "interval": 4,
-            "usageType": 1,
-            "inclBtw": str(bool(incl_vat)).lower(),
+            "energyType": "ENERGY_TYPE_ELECTRICITY",
+            "date": day.strftime("%d-%m-%Y"),
+            "interval": interval_value,
         }
     )
-    return f"https://api.energyzero.nl/v1/energyprices?{query}"
+    return f"https://public.api.energyzero.nl/public/v1/prices?{query}"
 
 
 async def fetch_prices(
-    session: ClientSession, url: str, surcharge_eur_kwh: float = 0.0
+    session: ClientSession,
+    url: str,
+    surcharge_eur_kwh: float = 0.0,
+    record_keys: tuple[str, ...] | None = None,
 ) -> list[dict[str, Any]]:
     """Fetch hourly electricity prices from a JSON endpoint.
 
@@ -65,7 +67,19 @@ async def fetch_prices(
     elif isinstance(data, list):
         records = data
     elif isinstance(data, dict):
-        for key in ("data", "prices", "Prices", "records", "items", "marketPrices"):
+        keys = record_keys or (
+            "data",
+            "prices",
+            "Prices",
+            "records",
+            "items",
+            "marketPrices",
+            "base",
+            "base_with_vat",
+            "all_in",
+            "all_in_with_vat",
+        )
+        for key in keys:
             if isinstance(data.get(key), list):
                 records = data[key]
                 break
@@ -93,6 +107,7 @@ async def fetch_prices(
                 "marketprice",
                 "marketPrice",
                 "Price",
+                "price.value",
             ),
         )
         starts_at = _first_text(
@@ -231,7 +246,7 @@ def _align_to_reference_tz(parsed: datetime, reference: datetime) -> datetime:
 
 def _first_number(item: dict[str, Any], keys: tuple[str, ...]) -> float | None:
     for key in keys:
-        value = item.get(key)
+        value = _nested_value(item, key)
         if value is None:
             continue
         try:
@@ -286,7 +301,25 @@ def json_loads(text: str) -> Any:
 
 def _first_text(item: dict[str, Any], keys: tuple[str, ...]) -> str | None:
     for key in keys:
-        value = item.get(key)
+        value = _nested_value(item, key)
         if value is not None:
             return str(value)
     return None
+
+
+def _nested_value(item: dict[str, Any], key: str) -> Any:
+    current: Any = item
+    for part in key.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+        if current is None:
+            return None
+    return current
+
+
+def _energyzero_interval(interval: str) -> str:
+    normalized = (interval or "hourly").strip().lower()
+    if normalized in ("quarter", "quarters", "15m", "quarterly", "interval_quarter"):
+        return "INTERVAL_QUARTER"
+    return "INTERVAL_HOUR"

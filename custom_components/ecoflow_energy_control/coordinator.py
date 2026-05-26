@@ -525,14 +525,19 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return await fetch_prices(self.session, settings[CONF_PRICE_URL], surcharge)
         today = dt_util.now().date()
         if source == "energyzero":
-            start = dt_util.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            end = start + timedelta(days=2) - timedelta(seconds=1)
             incl_vat = bool(settings.get(CONF_PRICE_INCL_VAT, DEFAULT_PRICE_INCL_VAT))
-            return await fetch_prices(
-                self.session,
-                energyzero_url(start, end, incl_vat),
-                surcharge,
-            )
+            record_keys = ("base_with_vat", "base") if incl_vat else ("base", "base_with_vat")
+            prices: list[dict[str, Any]] = []
+            for day in (today, today + timedelta(days=1)):
+                prices.extend(
+                    await fetch_prices(
+                        self.session,
+                        energyzero_url(day, interval),
+                        surcharge,
+                        record_keys,
+                    )
+                )
+            return prices
         if source == "epexspot":
             prices: list[dict[str, Any]] = []
             for day in (today, today + timedelta(days=1)):
@@ -863,6 +868,8 @@ def _normalize_powerstream_watts(value: float | None, max_watts: float) -> float
     if max_watts > 0 and abs(normalized) > max_watts * 1.5:
         if abs(normalized / 10) <= max_watts * 1.5:
             normalized = normalized / 10
+    elif abs(normalized) > 1000 and abs(normalized / 10) <= 1000:
+        normalized = normalized / 10
     return round(normalized, 1)
 
 

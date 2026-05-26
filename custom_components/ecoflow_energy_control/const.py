@@ -4,7 +4,7 @@ from __future__ import annotations
 
 DOMAIN = "ecoflow_energy_control"
 APP_NAME = "EEC app"
-APP_VERSION = "0.5.19"
+APP_VERSION = "0.5.21"
 
 CONF_ACCESS_KEY = "access_key"
 CONF_SECRET_KEY = "secret_key"
@@ -77,6 +77,14 @@ DEFAULT_BATTERY_QUOTAS = [
     "pd.acOutWatts",
     "pd.dcInWatts",
     "pd.dcOutWatts",
+    "pd.solarWatts",
+    "mppt.inWatts",
+    "mppt.inputWatts",
+    "mppt.inputPower",
+    "pv.inputWatts",
+    "pv.inputPower",
+    "pvInWatts",
+    "pvInPower",
     "bms_emsStatus.inputWatts",
     "bms_emsStatus.outputWatts",
     "bms_emsStatus.wattsInSum",
