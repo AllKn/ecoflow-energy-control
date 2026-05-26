@@ -16,6 +16,7 @@ from .api.ecoflow import EcoFlowCloudClient, render_template_dict
 from .api.homewizard import read_homewizard_meter
 from .api.prices import (
     current_price,
+    epexspot_url,
     epexprijzen_url,
     fetch_prices,
     price_bands,
@@ -31,6 +32,7 @@ from .const import (
     CONF_POWERSTREAMS,
     CONF_PRICE_INTERVAL,
     CONF_PRICE_PROVIDER,
+    CONF_PRICE_SOURCE,
     CONF_PRICE_SURCHARGE,
     CONF_PRICE_URL,
     CONF_SECRET_KEY,
@@ -45,6 +47,7 @@ from .const import (
     DEFAULT_PRICE_URL,
     DEFAULT_PRICE_INTERVAL,
     DEFAULT_PRICE_PROVIDER,
+    DEFAULT_PRICE_SOURCE,
     DEFAULT_PRICE_SURCHARGE,
     DEFAULT_SMA_API_HOST,
     DEFAULT_SMA_ENDPOINT,
@@ -337,11 +340,19 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.async_refresh_prices_now()
 
     async def _async_fetch_prices(self, settings: dict[str, Any]) -> list[dict[str, Any]]:
+        source = settings.get(CONF_PRICE_SOURCE, DEFAULT_PRICE_SOURCE)
         provider = settings.get(CONF_PRICE_PROVIDER, DEFAULT_PRICE_PROVIDER)
         interval = settings.get(CONF_PRICE_INTERVAL, DEFAULT_PRICE_INTERVAL)
         surcharge = float(settings.get(CONF_PRICE_SURCHARGE, DEFAULT_PRICE_SURCHARGE))
-        url = settings.get(CONF_PRICE_URL) or epexprijzen_url(provider, interval)
-        return await fetch_prices(self.session, url, surcharge)
+        if settings.get(CONF_PRICE_URL):
+            return await fetch_prices(self.session, settings[CONF_PRICE_URL], surcharge)
+        if source == "epexspot":
+            today = dt_util.now().date()
+            prices: list[dict[str, Any]] = []
+            for day in (today, today + timedelta(days=1)):
+                prices.extend(await fetch_prices(self.session, epexspot_url(day), surcharge))
+            return prices
+        return await fetch_prices(self.session, epexprijzen_url(provider, interval), surcharge)
 
     async def async_apply_strategy(self) -> None:
         """Apply the currently selected simple price strategy."""
