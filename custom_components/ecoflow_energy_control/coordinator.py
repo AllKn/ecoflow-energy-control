@@ -125,6 +125,12 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     source = "all_after_empty_selected"
                     response = await self.ecoflow.get_device_quotas(serial, None)
                     values = _extract_values(response)
+                elif not _has_battery_live_power(values):
+                    source = "all_after_missing_power"
+                    response = await self.ecoflow.get_device_quotas(serial, None)
+                    all_values = _extract_values(response)
+                    if all_values:
+                        values = all_values
                 batteries[serial] = {
                     "name": device.get("name", serial),
                     "response": response,
@@ -691,6 +697,63 @@ def _first_number_or_match(
         except (TypeError, ValueError):
             continue
     return default
+
+
+def _has_battery_live_power(values: dict[str, Any]) -> bool:
+    for key, value in values.items():
+        normalized = key.lower().replace("_", "").replace("-", "").replace(".", "")
+        if not any(part in normalized for part in ("watt", "power", "pow")):
+            continue
+        if any(
+            part in normalized
+            for part in (
+                "max",
+                "min",
+                "limit",
+                "design",
+                "fullenergy",
+                "remain",
+                "remtime",
+                "standby",
+                "soc",
+                "soh",
+                "temp",
+            )
+        ):
+            continue
+        if not any(
+            part in normalized
+            for part in (
+                "input",
+                "output",
+                "charge",
+                "discharge",
+                "chg",
+                "dsg",
+                "powin",
+                "powout",
+                "wattsin",
+                "wattsout",
+                "acin",
+                "acout",
+                "dcin",
+                "dcout",
+                "invout",
+            )
+        ):
+            continue
+        if _coerce_float(value) is not None:
+            return True
+    return False
+
+
+def _coerce_float(value: Any) -> float | None:
+    if isinstance(value, dict) and "value" in value:
+        value = value["value"]
+    try:
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
 
 
 def _first_number(
