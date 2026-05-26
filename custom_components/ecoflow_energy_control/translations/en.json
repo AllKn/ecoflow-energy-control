@@ -53,6 +53,12 @@
         "title": "Configure EcoFlow device",
         "description": "Serial number: {serial}\nEcoFlow type: {raw_type}"
       },
+      "import_ecoflow_powerstream": {
+        "title": "PowerStream settings"
+      },
+      "import_ecoflow_smart_plug": {
+        "title": "Smart Plug settings"
+      },
       "edit_device": {
         "title": "Edit device"
       },

@@ -153,6 +153,30 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "error": str(err),
                 }
 
+        smart_plugs = {}
+        for device in settings.get(CONF_SMART_PLUGS, []):
+            serial = device.get("serial")
+            if not serial or "VUL_HIER" in serial:
+                continue
+            try:
+                response = await self.ecoflow.get_device_quotas(
+                    serial, device.get("quotas")
+                )
+                smart_plugs[serial] = {
+                    "name": device.get("name", serial),
+                    "response": response,
+                    "values": _extract_values(response),
+                    "charges": device.get("charges"),
+                }
+            except Exception as err:  # noqa: BLE001
+                errors[f"smart_plug_{serial}"] = str(err)
+                smart_plugs[serial] = {
+                    "name": device.get("name", serial),
+                    "values": {},
+                    "charges": device.get("charges"),
+                    "error": str(err),
+                }
+
         inverters = {}
         sma_token = settings.get(CONF_SMA_TOKEN)
         sma_plant_id = settings.get(CONF_SMA_PLANT_ID)
@@ -218,6 +242,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "prices": prices,
             "batteries": batteries,
             "powerstreams": powerstreams,
+            "smart_plugs": smart_plugs,
             "inverters": inverters,
             "homewizard_meters": homewizard_meters,
             "solar_power": solar_power,

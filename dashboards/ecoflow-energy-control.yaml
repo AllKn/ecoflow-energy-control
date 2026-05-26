@@ -9,19 +9,57 @@ views:
         entities:
           - select.ecoflow_energy_control_applicatie_strategie
           - switch.ecoflow_energy_control_applicatie_testmodus
-          - number.ecoflow_energy_control_applicatie_teruglever_doel
-          - number.ecoflow_energy_control_applicatie_eigen_gebruik_doel
-          - number.ecoflow_energy_control_applicatie_laadstekkers_aan_vanaf_gecorrigeerde_zon
           - button.ecoflow_energy_control_applicatie_ecoflow_api_controleren
           - button.ecoflow_energy_control_applicatie_epex_prijzen_ophalen
           - button.ecoflow_energy_control_applicatie_strategie_nu_toepassen
           - sensor.ecoflow_energy_control_applicatie_status
           - sensor.ecoflow_energy_control_applicatie_laatste_actie
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: EcoFlow API status per toegevoegd device
+          show_header_toggle: false
+        filter:
+          include:
+            - entity_id: sensor.ecoflow_energy_control_applicatie_*_api_status
+        sort:
+          method: name
+
+      - type: custom:auto-entities
+        card:
+          type: glance
+          title: Batterijstatus
+          columns: 3
+        filter:
+          include:
+            - entity_id: sensor.ecoflow_energy_control_applicatie_*_soc
+            - entity_id: sensor.ecoflow_energy_control_applicatie_*_netto_vermogen
+            - entity_id: sensor.ecoflow_energy_control_applicatie_*_status
+          exclude:
+            - entity_id: sensor.ecoflow_energy_control_applicatie_status
+            - entity_id: sensor.ecoflow_energy_control_applicatie_*powerstream*
+        sort:
+          method: name
+
+      - type: custom:auto-entities
+        card:
+          type: glance
+          title: PowerStreams
+          columns: 2
+        filter:
+          include:
+            - entity_id: sensor.ecoflow_energy_control_applicatie_*powerstream*_vermogen
+            - entity_id: sensor.ecoflow_energy_control_applicatie_*powerstream*_status
+        sort:
+          method: name
+
       - type: gauge
         entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
         name: Quatt prijs nu
         min: -0.2
         max: 0.8
+
       - type: custom:apexcharts-card
         header:
           show: true
@@ -31,11 +69,6 @@ views:
         now:
           show: true
           label: Nu
-        apex_config:
-          yaxis:
-            decimalsInFloat: 3
-          annotations:
-            points: []
         series:
           - entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
             name: Prijs
@@ -48,7 +81,8 @@ views:
             type: line
             stroke_width: 2
             data_generator: |
-              const prices = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'].attributes.prices || [];
+              const source = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'];
+              const prices = source ? source.attributes.prices || [] : [];
               const value = entity.state === 'unknown' ? null : Number(entity.state);
               return prices.map((item) => [new Date(item.start).getTime(), value]);
           - entity: sensor.ecoflow_energy_control_applicatie_hoogste_prijs_tot_morgen
@@ -56,83 +90,25 @@ views:
             type: line
             stroke_width: 2
             data_generator: |
-              const prices = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'].attributes.prices || [];
+              const source = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'];
+              const prices = source ? source.attributes.prices || [] : [];
               const value = entity.state === 'unknown' ? null : Number(entity.state);
               return prices.map((item) => [new Date(item.start).getTime(), value]);
-      - type: vertical-stack
-        title: EcoFlow batterijen
-        cards:
-          - type: horizontal-stack
-            cards:
-              - type: gauge
-                entity: sensor.ecoflow_energy_control_applicatie_delta_pro_soc
-                name: Delta Pro
-                min: 0
-                max: 100
-                severity:
-                  green: 60
-                  yellow: 25
-                  red: 0
-              - type: gauge
-                entity: sensor.ecoflow_energy_control_applicatie_delta_pro_3_soc
-                name: Delta Pro 3
-                min: 0
-                max: 100
-                severity:
-                  green: 60
-                  yellow: 25
-                  red: 0
-          - type: horizontal-stack
-            cards:
-              - type: gauge
-                entity: sensor.ecoflow_energy_control_applicatie_delta_pro_netto_vermogen
-                name: Delta Pro netto
-                min: -2000
-                max: 2000
-              - type: gauge
-                entity: sensor.ecoflow_energy_control_applicatie_delta_pro_3_netto_vermogen
-                name: Delta Pro 3 netto
-                min: -3000
-                max: 3000
-          - type: entities
-            entities:
-              - sensor.ecoflow_energy_control_applicatie_delta_pro_status
-              - sensor.ecoflow_energy_control_applicatie_delta_pro_laadvermogen
-              - sensor.ecoflow_energy_control_applicatie_delta_pro_ontlaadvermogen
-              - sensor.ecoflow_energy_control_applicatie_delta_pro_3_status
-              - sensor.ecoflow_energy_control_applicatie_delta_pro_3_laadvermogen
-              - sensor.ecoflow_energy_control_applicatie_delta_pro_3_ontlaadvermogen
-      - type: vertical-stack
-        title: PowerStreams
-        cards:
-          - type: horizontal-stack
-            cards:
-              - type: gauge
-                entity: sensor.ecoflow_energy_control_applicatie_powerstream_1_vermogen
-                name: PowerStream 1
-                min: 0
-                max: 800
-              - type: gauge
-                entity: sensor.ecoflow_energy_control_applicatie_powerstream_2_vermogen
-                name: PowerStream 2
-                min: 0
-                max: 800
-          - type: entities
-            entities:
-              - sensor.ecoflow_energy_control_applicatie_powerstream_1_status
-              - sensor.ecoflow_energy_control_applicatie_powerstream_2_status
+
       - type: entities
-        title: Automatische prijsgrenzen
+        title: Prijsgrenzen
         entities:
           - sensor.ecoflow_energy_control_applicatie_goedkope_prijsgrens
           - sensor.ecoflow_energy_control_applicatie_dure_prijsgrens
           - sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
           - sensor.ecoflow_energy_control_applicatie_hoogste_prijs_tot_morgen
+
       - type: gauge
         entity: sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
         name: Opwek gecorrigeerd
         min: 0
         max: 8000
+
       - type: entities
         title: Opwekcorrectie
         entities:
@@ -140,9 +116,3 @@ views:
           - sensor.ecoflow_energy_control_applicatie_powerstream_teruglevering
           - sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
           - sensor.ecoflow_energy_control_applicatie_sma_totaal_vermogen
-      - type: history-graph
-        title: Energie
-        hours_to_show: 24
-        entities:
-          - sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
-          - sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd

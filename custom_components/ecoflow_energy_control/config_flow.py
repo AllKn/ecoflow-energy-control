@@ -122,6 +122,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         self._pending_remove: str | None = None
         self._pending_edit: tuple[str, int] | None = None
         self._pending_import_device: dict[str, Any] | None = None
+        self._pending_import_config: dict[str, Any] | None = None
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -179,41 +180,16 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
             except Exception:  # noqa: BLE001
                 errors["base"] = "cannot_connect"
             else:
-                values = self._settings()
-                device_type = user_input["device_type"]
-                if device_type in ("delta_pro", "delta_pro_3"):
-                    values.setdefault(CONF_BATTERIES, []).append(
-                        {
-                            "name": user_input["name"],
-                            "model": "Delta Pro 3"
-                            if device_type == "delta_pro_3"
-                            else "Delta Pro",
-                            "serial": serial,
-                            "quotas": DEFAULT_BATTERY_QUOTAS,
-                        }
-                    )
-                elif device_type == "powerstream":
-                    values.setdefault(CONF_POWERSTREAMS, []).append(
-                        {
-                            "name": user_input["name"],
-                            "serial": serial,
-                            "max_watts": user_input["max_watts"],
-                            "phase": user_input["phase"],
-                            "command": DEFAULT_POWERSTREAM_COMMAND,
-                        }
-                    )
-                else:
-                    values.setdefault(CONF_SMART_PLUGS, []).append(
-                        {
-                            "name": user_input["name"],
-                            "serial": serial,
-                            "charges": user_input["charges"],
-                            "on_command": DEFAULT_SMART_PLUG_ON_COMMAND,
-                            "off_command": DEFAULT_SMART_PLUG_OFF_COMMAND,
-                        }
-                    )
-                self._pending_import_device = None
-                return self._save(values)
+                self._pending_import_config = {
+                    "name": user_input["name"],
+                    "device_type": user_input["device_type"],
+                    "serial": serial,
+                }
+                if user_input["device_type"] == "powerstream":
+                    return await self.async_step_import_ecoflow_powerstream()
+                if user_input["device_type"] == "smart_plug":
+                    return await self.async_step_import_ecoflow_smart_plug()
+                return self._save_imported_ecoflow_device()
 
         return self.async_show_form(
             step_id="import_ecoflow_configure",
@@ -228,11 +204,6 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                             "smart_plug": "EcoFlow Smart Plug",
                         }
                     ),
-                    vol.Optional("max_watts", default=800): int,
-                    vol.Optional("phase", default="l1"): vol.In(
-                        {"l1": "Fase 1", "l2": "Fase 2", "l3": "Fase 3"}
-                    ),
-                    vol.Optional("charges", default="Delta Pro"): str,
                 }
             ),
             errors=errors,
@@ -245,6 +216,46 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     or "onbekend"
                 ),
             },
+        )
+
+    async def async_step_import_ecoflow_powerstream(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        if self._pending_import_config is None:
+            return await self.async_step_import_ecoflow()
+        if user_input is not None:
+            self._pending_import_config.update(user_input)
+            return self._save_imported_ecoflow_device()
+        return self.async_show_form(
+            step_id="import_ecoflow_powerstream",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("max_watts", default=800): int,
+                    vol.Required("phase", default="l1"): vol.In(
+                        {"l1": "Fase 1", "l2": "Fase 2", "l3": "Fase 3"}
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_import_ecoflow_smart_plug(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        if self._pending_import_config is None:
+            return await self.async_step_import_ecoflow()
+        batteries = self._battery_choices()
+        if user_input is not None:
+            self._pending_import_config.update(user_input)
+            return self._save_imported_ecoflow_device()
+        return self.async_show_form(
+            step_id="import_ecoflow_smart_plug",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("charges"): vol.In(
+                        batteries or {"": "Geen batterij toegevoegd"}
+                    )
+                }
+            ),
         )
 
     async def async_step_add_device(
@@ -520,7 +531,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Required("name", default="Delta Pro laadstekker"): str,
                     vol.Required("serial"): str,
-                    vol.Required("charges", default="Delta Pro"): str,
+                    vol.Required("charges"): vol.In(
+                        self._battery_choices() or {"": "Geen batterij toegevoegd"}
+                    ),
                     vol.Required(
                         "on_command", default=json.dumps(DEFAULT_SMART_PLUG_ON_COMMAND)
                     ): str,
@@ -731,7 +744,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                         "name", default=current.get("name", "Delta Pro laadstekker")
                     ): str,
                     vol.Required("serial", default=current.get("serial", "")): str,
-                    vol.Required("charges", default=current.get("charges", "Delta Pro")): str,
+                    vol.Required(
+                        "charges", default=current.get("charges", "")
+                    ): vol.In(self._battery_choices() or {"": "Geen batterij toegevoegd"}),
                     vol.Required(
                         "on_command",
                         default=json.dumps(
@@ -778,6 +793,47 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         values = self._settings()
         values[group][index] = item
         self._pending_edit = None
+        return self._save(values)
+
+    def _save_imported_ecoflow_device(self) -> config_entries.FlowResult:
+        if self._pending_import_config is None:
+            raise ValueError("No imported EcoFlow device selected")
+        values = self._settings()
+        config = self._pending_import_config
+        device_type = config["device_type"]
+        if device_type in ("delta_pro", "delta_pro_3"):
+            values.setdefault(CONF_BATTERIES, []).append(
+                {
+                    "name": config["name"],
+                    "model": "Delta Pro 3"
+                    if device_type == "delta_pro_3"
+                    else "Delta Pro",
+                    "serial": config["serial"],
+                    "quotas": DEFAULT_BATTERY_QUOTAS,
+                }
+            )
+        elif device_type == "powerstream":
+            values.setdefault(CONF_POWERSTREAMS, []).append(
+                {
+                    "name": config["name"],
+                    "serial": config["serial"],
+                    "max_watts": config["max_watts"],
+                    "phase": config["phase"],
+                    "command": DEFAULT_POWERSTREAM_COMMAND,
+                }
+            )
+        else:
+            values.setdefault(CONF_SMART_PLUGS, []).append(
+                {
+                    "name": config["name"],
+                    "serial": config["serial"],
+                    "charges": config["charges"],
+                    "on_command": DEFAULT_SMART_PLUG_ON_COMMAND,
+                    "off_command": DEFAULT_SMART_PLUG_OFF_COMMAND,
+                }
+            )
+        self._pending_import_device = None
+        self._pending_import_config = None
         return self._save(values)
 
     def _device_choices(self) -> dict[str, str]:
@@ -833,6 +889,15 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 if item.get("serial"):
                     serials.add(str(item["serial"]))
         return serials
+
+    def _battery_choices(self) -> dict[str, str]:
+        choices: dict[str, str] = {}
+        for item in self._settings().get(CONF_BATTERIES, []):
+            serial = item.get("serial")
+            name = item.get("name", serial)
+            if serial:
+                choices[str(serial)] = f"{name} ({serial})"
+        return choices
 
     async def _validate_sma_device(self, device: dict[str, Any]) -> None:
         from .api.sma_cloud import read_sma_device

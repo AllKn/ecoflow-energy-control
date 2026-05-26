@@ -40,6 +40,7 @@ async def async_setup_entry(
             name = device.get("name", serial)
             entities.extend(
                 [
+                    EcoFlowDeviceStatusSensor(coordinator, serial, name, "battery"),
                     BatterySocSensor(coordinator, serial, name),
                     BatteryChargePowerSensor(coordinator, serial, name),
                     BatteryDischargePowerSensor(coordinator, serial, name),
@@ -53,10 +54,16 @@ async def async_setup_entry(
             name = device.get("name", serial)
             entities.extend(
                 [
+                    EcoFlowDeviceStatusSensor(coordinator, serial, name, "powerstream"),
                     PowerStreamTargetSensor(coordinator, serial, name),
                     PowerStreamModeSensor(coordinator, serial, name),
                 ]
             )
+    for device in coordinator.settings.get("smart_plugs", []):
+        serial = device.get("serial")
+        if serial and "VUL_HIER" not in serial:
+            name = device.get("name", serial)
+            entities.append(EcoFlowDeviceStatusSensor(coordinator, serial, name, "smart_plug"))
     async_add_entities(entities)
 
 
@@ -250,6 +257,87 @@ class BatterySocSensor(BaseSensor):
             .get("values", {})
         )
         return values.get("pd.soc") or values.get("soc")
+
+
+class EcoFlowDeviceStatusSensor(BaseSensor):
+    """Per-device EcoFlow API and telemetry status."""
+
+    def __init__(
+        self,
+        coordinator: EcoFlowEnergyCoordinator,
+        serial: str,
+        name: str,
+        device_type: str,
+    ) -> None:
+        super().__init__(
+            coordinator, f"{serial}_api_status", f"{name} API status"
+        )
+        self._serial = serial
+        self._device_type = device_type
+
+    @property
+    def native_value(self) -> str:
+        item = self._device_data()
+        if not item:
+            return "wachten"
+        if item.get("error"):
+            return "fout"
+        values = item.get("values") or {}
+        if values:
+            return "telemetrie ok"
+        return "api ok, geen telemetrie"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        item = self._device_data()
+        values = item.get("values", {}) if item else {}
+        attrs = {
+            "serial": self._serial,
+            "device_type": self._device_type,
+            "api_connected": bool(item) and not item.get("error"),
+            "telemetry_fields": len(values),
+            "telemetry_keys": sorted(values.keys())[:40],
+            "error": item.get("error") if item else None,
+        }
+        if self._device_type == "battery":
+            attrs.update(
+                {
+                    "soc": values.get("pd.soc") or values.get("soc"),
+                    "charge_w": _first_value(
+                        values,
+                        ("pd.inputWatts", "inv.inputWatts", "inputWatts", "chargeWatts"),
+                    ),
+                    "discharge_w": _first_value(
+                        values,
+                        (
+                            "pd.outputWatts",
+                            "pd.invOutWatts",
+                            "outputWatts",
+                            "dischargeWatts",
+                        ),
+                    ),
+                    "net_w": _battery_net_power(self.coordinator, self._serial),
+                }
+            )
+        if self._device_type == "powerstream":
+            attrs.update(
+                {
+                    "target_w": float(item.get("target_watts") or 0) if item else 0,
+                    "phase": item.get("phase") if item else None,
+                }
+            )
+        if self._device_type == "smart_plug":
+            attrs["charges"] = item.get("charges") if item else None
+        return attrs
+
+    def _device_data(self) -> dict[str, Any]:
+        data = self.coordinator.data or {}
+        group = {
+            "battery": "batteries",
+            "powerstream": "powerstreams",
+            "smart_plug": "smart_plugs",
+        }[self._device_type]
+        return data.get(group, {}).get(self._serial, {})
 
 
 class BatteryChargePowerSensor(BaseSensor):
