@@ -6,12 +6,12 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower
+from homeassistant.const import UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import APP_NAME, DOMAIN
+from .const import APP_NAME, APP_VERSION, DOMAIN
 from .coordinator import EcoFlowEnergyCoordinator
 
 
@@ -22,6 +22,7 @@ async def async_setup_entry(
 ) -> None:
     coordinator: EcoFlowEnergyCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SensorEntity] = [
+        VersionSensor(coordinator),
         PriceSensor(coordinator),
         PriceMinimumSensor(coordinator),
         PriceMaximumSensor(coordinator),
@@ -72,6 +73,11 @@ async def async_setup_entry(
                 [
                     HomeWizardMeterStatusSensor(coordinator, host, name),
                     HomeWizardMeterPowerSensor(coordinator, host, name),
+                    HomeWizardMeterPhasePowerSensor(coordinator, host, name, "l1"),
+                    HomeWizardMeterPhasePowerSensor(coordinator, host, name, "l2"),
+                    HomeWizardMeterPhasePowerSensor(coordinator, host, name, "l3"),
+                    HomeWizardMeterImportEnergySensor(coordinator, host, name),
+                    HomeWizardMeterExportEnergySensor(coordinator, host, name),
                 ]
             )
     async_add_entities(entities)
@@ -117,6 +123,17 @@ class PriceSensor(BaseSensor):
             "maximum": summary.get("max"),
             "maximum_start": summary.get("max_start"),
         }
+
+
+class VersionSensor(BaseSensor):
+    """Loaded integration version."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "version", "versie")
+
+    @property
+    def native_value(self) -> str:
+        return APP_VERSION
 
 
 class PriceMinimumSensor(BaseSensor):
@@ -342,6 +359,7 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
                 {
                     "target_w": float(item.get("target_watts") or 0) if item else 0,
                     "phase": item.get("phase") if item else None,
+                    "power_candidates": _powerstream_power_candidates(values),
                 }
             )
         if self._device_type == "smart_plug":
@@ -482,7 +500,13 @@ class PowerStreamTargetSensor(BaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return _device_attrs("powerstream", self._serial, "power")
+        values = _powerstream_values(self.coordinator, self._serial)
+        return {
+            **_device_attrs("powerstream", self._serial, "power"),
+            "telemetry_fields": len(values),
+            "telemetry_keys": sorted(values.keys())[:40],
+            "power_candidates": _powerstream_power_candidates(values),
+        }
 
 
 class PowerStreamModeSensor(BaseSensor):
@@ -507,7 +531,13 @@ class PowerStreamModeSensor(BaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return _device_attrs("powerstream", self._serial, "mode")
+        values = _powerstream_values(self.coordinator, self._serial)
+        return {
+            **_device_attrs("powerstream", self._serial, "mode"),
+            "telemetry_fields": len(values),
+            "telemetry_keys": sorted(values.keys())[:40],
+            "power_candidates": _powerstream_power_candidates(values),
+        }
 
 
 class HomeWizardMeterStatusSensor(BaseSensor):
@@ -539,6 +569,9 @@ class HomeWizardMeterStatusSensor(BaseSensor):
             "host": self._host,
             "role": item.get("role") if item else None,
             "error": item.get("error") if item else None,
+            "wifi_ssid": item.get("wifi_ssid") if item else None,
+            "wifi_strength": item.get("wifi_strength") if item else None,
+            "meter_model": item.get("meter_model") if item else None,
         }
 
     def _meter_data(self) -> dict[str, Any]:
@@ -574,6 +607,116 @@ class HomeWizardMeterPowerSensor(BaseSensor):
             "host": self._host,
             "role": item.get("role") if item else None,
             "phase_power_w": item.get("phase_power_w", {}) if item else {},
+            "phase_voltage_v": item.get("phase_voltage_v", {}) if item else {},
+            "phase_current_a": item.get("phase_current_a", {}) if item else {},
+        }
+
+    def _meter_data(self) -> dict[str, Any]:
+        data = (self.coordinator.data or {}).get("homewizard_meters", {})
+        return data.get(self._name, {}) or data.get(self._host, {})
+
+
+class HomeWizardMeterPhasePowerSensor(BaseSensor):
+    """Per-phase HomeWizard active power."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, host: str, name: str, phase: str
+    ) -> None:
+        super().__init__(
+            coordinator,
+            f"homewizard_{host}_{phase}_power",
+            f"{name} {phase.upper()} vermogen",
+        )
+        self._host = host
+        self._name = name
+        self._phase = phase
+        self._attr_device_info = _homewizard_device_info(host, name)
+
+    @property
+    def native_value(self) -> float | None:
+        item = self._meter_data()
+        value = (item.get("phase_power_w") or {}).get(self._phase)
+        return float(value) if value is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        item = self._meter_data()
+        return {
+            "eec_device_type": "homewizard",
+            "eec_sensor_role": "phase_power",
+            "host": self._host,
+            "phase": self._phase,
+            "voltage_v": (item.get("phase_voltage_v") or {}).get(self._phase),
+            "current_a": (item.get("phase_current_a") or {}).get(self._phase),
+        }
+
+    def _meter_data(self) -> dict[str, Any]:
+        data = (self.coordinator.data or {}).get("homewizard_meters", {})
+        return data.get(self._name, {}) or data.get(self._host, {})
+
+
+class HomeWizardMeterImportEnergySensor(BaseSensor):
+    """HomeWizard cumulative imported energy."""
+
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_device_class = "energy"
+    _attr_state_class = "total_increasing"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, host: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"homewizard_{host}_import_kwh", f"{name} import")
+        self._host = host
+        self._name = name
+        self._attr_device_info = _homewizard_device_info(host, name)
+
+    @property
+    def native_value(self) -> float | None:
+        value = self._meter_data().get("total_power_import_kwh")
+        return float(value) if value is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "homewizard",
+            "eec_sensor_role": "energy_import",
+            "host": self._host,
+        }
+
+    def _meter_data(self) -> dict[str, Any]:
+        data = (self.coordinator.data or {}).get("homewizard_meters", {})
+        return data.get(self._name, {}) or data.get(self._host, {})
+
+
+class HomeWizardMeterExportEnergySensor(BaseSensor):
+    """HomeWizard cumulative exported energy."""
+
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_device_class = "energy"
+    _attr_state_class = "total_increasing"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, host: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"homewizard_{host}_export_kwh", f"{name} export")
+        self._host = host
+        self._name = name
+        self._attr_device_info = _homewizard_device_info(host, name)
+
+    @property
+    def native_value(self) -> float | None:
+        value = self._meter_data().get("total_power_export_kwh")
+        return float(value) if value is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "homewizard",
+            "eec_sensor_role": "energy_export",
+            "host": self._host,
         }
 
     def _meter_data(self) -> dict[str, Any]:
@@ -620,6 +763,26 @@ def _battery_values(
         .get(serial, {})
         .get("values", {})
     )
+
+
+def _powerstream_values(
+    coordinator: EcoFlowEnergyCoordinator, serial: str
+) -> dict[str, Any]:
+    return (
+        (coordinator.data or {})
+        .get("powerstreams", {})
+        .get(serial, {})
+        .get("values", {})
+    )
+
+
+def _powerstream_power_candidates(values: dict[str, Any]) -> dict[str, Any]:
+    candidates: dict[str, Any] = {}
+    for key, value in values.items():
+        normalized = key.lower().replace("_", "").replace("-", "")
+        if "watt" in normalized or "power" in normalized:
+            candidates[key] = value
+    return dict(sorted(candidates.items())[:20])
 
 
 def _status_label(device_type: str) -> str:

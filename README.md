@@ -112,7 +112,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.8`
+`0.5.10`
 
 ## EcoFlow Signing
 
@@ -131,3 +131,7 @@ Versie `0.5.6` maakt het dashboard minder afhankelijk van entity_id-namen. Batte
 Versie `0.5.7` forceert een integratie-reload na apparaat toevoegen, wijzigen of verwijderen, zodat Home Assistant de nieuwe entiteiten meteen aanmaakt. EcoFlow apparaten en HomeWizard meters krijgen nu ook eigen Home Assistant devices onder de integratie, met per-device status- en vermogenssensoren.
 
 Versie `0.5.8` maakt het dashboard leesbaarder: batterijen staan in één gegroepeerd overzicht onder elkaar, het controlpanel gebruikt echte knoppen met korte labels, en zichtbare lange applicatienamen zijn ingekort naar `EEC app`.
+
+Versie `0.5.9` verbetert PowerStream-telemetrie: als de geselecteerde quota's geen data opleveren, probeert de integratie automatisch `quota/all`. Geneste EcoFlow responsen worden nu recursief uitgepakt en PowerStream-sensoren tonen mogelijke vermogensvelden in de attributen.
+
+Versie `0.5.10` toont de geladen app-versie op het dashboard, maakt de komende 24 uur stroomprijzen grafisch als staafdiagram en breidt HomeWizard-weergave uit met fasevermogen en import/export energie waar de lokale API die data levert.

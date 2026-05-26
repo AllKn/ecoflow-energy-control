@@ -11,6 +11,8 @@ views:
             name: Strategie
           - entity: switch.ecoflow_energy_control_applicatie_testmodus
             name: Testmodus
+          - entity: sensor.ecoflow_energy_control_applicatie_versie
+            name: Versie
           - entity: sensor.ecoflow_energy_control_applicatie_status
             name: Status
           - entity: sensor.ecoflow_energy_control_applicatie_laatste_actie
@@ -81,6 +83,25 @@ views:
 
       - type: custom:auto-entities
         card:
+          type: history-graph
+          title: Batterijvermogen - 24 uur
+          hours_to_show: 24
+        filter:
+          include:
+            - attributes:
+                eec_device_type: battery
+                eec_sensor_role: net_power
+            - attributes:
+                eec_device_type: battery
+                eec_sensor_role: charge_power
+            - attributes:
+                eec_device_type: battery
+                eec_sensor_role: discharge_power
+        sort:
+          method: name
+
+      - type: custom:auto-entities
+        card:
           type: entities
           title: EEC app - PowerStreams
           show_header_toggle: false
@@ -94,6 +115,19 @@ views:
         sort:
           method: name
 
+      - type: custom:auto-entities
+        card:
+          type: history-graph
+          title: PowerStreams - 24 uur
+          hours_to_show: 24
+        filter:
+          include:
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: power
+        sort:
+          method: name
+
       - type: gauge
         entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
         name: Prijs nu
@@ -103,37 +137,57 @@ views:
       - type: custom:apexcharts-card
         header:
           show: true
-          title: Prijzen tot einde morgen
+          title: Uurtarieven - komende 24 uur
           show_states: true
-        graph_span: 36h
+        graph_span: 24h
         now:
           show: true
           label: Nu
+        apex_config:
+          plotOptions:
+            bar:
+              columnWidth: 80%
+          xaxis:
+            labels:
+              datetimeFormatter:
+                hour: HH:mm
         series:
           - entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
-            name: Prijs
+            name: EUR/kWh
             type: column
             data_generator: |
+              const now = Date.now();
+              const end = now + 24 * 60 * 60 * 1000;
               const prices = entity.attributes.prices || [];
-              return prices.map((item) => [new Date(item.start).getTime(), item.price]);
+              return prices
+                .map((item) => [new Date(item.start).getTime(), item.price])
+                .filter((item) => item[0] >= now && item[0] <= end);
           - entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
             name: Laagste
             type: line
             stroke_width: 2
             data_generator: |
+              const now = Date.now();
+              const end = now + 24 * 60 * 60 * 1000;
               const source = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'];
               const prices = source ? source.attributes.prices || [] : [];
               const value = entity.state === 'unknown' ? null : Number(entity.state);
-              return prices.map((item) => [new Date(item.start).getTime(), value]);
+              return prices
+                .map((item) => [new Date(item.start).getTime(), value])
+                .filter((item) => item[0] >= now && item[0] <= end);
           - entity: sensor.ecoflow_energy_control_applicatie_hoogste_prijs_tot_morgen
             name: Hoogste
             type: line
             stroke_width: 2
             data_generator: |
+              const now = Date.now();
+              const end = now + 24 * 60 * 60 * 1000;
               const source = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'];
               const prices = source ? source.attributes.prices || [] : [];
               const value = entity.state === 'unknown' ? null : Number(entity.state);
-              return prices.map((item) => [new Date(item.start).getTime(), value]);
+              return prices
+                .map((item) => [new Date(item.start).getTime(), value])
+                .filter((item) => item[0] >= now && item[0] <= end);
 
       - type: entities
         title: Prijsgrenzen
@@ -159,12 +213,28 @@ views:
 
       - type: custom:auto-entities
         card:
-          type: glance
+          type: entities
           title: EEC app - HomeWizard meters
-          columns: 2
+          show_header_toggle: false
         filter:
           include:
             - attributes:
                 eec_device_type: homewizard
+        sort:
+          method: name
+
+      - type: custom:auto-entities
+        card:
+          type: history-graph
+          title: HomeWizard vermogen - 24 uur
+          hours_to_show: 24
+        filter:
+          include:
+            - attributes:
+                eec_device_type: homewizard
+                eec_sensor_role: power
+            - attributes:
+                eec_device_type: homewizard
+                eec_sensor_role: phase_power
         sort:
           method: name

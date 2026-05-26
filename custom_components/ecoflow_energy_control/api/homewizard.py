@@ -21,6 +21,16 @@ async def read_homewizard_meter(
         "l2": _number(data.get("active_power_l2_w")),
         "l3": _number(data.get("active_power_l3_w")),
     }
+    voltages = {
+        "l1": _number(data.get("active_voltage_l1_v")),
+        "l2": _number(data.get("active_voltage_l2_v")),
+        "l3": _number(data.get("active_voltage_l3_v")),
+    }
+    currents = {
+        "l1": _number(data.get("active_current_l1_a")),
+        "l2": _number(data.get("active_current_l2_a")),
+        "l3": _number(data.get("active_current_l3_a")),
+    }
     active_power = _number(data.get("active_power_w"))
     return {
         "available": True,
@@ -29,6 +39,19 @@ async def read_homewizard_meter(
         "role": meter.get("role", "solar_total"),
         "active_power_w": active_power,
         "phase_power_w": phases,
+        "phase_voltage_v": voltages,
+        "phase_current_a": currents,
+        "total_power_import_kwh": _sum_numbers(
+            data.get("total_power_import_t1_kwh"),
+            data.get("total_power_import_t2_kwh"),
+        ),
+        "total_power_export_kwh": _sum_numbers(
+            data.get("total_power_export_t1_kwh"),
+            data.get("total_power_export_t2_kwh"),
+        ),
+        "wifi_ssid": data.get("wifi_ssid"),
+        "wifi_strength": _number(data.get("wifi_strength")),
+        "meter_model": data.get("product_name") or data.get("product_type"),
         "raw": data,
     }
 
@@ -40,3 +63,11 @@ def _number(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _sum_numbers(*values: Any) -> float | None:
+    numbers = [_number(value) for value in values]
+    valid = [value for value in numbers if value is not None]
+    if not valid:
+        return None
+    return round(sum(valid), 5)
