@@ -36,13 +36,21 @@ Bij de eerste setup vul je alleen de algemene gegevens in:
 - SMA endpoint-template
 - Testmodus
 
-Standaard prijsfeed:
+Standaard prijsfeed voor Quatt Energy:
 
 ```text
-https://api.stekker.app/api/v1/market_price_forecast?region=NL
+https://epexprijzen.nl/api/v1/prices/quatt-energy/hourly
 ```
 
-De integratie accepteert ook andere JSON-feeds met uurprijzen, zolang er velden aanwezig zijn zoals `price`, `forecast`, `price_per_mwh`, `prijs`, `value` en een tijdveld zoals `period_start`, `datetime`, `start` of `timestamp`.
+De applicatie telt hier standaard `0.015 EUR/kWh` opslag bij op voor Quatt Energy. In **Algemene instellingen** kun je de provider-slug, interval en opslag aanpassen. Laat `Spotprijs JSON URL` leeg om automatisch deze vorm te gebruiken:
+
+```text
+https://epexprijzen.nl/api/v1/prices/{provider}/{hourly|quarterly}
+```
+
+Als epexprijzen.nl de provider-slug voor Quatt anders noemt, pas je alleen **epexprijzen.nl provider** aan in de algemene instellingen; de opslag blijft apart instelbaar.
+
+De integratie haalt de prijzen dagelijks om **15:00** opnieuw op, zodat de planning voor de volgende dag beschikbaar komt zodra epexprijzen.nl die publiceert. Je kunt dit ook handmatig triggeren met **EPEX prijzen ophalen**.
 
 ## Apparaten toevoegen
 
@@ -235,8 +243,12 @@ Het dashboard toont de EcoFlow-apparaten nu grafischer:
 - netto vermogen per Delta, negatief is laden en positief is ontladen
 - PowerStream vermogen per apparaat
 - PowerStream status, zoals `terugleveren` of `stand-by`
+- Quatt/EPEX prijzen van nu tot en met het einde van morgen
+- laagste en hoogste uurprijs in dezelfde prijsgrafiek
 
-Na deze update moet Home Assistant opnieuw worden gestart, omdat er nieuwe sensoren per batterij en per PowerStream worden aangemaakt.
+Voor de prijsgrafiek gebruikt het voorbeeld-dashboard `custom:apexcharts-card`. Installeer die kaart via HACS Frontend als je hem nog niet hebt. Zonder die kaart blijven de prijs-sensoren wel werken, maar de grafiekkaart wordt niet getoond.
+
+Na deze update moet Home Assistant opnieuw worden gestart, omdat er nieuwe sensoren per batterij, per PowerStream en voor de prijsplanning worden aangemaakt.
 
 De dashboard-entiteiten gebruiken nu de `_applicatie` naam, bijvoorbeeld:
 
@@ -317,7 +329,7 @@ Als HACS de update niet meteen ziet, verhoog dan de versie in:
 custom_components/ecoflow_energy_control/manifest.json
 ```
 
-Deze iteratie staat op versie `0.4.6`.
+Deze iteratie staat op versie `0.4.7`.
 
 ### Config flow could not be loaded
 

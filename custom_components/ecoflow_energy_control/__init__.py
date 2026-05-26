@@ -7,6 +7,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers.event import async_track_time_change
 
 from .const import (
     ATTR_SERIAL,
@@ -37,6 +38,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    entry.async_on_unload(
+        async_track_time_change(
+            hass,
+            lambda now: hass.async_create_task(coordinator.async_daily_price_refresh()),
+            hour=15,
+            minute=0,
+            second=0,
+        )
+    )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     async def set_powerstream_watts(call: ServiceCall) -> None:

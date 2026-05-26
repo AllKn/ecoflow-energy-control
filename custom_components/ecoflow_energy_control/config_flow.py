@@ -18,6 +18,9 @@ from .const import (
     CONF_ECOFLOW_HOST,
     CONF_HOMEWIZARD_METERS,
     CONF_POWERSTREAMS,
+    CONF_PRICE_INTERVAL,
+    CONF_PRICE_PROVIDER,
+    CONF_PRICE_SURCHARGE,
     CONF_PRICE_URL,
     CONF_SECRET_KEY,
     CONF_SMA_API_HOST,
@@ -30,6 +33,9 @@ from .const import (
     DEFAULT_ECOFLOW_HOST,
     DEFAULT_HOMEWIZARD_ROLE,
     DEFAULT_POWERSTREAM_COMMAND,
+    DEFAULT_PRICE_INTERVAL,
+    DEFAULT_PRICE_PROVIDER,
+    DEFAULT_PRICE_SURCHARGE,
     DEFAULT_PRICE_URL,
     DEFAULT_SMA_API_HOST,
     DEFAULT_SMA_ENDPOINT,
@@ -72,7 +78,12 @@ class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_ACCESS_KEY): str,
                 vol.Required(CONF_SECRET_KEY): str,
                 vol.Required(CONF_ECOFLOW_HOST, default=DEFAULT_ECOFLOW_HOST): str,
-                vol.Required(CONF_PRICE_URL, default=DEFAULT_PRICE_URL): str,
+                vol.Optional(CONF_PRICE_PROVIDER, default=DEFAULT_PRICE_PROVIDER): str,
+                vol.Optional(CONF_PRICE_INTERVAL, default=DEFAULT_PRICE_INTERVAL): vol.In(
+                    {"hourly": "Uurprijzen", "quarterly": "Kwartierprijzen"}
+                ),
+                vol.Optional(CONF_PRICE_SURCHARGE, default=DEFAULT_PRICE_SURCHARGE): float,
+                vol.Optional(CONF_PRICE_URL, default=""): str,
                 vol.Optional(CONF_SMA_API_HOST, default=DEFAULT_SMA_API_HOST): str,
                 vol.Optional(CONF_SMA_TOKEN, default=""): str,
                 vol.Optional(CONF_SMA_PLANT_ID, default=""): str,
@@ -276,7 +287,19 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required(
-                    CONF_PRICE_URL, default=current.get(CONF_PRICE_URL, DEFAULT_PRICE_URL)
+                    CONF_PRICE_PROVIDER,
+                    default=current.get(CONF_PRICE_PROVIDER, DEFAULT_PRICE_PROVIDER),
+                ): str,
+                vol.Required(
+                    CONF_PRICE_INTERVAL,
+                    default=current.get(CONF_PRICE_INTERVAL, DEFAULT_PRICE_INTERVAL),
+                ): vol.In({"hourly": "Uurprijzen", "quarterly": "Kwartierprijzen"}),
+                vol.Required(
+                    CONF_PRICE_SURCHARGE,
+                    default=current.get(CONF_PRICE_SURCHARGE, DEFAULT_PRICE_SURCHARGE),
+                ): float,
+                vol.Optional(
+                    CONF_PRICE_URL, default=current.get(CONF_PRICE_URL, "")
                 ): str,
                 vol.Optional(
                     CONF_SMA_API_HOST,

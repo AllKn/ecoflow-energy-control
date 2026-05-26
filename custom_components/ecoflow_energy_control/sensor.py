@@ -23,6 +23,8 @@ async def async_setup_entry(
     coordinator: EcoFlowEnergyCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SensorEntity] = [
         PriceSensor(coordinator),
+        PriceMinimumSensor(coordinator),
+        PriceMaximumSensor(coordinator),
         CheapBandSensor(coordinator),
         ExpensiveBandSensor(coordinator),
         TotalSolarPowerSensor(coordinator),
@@ -86,6 +88,60 @@ class PriceSensor(BaseSensor):
     @property
     def native_value(self) -> float | None:
         return (self.coordinator.data or {}).get("price_now")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data or {}
+        summary = data.get("price_summary") or {}
+        return {
+            "prices": summary.get("chart", []),
+            "minimum": summary.get("min"),
+            "minimum_start": summary.get("min_start"),
+            "maximum": summary.get("max"),
+            "maximum_start": summary.get("max_start"),
+        }
+
+
+class PriceMinimumSensor(BaseSensor):
+    """Lowest upcoming Quatt/EPEX price."""
+
+    _attr_native_unit_of_measurement = "EUR/kWh"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "price_minimum", "laagste prijs tot morgen")
+
+    @property
+    def native_value(self) -> float | None:
+        return ((self.coordinator.data or {}).get("price_summary") or {}).get("min")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "start": ((self.coordinator.data or {}).get("price_summary") or {}).get(
+                "min_start"
+            )
+        }
+
+
+class PriceMaximumSensor(BaseSensor):
+    """Highest upcoming Quatt/EPEX price."""
+
+    _attr_native_unit_of_measurement = "EUR/kWh"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "price_maximum", "hoogste prijs tot morgen")
+
+    @property
+    def native_value(self) -> float | None:
+        return ((self.coordinator.data or {}).get("price_summary") or {}).get("max")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "start": ((self.coordinator.data or {}).get("price_summary") or {}).get(
+                "max_start"
+            )
+        }
 
 
 class TotalSolarPowerSensor(BaseSensor):

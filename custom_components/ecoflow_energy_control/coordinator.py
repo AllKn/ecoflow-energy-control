@@ -14,7 +14,13 @@ from homeassistant.util import dt as dt_util
 
 from .api.ecoflow import EcoFlowCloudClient, render_template_dict
 from .api.homewizard import read_homewizard_meter
-from .api.prices import current_price, fetch_prices, price_bands
+from .api.prices import (
+    current_price,
+    epexprijzen_url,
+    fetch_prices,
+    price_bands,
+    price_summary,
+)
 from .api.sma_cloud import read_sma_device
 from .const import (
     CONF_ACCESS_KEY,
@@ -23,6 +29,9 @@ from .const import (
     CONF_ECOFLOW_HOST,
     CONF_HOMEWIZARD_METERS,
     CONF_POWERSTREAMS,
+    CONF_PRICE_INTERVAL,
+    CONF_PRICE_PROVIDER,
+    CONF_PRICE_SURCHARGE,
     CONF_PRICE_URL,
     CONF_SECRET_KEY,
     CONF_SMA_API_HOST,
@@ -34,6 +43,9 @@ from .const import (
     DEFAULT_ECOFLOW_HOST,
     DEFAULT_POWERSTREAM_QUOTAS,
     DEFAULT_PRICE_URL,
+    DEFAULT_PRICE_INTERVAL,
+    DEFAULT_PRICE_PROVIDER,
+    DEFAULT_PRICE_SURCHARGE,
     DEFAULT_SMA_API_HOST,
     DEFAULT_SMA_ENDPOINT,
     DEFAULT_SCAN_INTERVAL,
@@ -76,15 +88,14 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         previous = self.data or {}
 
         try:
-            prices = await fetch_prices(
-                self.session, settings.get(CONF_PRICE_URL, DEFAULT_PRICE_URL)
-            )
+            prices = await self._async_fetch_prices(settings)
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Could not fetch electricity prices: %s", err)
             errors["prices"] = str(err)
             prices = previous.get("prices", [])
         price_now = current_price(prices, dt_util.now())
         bands = price_bands(prices)
+        summary = price_summary(prices, dt_util.now())
 
         batteries = {}
         for device in settings.get(CONF_BATTERIES, []):
@@ -203,6 +214,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return {
             "price_now": price_now,
             "price_bands": bands,
+            "price_summary": summary,
             "prices": prices,
             "batteries": batteries,
             "powerstreams": powerstreams,
@@ -270,9 +282,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         errors = dict(data.get("errors") or {})
         settings = {**self.entry.data, **self.entry.options}
         try:
-            prices = await fetch_prices(
-                self.session, settings.get(CONF_PRICE_URL, DEFAULT_PRICE_URL)
-            )
+            prices = await self._async_fetch_prices(settings)
         except Exception as err:  # noqa: BLE001
             errors["prices"] = str(err)
             data.update(
@@ -289,12 +299,24 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "prices": prices,
                     "price_now": current_price(prices, dt_util.now()),
                     "price_bands": price_bands(prices),
+                    "price_summary": price_summary(prices, dt_util.now()),
                     "errors": errors,
                     "status": "ok" if not errors else f"{len(errors)} bron(nen) met fout",
                     "last_action": f"Prijzen opgehaald, {len(prices)} uurrecords",
                 }
             )
         self.async_set_updated_data(data)
+
+    async def async_daily_price_refresh(self) -> None:
+        """Fetch prices for the next day at the scheduled 15:00 refresh."""
+        await self.async_refresh_prices_now()
+
+    async def _async_fetch_prices(self, settings: dict[str, Any]) -> list[dict[str, Any]]:
+        provider = settings.get(CONF_PRICE_PROVIDER, DEFAULT_PRICE_PROVIDER)
+        interval = settings.get(CONF_PRICE_INTERVAL, DEFAULT_PRICE_INTERVAL)
+        surcharge = float(settings.get(CONF_PRICE_SURCHARGE, DEFAULT_PRICE_SURCHARGE))
+        url = settings.get(CONF_PRICE_URL) or epexprijzen_url(provider, interval)
+        return await fetch_prices(self.session, url, surcharge)
 
     async def async_apply_strategy(self) -> None:
         """Apply the currently selected simple price strategy."""

@@ -19,9 +19,46 @@ views:
           - sensor.ecoflow_energy_control_applicatie_laatste_actie
       - type: gauge
         entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
-        name: Stroomprijs nu
+        name: Quatt prijs nu
         min: -0.2
         max: 0.8
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Quatt Energy prijzen tot einde morgen
+          show_states: true
+        graph_span: 36h
+        now:
+          show: true
+          label: Nu
+        apex_config:
+          yaxis:
+            decimalsInFloat: 3
+          annotations:
+            points: []
+        series:
+          - entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
+            name: Prijs
+            type: column
+            data_generator: |
+              const prices = entity.attributes.prices || [];
+              return prices.map((item) => [new Date(item.start).getTime(), item.price]);
+          - entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
+            name: Laagste
+            type: line
+            stroke_width: 2
+            data_generator: |
+              const prices = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'].attributes.prices || [];
+              const value = entity.state === 'unknown' ? null : Number(entity.state);
+              return prices.map((item) => [new Date(item.start).getTime(), value]);
+          - entity: sensor.ecoflow_energy_control_applicatie_hoogste_prijs_tot_morgen
+            name: Hoogste
+            type: line
+            stroke_width: 2
+            data_generator: |
+              const prices = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'].attributes.prices || [];
+              const value = entity.state === 'unknown' ? null : Number(entity.state);
+              return prices.map((item) => [new Date(item.start).getTime(), value]);
       - type: vertical-stack
         title: EcoFlow batterijen
         cards:
@@ -89,6 +126,8 @@ views:
         entities:
           - sensor.ecoflow_energy_control_applicatie_goedkope_prijsgrens
           - sensor.ecoflow_energy_control_applicatie_dure_prijsgrens
+          - sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
+          - sensor.ecoflow_energy_control_applicatie_hoogste_prijs_tot_morgen
       - type: gauge
         entity: sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
         name: Opwek gecorrigeerd
