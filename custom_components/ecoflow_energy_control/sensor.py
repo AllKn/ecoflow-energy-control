@@ -136,6 +136,8 @@ class PriceSensor(BaseSensor):
         summary = data.get("price_summary") or {}
         return {
             "prices": summary.get("chart", []),
+            "price_count": len(summary.get("chart", [])),
+            "raw_price_count": len(data.get("prices", [])),
             "minimum": summary.get("min"),
             "minimum_start": summary.get("min_start"),
             "maximum": summary.get("max"),
@@ -460,20 +462,10 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
                     "soc": _battery_soc_value(values),
                     **_battery_soc_detail(values),
                     "soc_candidates": _battery_soc_candidates(values),
-                    "charge_w": _first_value(
-                        values,
-                        ("pd.inputWatts", "inv.inputWatts", "inputWatts", "chargeWatts"),
-                    ),
-                    "discharge_w": _first_value(
-                        values,
-                        (
-                            "pd.outputWatts",
-                            "pd.invOutWatts",
-                            "outputWatts",
-                            "dischargeWatts",
-                        ),
-                    ),
+                    "charge_w": _battery_charge_power(values),
+                    "discharge_w": _battery_discharge_power(values),
                     "net_w": _battery_net_power(self.coordinator, self._serial),
+                    "power_candidates": _battery_power_candidates(values),
                 }
             )
         if self._device_type == "powerstream":
@@ -514,17 +506,15 @@ class BatteryChargePowerSensor(BaseSensor):
 
     @property
     def native_value(self) -> float:
-        return max(
-            0.0,
-            _first_value(
-                _battery_values(self.coordinator, self._serial),
-                ("pd.inputWatts", "inv.inputWatts", "inputWatts", "chargeWatts"),
-            ),
-        )
+        return _battery_charge_power(_battery_values(self.coordinator, self._serial))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return _device_attrs("battery", self._serial, "charge_power")
+        values = _battery_values(self.coordinator, self._serial)
+        return {
+            **_device_attrs("battery", self._serial, "charge_power"),
+            "power_candidates": _battery_power_candidates(values),
+        }
 
 
 class BatteryDischargePowerSensor(BaseSensor):
@@ -544,17 +534,15 @@ class BatteryDischargePowerSensor(BaseSensor):
 
     @property
     def native_value(self) -> float:
-        return max(
-            0.0,
-            _first_value(
-                _battery_values(self.coordinator, self._serial),
-                ("pd.outputWatts", "pd.invOutWatts", "outputWatts", "dischargeWatts"),
-            ),
-        )
+        return _battery_discharge_power(_battery_values(self.coordinator, self._serial))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return _device_attrs("battery", self._serial, "discharge_power")
+        values = _battery_values(self.coordinator, self._serial)
+        return {
+            **_device_attrs("battery", self._serial, "discharge_power"),
+            "power_candidates": _battery_power_candidates(values),
+        }
 
 
 class BatteryNetPowerSensor(BaseSensor):
@@ -576,7 +564,11 @@ class BatteryNetPowerSensor(BaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return _device_attrs("battery", self._serial, "net_power")
+        values = _battery_values(self.coordinator, self._serial)
+        return {
+            **_device_attrs("battery", self._serial, "net_power"),
+            "power_candidates": _battery_power_candidates(values),
+        }
 
 
 class BatteryModeSensor(BaseSensor):
@@ -623,6 +615,7 @@ class PowerStreamTargetSensor(BaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        data = (self.coordinator.data or {}).get("powerstreams", {}).get(self._serial, {})
         values = _powerstream_values(self.coordinator, self._serial)
         return {
             **_device_attrs("powerstream", self._serial, "power"),
@@ -655,6 +648,7 @@ class PowerStreamModeSensor(BaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        data = (self.coordinator.data or {}).get("powerstreams", {}).get(self._serial, {})
         values = _powerstream_values(self.coordinator, self._serial)
         return {
             **_device_attrs("powerstream", self._serial, "mode"),
@@ -943,6 +937,126 @@ def _battery_soc_candidates(values: dict[str, Any]) -> dict[str, Any]:
     return dict(sorted(candidates.items())[:20])
 
 
+def _battery_charge_power(values: dict[str, Any]) -> float:
+    explicit = _first_value(
+        values,
+        (
+            "pd.inputWatts",
+            "pd.wattsInSum",
+            "pd.acInWatts",
+            "pd.dcInWatts",
+            "pd.solarWatts",
+            "mppt.inWatts",
+            "inv.acInWatts",
+            "inv.inputWatts",
+            "inputWatts",
+            "wattsInSum",
+            "chargeWatts",
+            "chgWatts",
+            "chgPower",
+            "chargePower",
+            "bmsChgPower",
+            "cmsChgPower",
+            "acInPower",
+            "dcInPower",
+            "pvInPower",
+            "bmsInputWatts",
+            "cmsInputWatts",
+            "powIn",
+            "powerIn",
+            "powInSumW",
+            "inputPower",
+        ),
+    )
+    if explicit:
+        return max(0.0, explicit)
+    return max(0.0, _classified_battery_power(values, "charge"))
+
+
+def _battery_discharge_power(values: dict[str, Any]) -> float:
+    explicit = _first_value(
+        values,
+        (
+            "pd.outputWatts",
+            "pd.invOutWatts",
+            "pd.wattsOutSum",
+            "pd.acOutWatts",
+            "inv.acOutWatts",
+            "outputWatts",
+            "wattsOutSum",
+            "dischargeWatts",
+            "dsgWatts",
+            "dsgPower",
+            "dischargePower",
+            "bmsDsgPower",
+            "cmsDsgPower",
+            "acOutPower",
+            "dcOutPower",
+            "bmsOutputWatts",
+            "cmsOutputWatts",
+            "powOut",
+            "powerOut",
+            "powOutSumW",
+            "outputPower",
+        ),
+    )
+    if explicit:
+        return max(0.0, explicit)
+    return max(0.0, _classified_battery_power(values, "discharge"))
+
+
+def _classified_battery_power(values: dict[str, Any], direction: str) -> float:
+    for key, value in values.items():
+        normalized = _normalize_key(key)
+        if not _looks_like_live_power_key(normalized):
+            continue
+        numeric = _to_float(value)
+        if numeric is None:
+            continue
+        if direction == "charge" and any(
+            part in normalized
+            for part in (
+                "input",
+                "charge",
+                "chg",
+                "powin",
+                "powerin",
+                "wattsin",
+                "insum",
+                "acin",
+                "dcin",
+                "pvin",
+            )
+        ):
+            return numeric
+        if direction == "discharge" and any(
+            part in normalized
+            for part in (
+                "output",
+                "discharge",
+                "dsg",
+                "powout",
+                "powerout",
+                "wattsout",
+                "outsum",
+                "acout",
+                "dcout",
+                "invout",
+            )
+        ):
+            return numeric
+    return 0.0
+
+
+def _battery_power_candidates(values: dict[str, Any]) -> dict[str, Any]:
+    candidates: dict[str, Any] = {}
+    for key, value in values.items():
+        normalized = _normalize_key(key)
+        if _looks_like_power_key(normalized):
+            candidates[key] = value
+    return dict(sorted(candidates.items())[:30])
+
+
 def _to_percentage(value: Any) -> float | None:
     if value is None:
         return None
@@ -1012,7 +1126,7 @@ def _powerstream_values(
 def _powerstream_power_candidates(values: dict[str, Any]) -> dict[str, Any]:
     candidates: dict[str, Any] = {}
     for key, value in values.items():
-        normalized = key.lower().replace("_", "").replace("-", "")
+        normalized = _normalize_key(key)
         if "watt" in normalized or "power" in normalized:
             candidates[key] = value
     return dict(sorted(candidates.items())[:20])
@@ -1071,22 +1185,55 @@ def _device_model(device_type: str) -> str:
 
 def _first_value(values: dict[str, Any], keys: tuple[str, ...]) -> float:
     for key in keys:
-        value = values.get(key)
-        if value is None:
-            continue
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            continue
+        numeric = _to_float(values.get(key))
+        if numeric is not None:
+            return numeric
     return 0.0
 
 
 def _battery_net_power(coordinator: EcoFlowEnergyCoordinator, serial: str) -> float:
     values = _battery_values(coordinator, serial)
-    charge = _first_value(
-        values, ("pd.inputWatts", "inv.inputWatts", "inputWatts", "chargeWatts")
-    )
-    discharge = _first_value(
-        values, ("pd.outputWatts", "pd.invOutWatts", "outputWatts", "dischargeWatts")
-    )
+    charge = _battery_charge_power(values)
+    discharge = _battery_discharge_power(values)
     return round(discharge - charge, 1)
+
+
+def _to_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_key(key: str) -> str:
+    return key.lower().replace("_", "").replace("-", "").replace(".", "")
+
+
+def _looks_like_power_key(normalized_key: str) -> bool:
+    return any(
+        part in normalized_key
+        for part in ("watt", "power", "pow")
+    )
+
+
+def _looks_like_live_power_key(normalized_key: str) -> bool:
+    if not _looks_like_power_key(normalized_key):
+        return False
+    return not any(
+        part in normalized_key
+        for part in (
+            "max",
+            "min",
+            "limit",
+            "design",
+            "fullenergy",
+            "remain",
+            "remtime",
+            "standby",
+            "soc",
+            "soh",
+            "temp",
+        )
+    )

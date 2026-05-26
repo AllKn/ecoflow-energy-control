@@ -132,5 +132,6 @@ views:
               const end = now + 24 * 60 * 60 * 1000;
               const prices = entity.attributes.prices || [];
               return prices
-                .map((item) => [new Date(item.start).getTime(), item.price])
+                .map((item) => [new Date(item.start).getTime(), Number(item.price)])
+                .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
                 .filter((item) => item[0] >= now && item[0] <= end);

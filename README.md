@@ -112,7 +112,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.16`
+`0.5.17`
 
 ## EcoFlow Signing
 
@@ -147,3 +147,5 @@ Versie `0.5.14` normaliseert PowerStream-vermogens die als deciwatt binnenkomen 
 Versie `0.5.15` probeert voor batterijen automatisch `quota/all` als de geselecteerde quota's geen telemetrie opleveren. De per-device API-status toont nu `quota_source` en `response_debug` om te zien wat EcoFlow terugstuurt.
 
 Versie `0.5.16` corrigeert Delta Pro 3 SoC-herkenning: `cmsBattSoc` krijgt prioriteit als hoofdaccu, `bmsBattSoc` wordt als extra accu-attribuut getoond en SoC-grenswaarden zoals `cmsMinDsgSoc` worden niet meer als actuele batterijstand gebruikt.
+
+Versie `0.5.17` verbetert batterij-vermogensherkenning en toont `power_candidates` als diagnose-attribuut bij batterijvermogens. De PowerStream-dashboarddata herstelt een attribuutfout waardoor kaarten leeg konden blijven, en de prijsgrafieken negeren nu ongeldige `n/a` punten zodat ze niet op `loading` blijven hangen.

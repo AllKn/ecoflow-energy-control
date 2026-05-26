@@ -160,7 +160,8 @@ views:
               const end = now + 24 * 60 * 60 * 1000;
               const prices = entity.attributes.prices || [];
               return prices
-                .map((item) => [new Date(item.start).getTime(), item.price])
+                .map((item) => [new Date(item.start).getTime(), Number(item.price)])
+                .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
                 .filter((item) => item[0] >= now && item[0] <= end);
           - entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
             name: Laagste
@@ -171,9 +172,11 @@ views:
               const end = now + 24 * 60 * 60 * 1000;
               const source = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'];
               const prices = source ? source.attributes.prices || [] : [];
-              const value = entity.state === 'unknown' ? null : Number(entity.state);
+              const value = Number(entity.state);
+              if (!Number.isFinite(value)) return [];
               return prices
                 .map((item) => [new Date(item.start).getTime(), value])
+                .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
                 .filter((item) => item[0] >= now && item[0] <= end);
           - entity: sensor.ecoflow_energy_control_applicatie_hoogste_prijs_tot_morgen
             name: Hoogste
@@ -184,9 +187,11 @@ views:
               const end = now + 24 * 60 * 60 * 1000;
               const source = hass.states['sensor.ecoflow_energy_control_applicatie_stroomprijs_nu'];
               const prices = source ? source.attributes.prices || [] : [];
-              const value = entity.state === 'unknown' ? null : Number(entity.state);
+              const value = Number(entity.state);
+              if (!Number.isFinite(value)) return [];
               return prices
                 .map((item) => [new Date(item.start).getTime(), value])
+                .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
                 .filter((item) => item[0] >= now && item[0] <= end);
 
       - type: entities

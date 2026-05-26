@@ -85,9 +85,13 @@ async def fetch_prices(
                 "forecast",
                 "prijs",
                 "price",
+                "priceIncl",
+                "priceExcl",
                 "electricity_price",
                 "value",
+                "tariff",
                 "marketprice",
+                "marketPrice",
                 "Price",
             ),
         )
@@ -101,9 +105,15 @@ async def fetch_prices(
                 "time",
                 "start",
                 "from",
+                "fromDate",
+                "validFrom",
+                "startDate",
+                "date",
                 "timestamp",
                 "readingDate",
+                "reading_date",
                 "DateTime",
+                "dateTime",
             ),
         )
         if price is None:
@@ -135,6 +145,7 @@ def current_price(prices: list[dict[str, Any]], now: datetime) -> float | None:
         parsed = parse_price_time(starts_at)
         if parsed is None:
             continue
+        parsed = _align_to_reference_tz(parsed, now)
         if parsed.replace(minute=0, second=0, microsecond=0) == current_hour:
             return item["price_eur_kwh"]
     return prices[0]["price_eur_kwh"]
@@ -165,7 +176,10 @@ def price_summary(
     upcoming = []
     for item in prices:
         parsed = parse_price_time(item.get("start"))
-        if parsed is None or parsed < now.replace(minute=0, second=0, microsecond=0):
+        if parsed is None:
+            continue
+        parsed = _align_to_reference_tz(parsed, now)
+        if parsed < now.replace(minute=0, second=0, microsecond=0):
             continue
         if parsed <= end:
             upcoming.append({**item, "parsed_start": parsed})
@@ -205,6 +219,14 @@ def parse_price_time(value: Any) -> datetime | None:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _align_to_reference_tz(parsed: datetime, reference: datetime) -> datetime:
+    if parsed.tzinfo is None and reference.tzinfo is not None:
+        return parsed.replace(tzinfo=reference.tzinfo)
+    if parsed.tzinfo is not None and reference.tzinfo is not None:
+        return parsed.astimezone(reference.tzinfo)
+    return parsed
 
 
 def _first_number(item: dict[str, Any], keys: tuple[str, ...]) -> float | None:

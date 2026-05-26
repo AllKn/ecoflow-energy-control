@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EcoFlow API Tester</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f6f7f8; color: #17202a; }
+    main { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 28px; margin: 0 0 18px; }
+    h2 { font-size: 18px; margin: 0 0 12px; }
+    section { background: white; border: 1px solid #d9dee3; border-radius: 8px; padding: 16px; margin: 14px 0; }
+    label { display: grid; gap: 5px; font-size: 13px; font-weight: 650; }
+    input, textarea, select { font: inherit; padding: 9px 10px; border: 1px solid #b9c1ca; border-radius: 6px; background: white; color: inherit; }
+    textarea { min-height: 90px; resize: vertical; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    button { border: 0; border-radius: 6px; padding: 10px 14px; font-weight: 750; cursor: pointer; background: #146c94; color: white; }
+    button.secondary { background: #425466; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+    .device { border: 1px solid #d9dee3; border-radius: 8px; padding: 12px; background: #fbfcfd; }
+    .device strong { display: block; margin-bottom: 4px; }
+    .ok { color: #0f7b3e; font-weight: 800; }
+    .bad { color: #b3261e; font-weight: 800; }
+    pre { overflow: auto; background: #17202a; color: #e9eef2; padding: 12px; border-radius: 8px; min-height: 180px; }
+    small { color: #637083; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } main { padding: 14px; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>EcoFlow API Tester</h1>
+
+  <section>
+    <h2>API instellingen</h2>
+    <div class="grid">
+      <label>EcoFlow host
+        <input id="host" value="https://api-e.ecoflow.com" autocomplete="off">
+      </label>
+      <label>Access key
+        <input id="accessKey" autocomplete="off">
+      </label>
+      <label>Secret key
+        <input id="secretKey" type="password" autocomplete="off">
+      </label>
+      <label>Serienummer voor quota test
+        <select id="serial"></select>
+      </label>
+    </div>
+    <label style="margin-top:12px">Selected quota’s, optioneel, 1 per regel
+      <textarea id="quotas">pd.soc
+pd.inputWatts
+pd.outputWatts
+pd.invOutWatts
+permanentWatts
+inv.outputWatts
+bat.inputWatts
+bat.outputWatts</textarea>
+    </label>
+    <div class="actions">
+      <button id="save">Bewaar lokaal in browser</button>
+      <button id="list">Haal device-list op</button>
+      <button id="quotaAll" class="secondary">Quota/all voor gekozen device</button>
+      <button id="quotaSelected" class="secondary">Selected quota’s testen</button>
+    </div>
+    <p><small>Deze pagina praat alleen met het lokale testservertje op je machine. De secret key wordt niet naar internet gestuurd behalve als onderdeel van de server-side EcoFlow API-signing.</small></p>
+  </section>
+
+  <section>
+    <h2>Gevonden devices</h2>
+    <div id="devices" class="cards"></div>
+  </section>
+
+  <section>
+    <h2>Resultaat</h2>
+    <pre id="output">Nog geen test uitgevoerd.</pre>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let devices = [];
+
+function loadSettings() {
+  const saved = JSON.parse(localStorage.getItem("ecoflow_api_tester") || "{}");
+  $("host").value = saved.host || $("host").value;
+  $("accessKey").value = saved.accessKey || "";
+}
+
+function config() {
+  return {
+    host: $("host").value.trim(),
+    accessKey: $("accessKey").value.trim(),
+    secretKey: $("secretKey").value
+  };
+}
+
+function saveSettings() {
+  localStorage.setItem("ecoflow_api_tester", JSON.stringify({
+    host: $("host").value.trim(),
+    accessKey: $("accessKey").value.trim()
+  }));
+}
+
+async function post(path, extra = {}) {
+  setBusy(true);
+  try {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({...config(), ...extra})
+    });
+    const data = await response.json();
+    $("output").textContent = JSON.stringify(data, null, 2);
+    return data;
+  } finally {
+    setBusy(false);
+  }
+}
+
+function setBusy(busy) {
+  document.querySelectorAll("button").forEach((button) => button.disabled = busy);
+}
+
+function extractDevices(value, out = []) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => extractDevices(item, out));
+  } else if (value && typeof value === "object") {
+    const serial = value.sn || value.serial || value.serialNumber || value.deviceSn;
+    if (serial) {
+      out.push(value);
+      return out;
+    }
+    Object.values(value).forEach((item) => extractDevices(item, out));
+  }
+  return out;
+}
+
+function serialOf(device) {
+  return device.sn || device.serial || device.serialNumber || device.deviceSn || "";
+}
+
+function nameOf(device) {
+  return device.deviceName || device.name || device.productName || device.model || "EcoFlow device";
+}
+
+function renderDevices() {
+  const select = $("serial");
+  select.innerHTML = "";
+  const cards = $("devices");
+  cards.innerHTML = "";
+  devices.forEach((device) => {
+    const serial = serialOf(device);
+    const option = document.createElement("option");
+    option.value = serial;
+    option.textContent = `${nameOf(device)} (${serial})`;
+    select.appendChild(option);
+
+    const card = document.createElement("div");
+    card.className = "device";
+    card.innerHTML = `
+      <strong>${escapeHtml(nameOf(device))}</strong>
+      <div>${escapeHtml(serial)}</div>
+      <small>${escapeHtml(device.productName || device.model || device.deviceType || "type onbekend")}</small>
+    `;
+    cards.appendChild(card);
+  });
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  }[char]));
+}
+
+$("save").onclick = () => { saveSettings(); $("output").textContent = "Instellingen lokaal in browser bewaard."; };
+$("list").onclick = async () => {
+  saveSettings();
+  const result = await post("/api/device-list");
+  devices = extractDevices(result.response);
+  renderDevices();
+};
+$("quotaAll").onclick = () => post("/api/quota-all", {serial: $("serial").value});
+$("quotaSelected").onclick = () => post("/api/quota-selected", {serial: $("serial").value, quotas: $("quotas").value});
+
+loadSettings();
+</script>
+</body>
+</html>
