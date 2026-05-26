@@ -731,6 +731,8 @@ def _battery_soc_value(values: dict[str, Any]) -> float | None:
     soc = _first_number(
         values,
         (
+            "cmsBattSoc",
+            "bmsBattSoc",
             "pd.soc",
             "ems.soc",
             "bms.soc",
@@ -748,6 +750,8 @@ def _battery_soc_value(values: dict[str, Any]) -> float | None:
         normalized = key.lower().replace("_", "").replace("-", "")
         if "soc" not in normalized and "batterylevel" not in normalized:
             continue
+        if _is_soc_limit_or_setting(normalized):
+            continue
         try:
             numeric = float(value)
         except (TypeError, ValueError):
@@ -755,6 +759,23 @@ def _battery_soc_value(values: dict[str, Any]) -> float | None:
         if 0 <= numeric <= 100:
             return numeric
     return None
+
+
+def _is_soc_limit_or_setting(normalized_key: str) -> bool:
+    blocked_parts = (
+        "min",
+        "max",
+        "backup",
+        "reserve",
+        "generator",
+        "oil",
+        "alwayson",
+        "conflict",
+        "limit",
+        "start",
+        "stop",
+    )
+    return any(part in normalized_key for part in blocked_parts)
 
 
 def _normalize_powerstream_watts(value: float | None, max_watts: float) -> float:

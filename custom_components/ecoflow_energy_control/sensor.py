@@ -404,6 +404,7 @@ class BatterySocSensor(BaseSensor):
         values = _battery_values(self.coordinator, self._serial)
         return {
             **_device_attrs("battery", self._serial, "soc"),
+            **_battery_soc_detail(values),
             "soc_candidates": _battery_soc_candidates(values),
         }
 
@@ -457,6 +458,7 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
             attrs.update(
                 {
                     "soc": _battery_soc_value(values),
+                    **_battery_soc_detail(values),
                     "soc_candidates": _battery_soc_candidates(values),
                     "charge_w": _first_value(
                         values,
@@ -890,6 +892,8 @@ def _battery_values(
 
 def _battery_soc_value(values: dict[str, Any]) -> float | None:
     for key in (
+        "cmsBattSoc",
+        "bmsBattSoc",
         "pd.soc",
         "ems.soc",
         "bms.soc",
@@ -911,6 +915,8 @@ def _battery_soc_value(values: dict[str, Any]) -> float | None:
         normalized = key.lower().replace("_", "").replace("-", "")
         if "soc" not in normalized and "batterylevel" not in normalized:
             continue
+        if _is_soc_limit_or_setting(normalized):
+            continue
         try:
             numeric = float(value)
         except (TypeError, ValueError):
@@ -920,6 +926,14 @@ def _battery_soc_value(values: dict[str, Any]) -> float | None:
     return None
 
 
+def _battery_soc_detail(values: dict[str, Any]) -> dict[str, float | None]:
+    return {
+        "main_soc": _to_percentage(values.get("cmsBattSoc")),
+        "extra_battery_soc": _to_percentage(values.get("bmsBattSoc")),
+        "selected_soc": _battery_soc_value(values),
+    }
+
+
 def _battery_soc_candidates(values: dict[str, Any]) -> dict[str, Any]:
     candidates: dict[str, Any] = {}
     for key, value in values.items():
@@ -927,6 +941,35 @@ def _battery_soc_candidates(values: dict[str, Any]) -> dict[str, Any]:
         if "soc" in normalized or "batterylevel" in normalized:
             candidates[key] = value
     return dict(sorted(candidates.items())[:20])
+
+
+def _to_percentage(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    return round(max(0.0, min(numeric, 100.0)), 2)
+
+
+def _is_soc_limit_or_setting(normalized_key: str) -> bool:
+    return any(
+        part in normalized_key
+        for part in (
+            "min",
+            "max",
+            "backup",
+            "reserve",
+            "generator",
+            "oil",
+            "alwayson",
+            "conflict",
+            "limit",
+            "start",
+            "stop",
+        )
+    )
 
 
 def _scenario_data(

@@ -112,7 +112,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.15`
+`0.5.16`
 
 ## EcoFlow Signing
 
@@ -145,3 +145,5 @@ Versie `0.5.13` corrigeert de HomeWizard-import via Home Assistant wanneer die v
 Versie `0.5.14` normaliseert PowerStream-vermogens die als deciwatt binnenkomen en breidt de batterij-SoC herkenning uit voor Delta Pro 3-velden zoals `ems.soc`, `bms.soc`, `socLevel` en geneste SoC-velden.
 
 Versie `0.5.15` probeert voor batterijen automatisch `quota/all` als de geselecteerde quota's geen telemetrie opleveren. De per-device API-status toont nu `quota_source` en `response_debug` om te zien wat EcoFlow terugstuurt.
+
+Versie `0.5.16` corrigeert Delta Pro 3 SoC-herkenning: `cmsBattSoc` krijgt prioriteit als hoofdaccu, `bmsBattSoc` wordt als extra accu-attribuut getoond en SoC-grenswaarden zoals `cmsMinDsgSoc` worden niet meer als actuele batterijstand gebruikt.
