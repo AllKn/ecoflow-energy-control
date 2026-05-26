@@ -64,6 +64,16 @@ async def async_setup_entry(
         if serial and "VUL_HIER" not in serial:
             name = device.get("name", serial)
             entities.append(EcoFlowDeviceStatusSensor(coordinator, serial, name, "smart_plug"))
+    for device in coordinator.settings.get("homewizard_meters", []):
+        host = device.get("host")
+        if host:
+            name = device.get("name", host)
+            entities.extend(
+                [
+                    HomeWizardMeterStatusSensor(coordinator, host, name),
+                    HomeWizardMeterPowerSensor(coordinator, host, name),
+                ]
+            )
     async_add_entities(entities)
 
 
@@ -248,6 +258,7 @@ class BatterySocSensor(BaseSensor):
     ) -> None:
         super().__init__(coordinator, f"{serial}_soc", f"{name} SoC")
         self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
     def native_value(self) -> Any:
@@ -278,6 +289,7 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
         )
         self._serial = serial
         self._device_type = device_type
+        self._attr_device_info = _ecoflow_device_info(serial, name, device_type)
 
     @property
     def native_value(self) -> str:
@@ -357,6 +369,7 @@ class BatteryChargePowerSensor(BaseSensor):
     ) -> None:
         super().__init__(coordinator, f"{serial}_charge_power", f"{name} laadvermogen")
         self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
     def native_value(self) -> float:
@@ -386,6 +399,7 @@ class BatteryDischargePowerSensor(BaseSensor):
             coordinator, f"{serial}_discharge_power", f"{name} ontlaadvermogen"
         )
         self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
     def native_value(self) -> float:
@@ -413,6 +427,7 @@ class BatteryNetPowerSensor(BaseSensor):
     ) -> None:
         super().__init__(coordinator, f"{serial}_net_power", f"{name} netto vermogen")
         self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
     def native_value(self) -> float:
@@ -431,6 +446,7 @@ class BatteryModeSensor(BaseSensor):
     ) -> None:
         super().__init__(coordinator, f"{serial}_mode", f"{name} status")
         self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
     def native_value(self) -> str:
@@ -457,6 +473,7 @@ class PowerStreamTargetSensor(BaseSensor):
     ) -> None:
         super().__init__(coordinator, f"{serial}_powerstream_power", f"{name} vermogen")
         self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
     def native_value(self) -> float:
@@ -476,6 +493,7 @@ class PowerStreamModeSensor(BaseSensor):
     ) -> None:
         super().__init__(coordinator, f"{serial}_powerstream_mode", f"{name} status")
         self._serial = serial
+        self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
     def native_value(self) -> str:
@@ -490,6 +508,77 @@ class PowerStreamModeSensor(BaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return _device_attrs("powerstream", self._serial, "mode")
+
+
+class HomeWizardMeterStatusSensor(BaseSensor):
+    """Per-meter HomeWizard local API status."""
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, host: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"homewizard_{host}_status", f"{name} status")
+        self._host = host
+        self._name = name
+        self._attr_device_info = _homewizard_device_info(host, name)
+
+    @property
+    def native_value(self) -> str:
+        item = self._meter_data()
+        if not item:
+            return "wachten"
+        if item.get("error") or item.get("available") is False:
+            return "fout"
+        return "api ok"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        item = self._meter_data()
+        return {
+            "eec_device_type": "homewizard",
+            "eec_sensor_role": "api_status",
+            "host": self._host,
+            "role": item.get("role") if item else None,
+            "error": item.get("error") if item else None,
+        }
+
+    def _meter_data(self) -> dict[str, Any]:
+        data = (self.coordinator.data or {}).get("homewizard_meters", {})
+        return data.get(self._name, {}) or data.get(self._host, {})
+
+
+class HomeWizardMeterPowerSensor(BaseSensor):
+    """Per-meter HomeWizard active power."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, host: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"homewizard_{host}_power", f"{name} vermogen")
+        self._host = host
+        self._name = name
+        self._attr_device_info = _homewizard_device_info(host, name)
+
+    @property
+    def native_value(self) -> float:
+        item = self._meter_data()
+        return float(item.get("active_power_w") or 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        item = self._meter_data()
+        return {
+            "eec_device_type": "homewizard",
+            "eec_sensor_role": "power",
+            "host": self._host,
+            "role": item.get("role") if item else None,
+            "phase_power_w": item.get("phase_power_w", {}) if item else {},
+        }
+
+    def _meter_data(self) -> dict[str, Any]:
+        data = (self.coordinator.data or {}).get("homewizard_meters", {})
+        return data.get(self._name, {}) or data.get(self._host, {})
 
 
 class StatusSensor(BaseSensor):
@@ -547,6 +636,41 @@ def _device_attrs(device_type: str, serial: str, sensor_role: str) -> dict[str, 
         "eec_sensor_role": sensor_role,
         "serial": serial,
     }
+
+
+def _ecoflow_device_info(serial: str, name: str, device_type: str) -> dict[str, Any]:
+    return {
+        "identifiers": {(DOMAIN, f"ecoflow_{serial}")},
+        "name": name,
+        "manufacturer": "EcoFlow",
+        "model": _device_model(device_type),
+        "via_device": (DOMAIN, "controller"),
+    }
+
+
+def _homewizard_device_info(host: str, name: str) -> dict[str, Any]:
+    return {
+        "identifiers": {(DOMAIN, f"homewizard_{host}")},
+        "name": name,
+        "manufacturer": "HomeWizard",
+        "model": "Energy meter",
+        "configuration_url": _host_url(host),
+        "via_device": (DOMAIN, "controller"),
+    }
+
+
+def _host_url(host: str) -> str:
+    if host.startswith(("http://", "https://")):
+        return host
+    return f"http://{host}"
+
+
+def _device_model(device_type: str) -> str:
+    return {
+        "battery": "Delta battery",
+        "powerstream": "PowerStream",
+        "smart_plug": "Smart Plug",
+    }.get(device_type, "EcoFlow device")
 
 
 def _first_value(values: dict[str, Any], keys: tuple[str, ...]) -> float:

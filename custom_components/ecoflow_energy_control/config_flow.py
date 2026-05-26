@@ -805,6 +805,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         self.hass.config_entries.async_update_entry(
             self._entry, data=merged, options={}
         )
+        self.hass.async_create_task(
+            self.hass.config_entries.async_reload(self._entry.entry_id)
+        )
         return self.async_create_entry(title="", data={})
 
     def _edit_context(self, expected_group: str) -> tuple[str, int, dict[str, Any]]:

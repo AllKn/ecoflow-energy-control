@@ -119,3 +119,15 @@ views:
           - sensor.ecoflow_energy_control_applicatie_powerstream_teruglevering
           - sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
           - sensor.ecoflow_energy_control_applicatie_sma_totaal_vermogen
+
+      - type: custom:auto-entities
+        card:
+          type: glance
+          title: EEC app - HomeWizard meters
+          columns: 2
+        filter:
+          include:
+            - attributes:
+                eec_device_type: homewizard
+        sort:
+          method: name
