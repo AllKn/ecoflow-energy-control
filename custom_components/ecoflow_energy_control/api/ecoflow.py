@@ -5,11 +5,11 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import random
 import time
 from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
-from urllib.parse import urlencode
 
 from aiohttp import ClientSession
 
@@ -60,7 +60,7 @@ class EcoFlowCloudClient:
     async def _request(
         self, method: str, path: str, payload: Mapping[str, Any]
     ) -> dict[str, Any]:
-        nonce = str(int(time.time() * 1000))
+        nonce = str(random.randint(100000, 999999))
         body = dict(payload)
         sign_params = self._flatten(body)
         sign_params["accessKey"] = self._access_key
@@ -73,7 +73,6 @@ class EcoFlowCloudClient:
             "nonce": nonce,
             "timestamp": nonce,
             "sign": sign,
-            "Content-Type": "application/json",
         }
         url = f"{self._host}{path}"
 
@@ -81,6 +80,7 @@ class EcoFlowCloudClient:
             async with self._session.get(url, headers=headers, params=body) as resp:
                 data = await resp.json(content_type=None)
         else:
+            headers["Content-Type"] = "application/json;charset=UTF-8"
             async with self._session.request(method, url, headers=headers, json=body) as resp:
                 data = await resp.json(content_type=None)
 
@@ -92,7 +92,7 @@ class EcoFlowCloudClient:
         return data
 
     def _sign(self, params: Mapping[str, Any]) -> str:
-        encoded = urlencode(sorted((k, str(v)) for k, v in params.items()))
+        encoded = "&".join(f"{key}={params[key]}" for key in sorted(params))
         digest = hmac.new(
             self._secret_key.encode(), encoded.encode(), hashlib.sha256
         ).hexdigest()
@@ -108,7 +108,7 @@ class EcoFlowCloudClient:
             for index, item in enumerate(value):
                 flattened.update(self._flatten(item, f"{prefix}[{index}]"))
         elif value is not None:
-            flattened[prefix] = value
+            flattened[prefix] = str(value).lower() if isinstance(value, bool) else value
         return flattened
 
 

@@ -329,7 +329,11 @@ Als HACS de update niet meteen ziet, verhoog dan de versie in:
 custom_components/ecoflow_energy_control/manifest.json
 ```
 
-Deze iteratie staat op versie `0.4.7`.
+Deze iteratie staat op versie `0.4.8`.
+
+### EcoFlow fout 8521: signature is wrong
+
+Versie `0.4.8` corrigeert de EcoFlow signing voor quota-uitlezingen. GET requests worden nu zonder `Content-Type` verzonden en POST/PUT requests met JSON content-type, volgens de EcoFlow signingregels. Dit voorkomt dat device-list wel werkt maar quota-uitlezingen falen met code `8521`.
 
 ### Config flow could not be loaded
 
