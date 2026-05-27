@@ -51,12 +51,61 @@ views:
         entities:
           - entity: sensor.ecoflow_energy_control_applicatie_zon_nu
             name: Nu
+          - type: attribute
+            entity: sensor.ecoflow_energy_control_applicatie_zon_nu
+            attribute: weather_label
+            name: Verwachting
+          - type: attribute
+            entity: sensor.ecoflow_energy_control_applicatie_zon_nu
+            attribute: temperature
+            name: Temperatuur
           - entity: sensor.ecoflow_energy_control_applicatie_zon_4_uur
             name: 4u
           - entity: sensor.ecoflow_energy_control_applicatie_zon_12_uur
             name: 12u
           - entity: sensor.ecoflow_energy_control_applicatie_zon_24_uur
             name: 24u
+          - entity: sensor.ecoflow_energy_control_applicatie_verwachte_besparing
+            name: EUR 24u
+
+      - type: markdown
+        title: Komende uren
+        content: >
+          {{ state_attr('sensor.ecoflow_energy_control_applicatie_zon_nu',
+          'icon_summary') }}
+
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Weer - temperatuur 24 uur
+        graph_span: 24h
+        apex_config:
+          chart:
+            height: 220
+          plotOptions:
+            bar:
+              columnWidth: 70%
+          dataLabels:
+            enabled: false
+          yaxis:
+            title:
+              text: °C
+          xaxis:
+            labels:
+              datetimeFormatter:
+                hour: HH:mm
+        series:
+          - entity: sensor.ecoflow_energy_control_applicatie_zon_nu
+            name: °C
+            type: column
+            data_generator: |
+              const now = Date.now();
+              const end = now + 24 * 60 * 60 * 1000;
+              const rows = entity.attributes.hourly || [];
+              return rows
+                .map((item) => [new Date(item.start).getTime(), Number(item.temperature)])
+                .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
+                .filter((item) => item[0] >= now && item[0] <= end);
 
       - type: custom:auto-entities
         card:
@@ -68,8 +117,8 @@ views:
         filter:
           include:
             - attributes:
-                eec_device_type: powerstream
-                eec_sensor_role: group_battery_soc
+                eec_device_type: battery
+                eec_sensor_role: soc
               options:
                 type: gauge
                 min: 0
@@ -84,23 +133,28 @@ views:
       - type: custom:auto-entities
         card:
           type: grid
-          title: Wh
+          title: kWh + EUR
           columns: 2
           square: false
         card_param: cards
         filter:
           include:
             - attributes:
-                eec_device_type: powerstream
-                eec_sensor_role: group_available_wh
+                eec_device_type: battery
+                eec_sensor_role: available_kwh
               options:
                 type: gauge
                 min: 0
-                max: 12000
+                max: 10
                 severity:
                   red: 0
-                  yellow: 2500
-                  green: 6000
+                  yellow: 2.5
+                  green: 6
+            - attributes:
+                eec_device_type: battery
+                eec_sensor_role: available_eur
+              options:
+                type: entity
         sort:
           method: name
 
@@ -137,7 +191,7 @@ views:
                 eec_device_type: powerstream
                 eec_sensor_role: power
             - attributes:
-                eec_device_type: powerstream
-                eec_sensor_role: group_battery_soc
+                eec_device_type: battery
+                eec_sensor_role: soc
         sort:
           method: name

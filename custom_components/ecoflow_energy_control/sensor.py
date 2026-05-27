@@ -59,6 +59,8 @@ async def async_setup_entry(
                 [
                     EcoFlowDeviceStatusSensor(coordinator, serial, name, "battery"),
                     BatterySocSensor(coordinator, serial, name),
+                    BatteryAvailableEnergySensor(coordinator, serial, name),
+                    BatteryAvailableValueSensor(coordinator, serial, name),
                     BatteryChargePowerSensor(coordinator, serial, name),
                     BatteryChargeSourceSensor(coordinator, serial, name),
                     BatteryDischargePowerSensor(coordinator, serial, name),
@@ -302,6 +304,9 @@ class WeatherNowSensor(BaseSensor):
             "provider": weather.get("provider"),
             "temperature": weather.get("temperature"),
             "cloud_cover": weather.get("cloud_cover"),
+            "weather_icon": weather.get("weather_icon"),
+            "weather_label": weather.get("weather_label"),
+            "icon_summary": weather.get("icon_summary"),
             "hourly": weather.get("hourly", []),
         }
 
@@ -503,6 +508,80 @@ class BatterySocSensor(BaseSensor):
             **_device_attrs("battery", self._serial, "soc"),
             **_battery_soc_detail(values),
             "soc_candidates": _battery_soc_candidates(values),
+        }
+
+
+class BatteryAvailableEnergySensor(BaseSensor):
+    """Available battery energy based on SoC and known/nominal capacity."""
+
+    _attr_native_unit_of_measurement = "kWh"
+    _attr_device_class = "energy"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(
+            coordinator, f"{serial}_available_kwh", f"{name} beschikbaar"
+        )
+        self._serial = serial
+        self._name = name
+        self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
+
+    @property
+    def native_value(self) -> float:
+        return _battery_available_kwh(
+            _battery_values(self.coordinator, self._serial), self._name
+        ) or 0.0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        values = _battery_values(self.coordinator, self._serial)
+        capacity = _battery_capacity_wh(values, self._name)
+        soc = _battery_soc_value(values)
+        return {
+            **_device_attrs("battery", self._serial, "available_kwh"),
+            "soc": soc,
+            "capacity_wh": capacity,
+            "available_wh": round(capacity * soc / 100, 0)
+            if capacity is not None and soc is not None
+            else None,
+            "capacity_source": "telemetry_or_nominal",
+            "energy_candidates": _battery_energy_candidates(values),
+        }
+
+
+class BatteryAvailableValueSensor(BaseSensor):
+    """Current value of available battery energy at the live electricity price."""
+
+    _attr_native_unit_of_measurement = "EUR"
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
+    ) -> None:
+        super().__init__(coordinator, f"{serial}_available_eur", f"{name} waarde")
+        self._serial = serial
+        self._name = name
+        self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
+
+    @property
+    def native_value(self) -> float:
+        kwh = _battery_available_kwh(
+            _battery_values(self.coordinator, self._serial), self._name
+        )
+        price = (self.coordinator.data or {}).get("price_now")
+        if kwh is None or price is None:
+            return 0.0
+        return round(kwh * float(price), 2)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        kwh = _battery_available_kwh(
+            _battery_values(self.coordinator, self._serial), self._name
+        )
+        return {
+            **_device_attrs("battery", self._serial, "available_eur"),
+            "available_kwh": kwh,
+            "price_eur_kwh": (self.coordinator.data or {}).get("price_now"),
         }
 
 
@@ -1415,6 +1494,16 @@ def _powerstream_group_available_wh(
     if soc is None or capacity is None:
         return None
     return round(capacity * float(soc) / 100, 0)
+
+
+def _battery_available_kwh(
+    values: dict[str, Any], battery_name: Any | None = None
+) -> float | None:
+    soc = _battery_soc_value(values)
+    capacity = _battery_capacity_wh(values, battery_name)
+    if soc is None or capacity is None:
+        return None
+    return round(capacity * float(soc) / 100000, 2)
 
 
 def _battery_capacity_wh(

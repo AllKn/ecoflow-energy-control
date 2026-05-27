@@ -18,9 +18,9 @@ async def read_homewizard_meter(
         data = await resp.json(content_type=None)
 
     phases = {
-        "l1": _number(data.get("active_power_l1_w")),
-        "l2": _number(data.get("active_power_l2_w")),
-        "l3": _number(data.get("active_power_l3_w")),
+        "l1": _normalize_power_w(data.get("active_power_l1_w")),
+        "l2": _normalize_power_w(data.get("active_power_l2_w")),
+        "l3": _normalize_power_w(data.get("active_power_l3_w")),
     }
     voltages = {
         "l1": _number(data.get("active_voltage_l1_v")),
@@ -32,7 +32,7 @@ async def read_homewizard_meter(
         "l2": _number(data.get("active_current_l2_a")),
         "l3": _number(data.get("active_current_l3_a")),
     }
-    active_power = _number(data.get("active_power_w"))
+    active_power = _normalize_power_w(data.get("active_power_w"))
     return {
         "available": True,
         "name": meter.get("name", host),
@@ -61,11 +61,11 @@ def read_homewizard_ha_meter(hass: HomeAssistant, meter: dict[str, Any]) -> dict
     """Read a HomeWizard device through existing Home Assistant entities."""
     entities = meter.get("entities", {})
     phases = {
-        "l1": _state_number(hass, entities.get("power_l1")),
-        "l2": _state_number(hass, entities.get("power_l2")),
-        "l3": _state_number(hass, entities.get("power_l3")),
+        "l1": _normalize_power_w(_state_number(hass, entities.get("power_l1"))),
+        "l2": _normalize_power_w(_state_number(hass, entities.get("power_l2"))),
+        "l3": _normalize_power_w(_state_number(hass, entities.get("power_l3"))),
     }
-    active_power = _state_number(hass, entities.get("power"))
+    active_power = _normalize_power_w(_state_number(hass, entities.get("power")))
     if active_power is None:
         active_power = _sum_existing(*phases.values())
     return {
@@ -110,6 +110,15 @@ def _number(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _normalize_power_w(value: Any) -> float | None:
+    number = _number(value)
+    if number is None:
+        return None
+    if abs(number) >= 2500 and abs(number / 10) <= 1500:
+        number = number / 10
+    return round(number, 1)
 
 
 def _sum_numbers(*values: Any) -> float | None:

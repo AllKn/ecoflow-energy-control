@@ -155,11 +155,19 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 errors[f"battery_{serial}"] = str(err)
                 batteries[serial] = {"name": device.get("name", serial), "error": str(err)}
 
+        configured_batteries = [
+            item
+            for item in settings.get(CONF_BATTERIES, [])
+            if item.get("serial") and "VUL_HIER" not in str(item.get("serial"))
+        ]
         powerstreams = {}
-        for device in settings.get(CONF_POWERSTREAMS, []):
+        for index, device in enumerate(settings.get(CONF_POWERSTREAMS, [])):
             serial = device.get("serial")
             if not serial or "VUL_HIER" in serial:
                 continue
+            battery_serial = device.get("battery_serial") or _fallback_battery_serial(
+                configured_batteries, index
+            )
             target_watts = float(self.powerstream_targets.get(serial, 0))
             try:
                 try:
@@ -200,13 +208,9 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "raw_target_watts": raw_target_watts,
                     "max_watts": float(device.get("max_watts") or 0),
                     "phase": device.get("phase", "l1"),
-                    "battery_serial": device.get("battery_serial"),
-                    "battery_name": _battery_name(
-                        settings, device.get("battery_serial")
-                    ),
-                    "battery_soc": _battery_soc_for_serial(
-                        batteries, device.get("battery_serial")
-                    ),
+                    "battery_serial": battery_serial,
+                    "battery_name": _battery_name(settings, battery_serial),
+                    "battery_soc": _battery_soc_for_serial(batteries, battery_serial),
                     "response_debug": _response_debug(response),
                 }
             except Exception as err:  # noqa: BLE001
@@ -217,13 +221,9 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "target_watts": target_watts,
                     "max_watts": float(device.get("max_watts") or 0),
                     "phase": device.get("phase", "l1"),
-                    "battery_serial": device.get("battery_serial"),
-                    "battery_name": _battery_name(
-                        settings, device.get("battery_serial")
-                    ),
-                    "battery_soc": _battery_soc_for_serial(
-                        batteries, device.get("battery_serial")
-                    ),
+                    "battery_serial": battery_serial,
+                    "battery_name": _battery_name(settings, battery_serial),
+                    "battery_soc": _battery_soc_for_serial(batteries, battery_serial),
                     "error": str(err),
                 }
 
@@ -293,10 +293,14 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 name = item.get("name", source_id)
                 homewizard_meters[name] = reading
                 if reading.get("role") == "solar_total":
-                    active_power = float(reading.get("active_power_w") or 0)
+                    active_power = _normalize_homewizard_power_w(
+                        reading.get("active_power_w")
+                    )
                     homewizard_solar_power += abs(active_power)
                     for phase, watts in reading.get("phase_power_w", {}).items():
-                        homewizard_phase_power[phase] += abs(float(watts or 0))
+                        homewizard_phase_power[phase] += abs(
+                            _normalize_homewizard_power_w(watts)
+                        )
             except Exception as err:  # noqa: BLE001
                 errors[f"homewizard_{source_id}"] = str(err)
                 homewizard_meters[item.get("name", source_id)] = {
@@ -1061,6 +1065,15 @@ def _battery_name(settings: dict[str, Any], serial: str | None) -> str | None:
     return str(serial)
 
 
+def _fallback_battery_serial(
+    configured_batteries: list[dict[str, Any]], index: int
+) -> str | None:
+    if index >= len(configured_batteries):
+        return None
+    serial = configured_batteries[index].get("serial")
+    return str(serial) if serial else None
+
+
 def _powerstream_group_decision(
     strategy: str,
     item: dict[str, Any],
@@ -1242,6 +1255,16 @@ def _normalize_powerstream_watts(value: float | None, max_watts: float) -> float
         if abs(normalized / 10) <= max_watts * 1.5:
             normalized = normalized / 10
     elif abs(normalized) > 1000 and abs(normalized / 10) <= 1000:
+        normalized = normalized / 10
+    return round(normalized, 1)
+
+
+def _normalize_homewizard_power_w(value: Any) -> float:
+    try:
+        normalized = float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    if abs(normalized) >= 2500 and abs(normalized / 10) <= 1500:
         normalized = normalized / 10
     return round(normalized, 1)
 

@@ -114,7 +114,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.30`
+`0.5.31`
 
 ## EcoFlow Signing
 
@@ -176,4 +176,4 @@ Versie `0.5.28` beperkt automatische PowerStream-strategieaanpassingen tot maxim
 
 Versie `0.5.29` verwijdert de HomeWizard import/export-totalen uit de EEC app entiteiten. Alleen relevante status-, totaalvermogen- en fasevermogenmetingen blijven zichtbaar.
 
-Versie `0.5.30` voegt Open-Meteo weerdata toe met een selecteerbare Nederlandse stad, zonverwachting voor nu/4/12/24 uur en verwachte besparing per kWp. Er is ook een nieuw app-stijl dashboard met EcoFlow-achtige batterij/PowerStream tegels en HomeWizard-achtige live energieweergave.
+Versie `0.5.31` toont batterij-inhoud en waarde rechtstreeks op de Delta Pro/Delta Pro 3 devices, corrigeert HomeWizard-vermogens die als factor 10 te hoog binnenkomen en maakt de weerweergave grafischer met iconen en een 24-uurs temperatuurgrafiek.
