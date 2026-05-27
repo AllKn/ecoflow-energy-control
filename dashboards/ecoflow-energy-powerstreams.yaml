@@ -4,6 +4,17 @@ views:
     path: eec-powerstreams
     icon: mdi:solar-power-variant
     cards:
+      - type: entities
+        title: Modus
+        show_header_toggle: false
+        entities:
+          - entity: switch.ecoflow_energy_control_applicatie_testmodus
+            name: Test
+          - entity: select.ecoflow_energy_control_applicatie_strategie
+            name: Scenario
+          - entity: sensor.ecoflow_energy_control_applicatie_verwachte_besparing
+            name: EUR/kWp
+
       - type: horizontal-stack
         cards:
           - type: gauge
@@ -24,6 +35,28 @@ views:
               red: -4000
               yellow: 0
               green: 1500
+          - type: gauge
+            entity: sensor.ecoflow_energy_control_applicatie_zon_24_uur
+            name: 24h zon
+            min: 0
+            max: 7000
+            severity:
+              red: 0
+              yellow: 1500
+              green: 3500
+
+      - type: entities
+        title: Weer
+        show_header_toggle: false
+        entities:
+          - entity: sensor.ecoflow_energy_control_applicatie_zon_nu
+            name: Nu
+          - entity: sensor.ecoflow_energy_control_applicatie_zon_4_uur
+            name: 4u
+          - entity: sensor.ecoflow_energy_control_applicatie_zon_12_uur
+            name: 12u
+          - entity: sensor.ecoflow_energy_control_applicatie_zon_24_uur
+            name: 24u
 
       - type: custom:auto-entities
         card:

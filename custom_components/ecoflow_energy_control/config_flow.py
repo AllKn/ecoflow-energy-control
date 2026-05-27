@@ -33,6 +33,7 @@ from .const import (
     CONF_SMA_PLANT_ID,
     CONF_SMA_TOKEN,
     CONF_SMART_PLUGS,
+    CONF_WEATHER_CITY,
     DEFAULT_BATTERY_QUOTAS,
     DEFAULT_ECOFLOW_HOST,
     DEFAULT_HOMEWIZARD_ROLE,
@@ -46,8 +47,10 @@ from .const import (
     DEFAULT_SMA_ENDPOINT,
     DEFAULT_SMART_PLUG_OFF_COMMAND,
     DEFAULT_SMART_PLUG_ON_COMMAND,
+    DEFAULT_WEATHER_CITY,
     DOMAIN,
     APP_NAME,
+    WEATHER_CITIES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -405,6 +408,10 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     CONF_SMA_ENDPOINT,
                     default=current.get(CONF_SMA_ENDPOINT, DEFAULT_SMA_ENDPOINT),
                 ): str,
+                vol.Required(
+                    CONF_WEATHER_CITY,
+                    default=current.get(CONF_WEATHER_CITY, DEFAULT_WEATHER_CITY),
+                ): vol.In({city: city for city in WEATHER_CITIES}),
                 vol.Required(CONF_DRY_RUN, default=current.get(CONF_DRY_RUN, True)): bool,
             }
         )

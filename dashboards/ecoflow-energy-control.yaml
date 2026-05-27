@@ -213,6 +213,21 @@ views:
           green: 1000
 
       - type: entities
+        title: Weer en zonverwachting
+        show_header_toggle: false
+        entities:
+          - entity: sensor.ecoflow_energy_control_applicatie_zon_nu
+            name: Nu
+          - entity: sensor.ecoflow_energy_control_applicatie_zon_4_uur
+            name: 4u
+          - entity: sensor.ecoflow_energy_control_applicatie_zon_12_uur
+            name: 12u
+          - entity: sensor.ecoflow_energy_control_applicatie_zon_24_uur
+            name: 24u
+          - entity: sensor.ecoflow_energy_control_applicatie_verwachte_besparing
+            name: Besparing 24u
+
+      - type: entities
         title: Opwekcorrectie
         entities:
           - sensor.ecoflow_energy_control_applicatie_homewizard_opwek_ruw

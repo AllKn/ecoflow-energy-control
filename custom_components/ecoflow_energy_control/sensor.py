@@ -32,6 +32,11 @@ async def async_setup_entry(
         HomeWizardSolarPowerSensor(coordinator),
         CorrectedSolarPowerSensor(coordinator),
         PowerStreamExportSensor(coordinator),
+        WeatherNowSensor(coordinator),
+        WeatherSolarForecastSensor(coordinator, 4),
+        WeatherSolarForecastSensor(coordinator, 12),
+        WeatherSolarForecastSensor(coordinator, 24),
+        ExpectedSavingsSensor(coordinator),
         StatusSensor(coordinator),
         LastActionSensor(coordinator),
     ]
@@ -275,6 +280,77 @@ class PowerStreamExportSensor(BaseSensor):
     @property
     def native_value(self) -> float:
         return float((self.coordinator.data or {}).get("powerstream_export_w") or 0)
+
+
+class WeatherNowSensor(BaseSensor):
+    """Current weather summary."""
+
+    _attr_native_unit_of_measurement = "W/m²"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "weather_solar_now", "zon nu")
+
+    @property
+    def native_value(self) -> float:
+        return float(((self.coordinator.data or {}).get("weather") or {}).get("shortwave_w_m2") or 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        weather = ((self.coordinator.data or {}).get("weather") or {})
+        return {
+            "city": weather.get("city"),
+            "provider": weather.get("provider"),
+            "temperature": weather.get("temperature"),
+            "cloud_cover": weather.get("cloud_cover"),
+            "hourly": weather.get("hourly", []),
+        }
+
+
+class WeatherSolarForecastSensor(BaseSensor):
+    """Expected solar radiation for a horizon."""
+
+    _attr_native_unit_of_measurement = "Wh/kWp"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator, hours: int) -> None:
+        super().__init__(coordinator, f"weather_solar_{hours}h", f"zon {hours} uur")
+        self._hours = hours
+
+    @property
+    def native_value(self) -> float:
+        weather = (self.coordinator.data or {}).get("weather") or {}
+        return float(weather.get(f"solar_next_{self._hours}h_wh_kwp") or 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        weather = (self.coordinator.data or {}).get("weather") or {}
+        return {
+            "city": weather.get("city"),
+            "provider": weather.get("provider"),
+            "unit_note": "verwachte Wh per kWp opgesteld vermogen",
+        }
+
+
+class ExpectedSavingsSensor(BaseSensor):
+    """Expected savings based on 24h solar forecast and current price."""
+
+    _attr_native_unit_of_measurement = "EUR/kWp"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "expected_savings_24h", "verwachte besparing")
+
+    @property
+    def native_value(self) -> float:
+        return float((self.coordinator.data or {}).get("expected_savings_eur") or 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        weather = (self.coordinator.data or {}).get("weather") or {}
+        return {
+            "horizon": "24h",
+            "basis": "per kWp, op huidige stroomprijs",
+            "solar_24h_wh_kwp": weather.get("solar_next_24h_wh_kwp"),
+            "price_now": (self.coordinator.data or {}).get("price_now"),
+        }
 
 
 class CheapBandSensor(BaseSensor):

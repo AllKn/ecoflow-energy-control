@@ -24,6 +24,7 @@ from .api.prices import (
     price_summary,
 )
 from .api.sma_cloud import read_sma_device
+from .api.weather import fetch_open_meteo_solar
 from .const import (
     CONF_ACCESS_KEY,
     CONF_BATTERIES,
@@ -44,6 +45,7 @@ from .const import (
     CONF_SMA_PLANT_ID,
     CONF_SMA_TOKEN,
     CONF_SMART_PLUGS,
+    CONF_WEATHER_CITY,
     DEFAULT_ECOFLOW_HOST,
     DEFAULT_POWERSTREAM_QUOTAS,
     DEFAULT_PRICE_INTERVAL,
@@ -54,9 +56,11 @@ from .const import (
     DEFAULT_SMA_API_HOST,
     DEFAULT_SMA_ENDPOINT,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_WEATHER_CITY,
     DOMAIN,
     POWERSTREAM_STRATEGY_SELF_USE,
     STRATEGY_IDLE,
+    WEATHER_CITIES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -108,6 +112,12 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         price_now = current_price(prices, dt_util.now())
         bands = price_bands(prices)
         summary = price_summary(prices, dt_util.now())
+        weather = {}
+        try:
+            weather = await self._async_fetch_weather(settings)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Could not fetch weather forecast: %s", err)
+            errors["weather"] = str(err)
 
         batteries = {}
         for device in settings.get(CONF_BATTERIES, []):
@@ -362,6 +372,8 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "powerstream_export_w": powerstream_export,
             "corrected_solar_power": effective_solar_power,
             "corrected_phase_power": corrected_phase_power,
+            "weather": weather,
+            "expected_savings_eur": _expected_savings(price_now, weather),
             "scenarios": scenarios,
             "strategy": self.strategy,
             "dry_run": self.dry_run,
@@ -369,6 +381,14 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "errors": errors,
             "status": "ok" if not errors else f"{len(errors)} bron(nen) met fout",
         }
+
+    async def _async_fetch_weather(self, settings: dict[str, Any]) -> dict[str, Any]:
+        city = settings.get(CONF_WEATHER_CITY, DEFAULT_WEATHER_CITY)
+        latitude, longitude = WEATHER_CITIES.get(city, WEATHER_CITIES[DEFAULT_WEATHER_CITY])
+        weather = await fetch_open_meteo_solar(self.session, latitude, longitude)
+        weather["city"] = city
+        weather["provider"] = "Open-Meteo"
+        return weather
 
     def _simulate_scenarios(
         self,
@@ -1100,6 +1120,12 @@ def _powerstream_group_decision(
         "suggested_watts": 0,
         "decision_reason": "geen actie nodig",
     }
+
+
+def _expected_savings(price_now: float | None, weather: dict[str, Any]) -> float:
+    price = float(price_now or 0)
+    solar_wh_kwp = float(weather.get("solar_next_24h_wh_kwp") or 0)
+    return round((solar_wh_kwp / 1000) * price, 2)
 
 
 def _powerstream_command_candidates(

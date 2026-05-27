@@ -100,6 +100,7 @@ Het voorbeeld-dashboard staat in:
 ```text
 dashboards/ecoflow-energy-control.yaml
 dashboards/ecoflow-energy-powerstreams.yaml
+dashboards/ecoflow-energy-app-style.yaml
 ```
 
 Het dashboard gebruikt dynamische kaarten zodat hardcoded device-namen zoals `Delta Pro` of `PowerStream 1` niet meer nodig zijn.
@@ -113,7 +114,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.29`
+`0.5.30`
 
 ## EcoFlow Signing
 
@@ -174,3 +175,5 @@ Versie `0.5.27` laat PowerStream-groepsstrategieen doorlopend bij elke updatecyc
 Versie `0.5.28` beperkt automatische PowerStream-strategieaanpassingen tot maximaal een keer per minuut per PowerStream. De gecorrigeerde opwek is nu een netto waarde: positief betekent netto opwek, negatief betekent netto verbruik.
 
 Versie `0.5.29` verwijdert de HomeWizard import/export-totalen uit de EEC app entiteiten. Alleen relevante status-, totaalvermogen- en fasevermogenmetingen blijven zichtbaar.
+
+Versie `0.5.30` voegt Open-Meteo weerdata toe met een selecteerbare Nederlandse stad, zonverwachting voor nu/4/12/24 uur en verwachte besparing per kWp. Er is ook een nieuw app-stijl dashboard met EcoFlow-achtige batterij/PowerStream tegels en HomeWizard-achtige live energieweergave.

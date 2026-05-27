@@ -19,6 +19,7 @@
           "sma_token": "SMA API token",
           "sma_plant_id": "SMA plant id",
           "sma_endpoint": "SMA endpoint template",
+          "weather_city": "Weather city",
           "dry_run": "Start in test mode"
         }
       }
