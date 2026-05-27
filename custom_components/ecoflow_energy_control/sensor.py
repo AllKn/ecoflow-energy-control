@@ -6,7 +6,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfEnergy, UnitOfPower
+from homeassistant.const import UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -91,8 +91,6 @@ async def async_setup_entry(
                     HomeWizardMeterPhasePowerSensor(coordinator, host, name, "l1"),
                     HomeWizardMeterPhasePowerSensor(coordinator, host, name, "l2"),
                     HomeWizardMeterPhasePowerSensor(coordinator, host, name, "l3"),
-                    HomeWizardMeterImportEnergySensor(coordinator, host, name),
-                    HomeWizardMeterExportEnergySensor(coordinator, host, name),
                 ]
             )
     async_add_entities(entities)
@@ -251,6 +249,16 @@ class CorrectedSolarPowerSensor(BaseSensor):
     @property
     def native_value(self) -> float:
         return float((self.coordinator.data or {}).get("corrected_solar_power") or 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data or {}
+        return {
+            "raw_homewizard_solar_w": data.get("homewizard_solar_power"),
+            "battery_export_subtracted_w": data.get("powerstream_export_w"),
+            "meaning": "positief is netto opwek, negatief is netto verbruik",
+            "corrected_phase_power": data.get("corrected_phase_power"),
+        }
 
 
 class PowerStreamExportSensor(BaseSensor):
@@ -732,8 +740,9 @@ class PowerStreamGroupBatterySocSensor(BaseSensor):
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
-    def native_value(self) -> float | None:
-        return _powerstream_data(self.coordinator, self._serial).get("battery_soc")
+    def native_value(self) -> float:
+        value = _powerstream_data(self.coordinator, self._serial).get("battery_soc")
+        return float(value) if value is not None else 0.0
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -764,8 +773,8 @@ class PowerStreamGroupAvailableEnergySensor(BaseSensor):
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
-    def native_value(self) -> float | None:
-        return _powerstream_group_available_wh(self.coordinator, self._serial)
+    def native_value(self) -> float:
+        return _powerstream_group_available_wh(self.coordinator, self._serial) or 0.0
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -776,7 +785,9 @@ class PowerStreamGroupAvailableEnergySensor(BaseSensor):
             "managed_battery_serial": data.get("battery_serial"),
             "managed_battery_name": data.get("battery_name"),
             "battery_soc": data.get("battery_soc"),
-            "capacity_wh": _battery_capacity_wh(battery_values),
+            "capacity_wh": _battery_capacity_wh(
+                battery_values, data.get("battery_name")
+            ),
             "energy_candidates": _battery_energy_candidates(battery_values),
         }
 
@@ -803,6 +814,9 @@ class PowerStreamGroupActionSensor(BaseSensor):
             "strategy": data.get("group_strategy"),
             "suggested_watts": data.get("suggested_watts"),
             "decision_reason": data.get("decision_reason"),
+            "strategy_throttled": data.get("strategy_throttled"),
+            "strategy_next_update_seconds": data.get("strategy_next_update_seconds"),
+            "strategy_error": data.get("strategy_error"),
             "managed_battery_name": data.get("battery_name"),
             "managed_battery_soc": data.get("battery_soc"),
             "corrected_solar_power": (self.coordinator.data or {}).get(
@@ -923,72 +937,6 @@ class HomeWizardMeterPhasePowerSensor(BaseSensor):
             "phase": self._phase,
             "voltage_v": (item.get("phase_voltage_v") or {}).get(self._phase),
             "current_a": (item.get("phase_current_a") or {}).get(self._phase),
-        }
-
-    def _meter_data(self) -> dict[str, Any]:
-        data = (self.coordinator.data or {}).get("homewizard_meters", {})
-        return data.get(self._name, {}) or data.get(self._host, {})
-
-
-class HomeWizardMeterImportEnergySensor(BaseSensor):
-    """HomeWizard cumulative imported energy."""
-
-    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_device_class = "energy"
-    _attr_state_class = "total_increasing"
-
-    def __init__(
-        self, coordinator: EcoFlowEnergyCoordinator, host: str, name: str
-    ) -> None:
-        super().__init__(coordinator, f"homewizard_{host}_import_kwh", f"{name} import")
-        self._host = host
-        self._name = name
-        self._attr_device_info = _homewizard_device_info(host, name)
-
-    @property
-    def native_value(self) -> float | None:
-        value = self._meter_data().get("total_power_import_kwh")
-        return float(value) if value is not None else None
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        return {
-            "eec_device_type": "homewizard",
-            "eec_sensor_role": "energy_import",
-            "host": self._host,
-        }
-
-    def _meter_data(self) -> dict[str, Any]:
-        data = (self.coordinator.data or {}).get("homewizard_meters", {})
-        return data.get(self._name, {}) or data.get(self._host, {})
-
-
-class HomeWizardMeterExportEnergySensor(BaseSensor):
-    """HomeWizard cumulative exported energy."""
-
-    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_device_class = "energy"
-    _attr_state_class = "total_increasing"
-
-    def __init__(
-        self, coordinator: EcoFlowEnergyCoordinator, host: str, name: str
-    ) -> None:
-        super().__init__(coordinator, f"homewizard_{host}_export_kwh", f"{name} export")
-        self._host = host
-        self._name = name
-        self._attr_device_info = _homewizard_device_info(host, name)
-
-    @property
-    def native_value(self) -> float | None:
-        value = self._meter_data().get("total_power_export_kwh")
-        return float(value) if value is not None else None
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        return {
-            "eec_device_type": "homewizard",
-            "eec_sensor_role": "energy_export",
-            "host": self._host,
         }
 
     def _meter_data(self) -> dict[str, Any]:
@@ -1384,13 +1332,18 @@ def _powerstream_group_available_wh(
 ) -> float | None:
     data = _powerstream_data(coordinator, powerstream_serial)
     soc = data.get("battery_soc")
-    capacity = _battery_capacity_wh(_linked_battery_values(coordinator, powerstream_serial))
+    capacity = _battery_capacity_wh(
+        _linked_battery_values(coordinator, powerstream_serial),
+        data.get("battery_name"),
+    )
     if soc is None or capacity is None:
         return None
     return round(capacity * float(soc) / 100, 0)
 
 
-def _battery_capacity_wh(values: dict[str, Any]) -> float | None:
+def _battery_capacity_wh(
+    values: dict[str, Any], battery_name: Any | None = None
+) -> float | None:
     capacity = _first_value(
         values,
         (
@@ -1406,10 +1359,21 @@ def _battery_capacity_wh(values: dict[str, Any]) -> float | None:
         ),
     )
     if capacity <= 0:
-        return None
+        return _battery_nominal_capacity_wh(battery_name)
     if capacity < 100:
         capacity = capacity * 1000
     return round(capacity, 0)
+
+
+def _battery_nominal_capacity_wh(battery_name: Any | None) -> float | None:
+    normalized = str(battery_name or "").lower().replace(" ", "")
+    if "delta" not in normalized:
+        return None
+    if "pro3" in normalized or "delta3" in normalized:
+        return 8192.0
+    if "pro" in normalized:
+        return 7200.0
+    return None
 
 
 def _battery_energy_candidates(values: dict[str, Any]) -> dict[str, Any]:

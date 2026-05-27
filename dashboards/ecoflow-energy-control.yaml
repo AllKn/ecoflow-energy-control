@@ -204,9 +204,13 @@ views:
 
       - type: gauge
         entity: sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
-        name: Opwek gecorrigeerd
-        min: 0
+        name: Netto zon/verbruik
+        min: -4000
         max: 8000
+        severity:
+          red: -4000
+          yellow: 0
+          green: 1000
 
       - type: entities
         title: Opwekcorrectie

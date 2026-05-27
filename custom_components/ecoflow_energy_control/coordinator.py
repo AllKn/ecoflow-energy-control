@@ -82,6 +82,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.solar_plug_threshold_watts = 1200
         self.powerstream_targets: dict[str, int] = {}
         self.powerstream_strategies: dict[str, str] = {}
+        self._powerstream_last_strategy_set: dict[str, Any] = {}
         self.dry_run = bool(self.settings.get(CONF_DRY_RUN, True))
         self._scenario_last_update = dt_util.now()
         self._scenario_totals: dict[str, dict[str, float]] = {}
@@ -293,10 +294,16 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "error": str(err),
                 }
 
-        powerstream_export = self._tracked_powerstream_export()
-        corrected_homewizard_solar = max(0.0, homewizard_solar_power - powerstream_export)
+        powerstream_export = self._tracked_powerstream_export(
+            powerstreams=powerstreams
+        )
+        corrected_homewizard_solar = homewizard_solar_power - powerstream_export
         corrected_phase_power = {
-            phase: max(0.0, watts - self._tracked_powerstream_export(phase))
+            phase: max(
+                0.0,
+                watts
+                - self._tracked_powerstream_export(phase, powerstreams=powerstreams),
+            )
             for phase, watts in homewizard_phase_power.items()
         }
         effective_solar_power = corrected_homewizard_solar if homewizard_meters else solar_power
@@ -312,6 +319,26 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     effective_solar_power,
                 )
             )
+        await self._async_apply_group_strategies(
+            powerstreams,
+            price_now,
+            bands,
+            effective_solar_power,
+            errors,
+        )
+        powerstream_export = self._tracked_powerstream_export(
+            powerstreams=powerstreams
+        )
+        corrected_homewizard_solar = homewizard_solar_power - powerstream_export
+        corrected_phase_power = {
+            phase: max(
+                0.0,
+                watts
+                - self._tracked_powerstream_export(phase, powerstreams=powerstreams),
+            )
+            for phase, watts in homewizard_phase_power.items()
+        }
+        effective_solar_power = corrected_homewizard_solar if homewizard_meters else solar_power
         scenarios = self._simulate_scenarios(
             settings,
             price_now,
@@ -473,10 +500,11 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         watts = max(0, min(watts, int(device.get("max_watts", watts))))
         commands = _powerstream_command_candidates(device.get("command"), watts)
         self.powerstream_targets[serial] = watts
+        base_data = self._with_powerstream_target(serial, watts)
         if self.dry_run:
             self.async_set_updated_data(
                 {
-                    **(self.data or {}),
+                    **base_data,
                     "last_action": f"dry-run {serial} -> {watts} W",
                     "last_powerstream_command": commands[0],
                 }
@@ -487,7 +515,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for command in commands:
             self.async_set_updated_data(
                 {
-                    **(self.data or {}),
+                    **base_data,
                     "last_action": f"probeer {serial} -> {watts} W",
                     "last_powerstream_command": command,
                     "last_powerstream_error": None,
@@ -499,7 +527,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 errors.append(str(err))
                 self.async_set_updated_data(
                     {
-                        **(self.data or {}),
+                        **base_data,
                         "last_action": f"{serial} -> {watts} W mislukt",
                         "last_powerstream_command": command,
                         "last_powerstream_error": str(err),
@@ -514,7 +542,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise EcoFlowApiError("; ".join(errors))
         self.async_set_updated_data(
             {
-                **(self.data or {}),
+                **base_data,
                 "last_action": f"{serial} -> {watts} W",
                 "last_powerstream_command": used_command,
                 "last_powerstream_error": None,
@@ -523,6 +551,91 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def set_powerstream_strategy(self, serial: str, strategy: str) -> None:
         self.powerstream_strategies[serial] = strategy
+
+    def _can_update_powerstream_strategy(self, serial: str) -> bool:
+        return self._powerstream_strategy_wait_seconds(serial) <= 0
+
+    def _powerstream_strategy_wait_seconds(self, serial: str) -> int:
+        last_update = self._powerstream_last_strategy_set.get(serial)
+        if last_update is None:
+            return 0
+        elapsed = (dt_util.utcnow() - last_update).total_seconds()
+        return max(0, int(60 - elapsed))
+
+    async def _async_apply_group_strategies(
+        self,
+        powerstreams: dict[str, dict[str, Any]],
+        price_now: float | None,
+        bands: dict[str, float | None],
+        solar_power: float,
+        errors: dict[str, str],
+    ) -> None:
+        for device in self.settings.get(CONF_POWERSTREAMS, []):
+            serial = device.get("serial")
+            if not serial or "VUL_HIER" in serial:
+                continue
+            item = powerstreams.get(serial, {})
+            strategy = self.powerstream_strategies.get(serial, POWERSTREAM_STRATEGY_SELF_USE)
+            decision = _powerstream_group_decision(
+                strategy, item, price_now, bands, solar_power
+            )
+            item.update(decision)
+            desired = int(decision.get("suggested_watts") or 0)
+            current = int(round(float(item.get("target_watts") or 0)))
+            if strategy == "idle" or abs(desired - current) < 10:
+                continue
+            if not self._can_update_powerstream_strategy(serial):
+                item["strategy_throttled"] = True
+                item["strategy_next_update_seconds"] = self._powerstream_strategy_wait_seconds(
+                    serial
+                )
+                continue
+            try:
+                await self._async_send_powerstream_watts(serial, desired)
+            except Exception as err:  # noqa: BLE001
+                errors[f"powerstream_strategy_{serial}"] = str(err)
+                item["strategy_error"] = str(err)
+                continue
+            self._powerstream_last_strategy_set[serial] = dt_util.utcnow()
+            self.powerstream_targets[serial] = desired
+            item["target_watts"] = float(desired)
+            item["raw_target_watts"] = float(desired * 10)
+            item["strategy_error"] = None
+            item["strategy_throttled"] = False
+            item["strategy_next_update_seconds"] = 60
+
+    async def _async_send_powerstream_watts(self, serial: str, watts: int) -> dict[str, Any]:
+        device = self._powerstream(serial)
+        watts = max(0, min(watts, int(device.get("max_watts", watts))))
+        commands = _powerstream_command_candidates(device.get("command"), watts)
+        if self.dry_run:
+            return commands[0]
+        errors: list[str] = []
+        for command in commands:
+            try:
+                await self.ecoflow.set_device_command(serial, command)
+            except EcoFlowApiError as err:
+                errors.append(str(err))
+                if "1008" not in str(err):
+                    raise
+                continue
+            return command
+        raise EcoFlowApiError("; ".join(errors))
+
+    def _with_powerstream_target(self, serial: str, watts: int) -> dict[str, Any]:
+        data = dict(self.data or {})
+        powerstreams = {
+            key: dict(value) for key, value in (data.get("powerstreams") or {}).items()
+        }
+        item = dict(powerstreams.get(serial, {}))
+        item["target_watts"] = float(watts)
+        item["raw_target_watts"] = float(watts * 10)
+        powerstreams[serial] = item
+        data["powerstreams"] = powerstreams
+        data["powerstream_export_w"] = self._tracked_powerstream_export(
+            powerstreams=powerstreams
+        )
+        return data
 
     async def async_check_ecoflow_api(self) -> None:
         """Manually validate EcoFlow API credentials and device-list access."""
@@ -688,7 +801,11 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return device
         raise ValueError(f"Unknown smart plug serial: {serial}")
 
-    def _tracked_powerstream_export(self, phase: str | None = None) -> float:
+    def _tracked_powerstream_export(
+        self,
+        phase: str | None = None,
+        powerstreams: dict[str, dict[str, Any]] | None = None,
+    ) -> float:
         total = 0.0
         for device in self.settings.get(CONF_POWERSTREAMS, []):
             serial = device.get("serial")
@@ -696,7 +813,13 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 continue
             if phase and str(device.get("phase", "")).lower() != phase:
                 continue
-            total += float(self.powerstream_targets.get(serial, 0))
+            item = (powerstreams or {}).get(serial, {})
+            total += float(
+                self.powerstream_targets.get(
+                    serial,
+                    item.get("target_watts") or 0,
+                )
+            )
         return total
 
 

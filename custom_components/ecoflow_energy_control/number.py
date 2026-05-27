@@ -105,10 +105,10 @@ class PowerStreamOutputNumber(CoordinatorEntity[EcoFlowEnergyCoordinator], Numbe
 
     @property
     def native_value(self) -> float:
+        if self._serial in self.coordinator.powerstream_targets:
+            return float(self.coordinator.powerstream_targets.get(self._serial, 0))
         data = self._powerstream_data()
-        if data.get("target_watts") is not None:
-            return float(data.get("target_watts") or 0)
-        return float(self.coordinator.powerstream_targets.get(self._serial, 0))
+        return float(data.get("target_watts") or 0)
 
     @property
     def extra_state_attributes(self) -> dict[str, object]:

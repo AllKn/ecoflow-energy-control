@@ -113,7 +113,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.25`
+`0.5.29`
 
 ## EcoFlow Signing
 
@@ -166,3 +166,11 @@ Versie `0.5.23` voegt een apart PowerStream-dashboard toe met per PowerStream + 
 Versie `0.5.24` corrigeert het PowerStream command voor teruglevering: `operateType` wordt vervangen door `cmdCode` voor `WN511_SET_PERMANENT_WATTS_PACK`. Bestaande oude templates worden automatisch genormaliseerd en bij fout `1008` probeert de app een compacte fallback-commandvorm.
 
 Versie `0.5.25` stuurt PowerStream `permanentWatts` standaard als deciwatt, dus 590 W wordt als `5900` verzonden. Mislukte echte commando's worden nu ook zichtbaar in `last_powerstream_command` en `last_powerstream_error`.
+
+Versie `0.5.26` werkt PowerStream dashboardwaarden direct lokaal bij na slider-aanpassing en maakt de Accu/Wh gauges numeriek robuust. Voor Delta Pro + Extra Battery gebruikt de app 7200 Wh als fallbackcapaciteit; voor Delta Pro 3 + Extra Battery 8192 Wh.
+
+Versie `0.5.27` laat PowerStream-groepsstrategieen doorlopend bij elke updatecyclus controleren op prijs, netto HomeWizard-zonopwek en actuele teruglevering. De gecorrigeerde zonwaarde gebruikt nu ook de actuele PowerStream-output uit de API, zodat batterijteruglevering niet als zon wordt gezien.
+
+Versie `0.5.28` beperkt automatische PowerStream-strategieaanpassingen tot maximaal een keer per minuut per PowerStream. De gecorrigeerde opwek is nu een netto waarde: positief betekent netto opwek, negatief betekent netto verbruik.
+
+Versie `0.5.29` verwijdert de HomeWizard import/export-totalen uit de EEC app entiteiten. Alleen relevante status-, totaalvermogen- en fasevermogenmetingen blijven zichtbaar.

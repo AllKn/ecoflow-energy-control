@@ -12,7 +12,7 @@ views:
           - entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
             name: Prijs nu
           - entity: sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
-            name: Opwek gecorrigeerd
+            name: Netto zon/verbruik
           - entity: sensor.ecoflow_energy_control_applicatie_status
             name: Status
 

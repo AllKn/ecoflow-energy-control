@@ -17,12 +17,12 @@ views:
               red: 0.35
           - type: gauge
             entity: sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
-            name: Zon W
-            min: 0
+            name: Netto W
+            min: -4000
             max: 8000
             severity:
-              red: 0
-              yellow: 500
+              red: -4000
+              yellow: 0
               green: 1500
 
       - type: custom:auto-entities
