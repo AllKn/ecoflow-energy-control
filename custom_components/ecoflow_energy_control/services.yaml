@@ -21,6 +21,10 @@ apply_strategy:
   name: Pas strategie toe
   description: Past de ingestelde lokale strategie direct eenmalig toe.
 
+apply_best_scenario:
+  name: Start beste advies
+  description: Kiest het beste berekende scenario en past dit direct eenmalig toe.
+
 set_smart_plug:
   name: Zet Smart Plug
   description: Zet een EcoFlow Smart Plug aan of uit.

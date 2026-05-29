@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
@@ -56,6 +55,30 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _initial_setup_defaults() -> dict[str, Any]:
+    """Defaults that keep first setup focused on EcoFlow credentials only."""
+    return {
+        CONF_ECOFLOW_HOST: DEFAULT_ECOFLOW_HOST,
+        CONF_PRICE_SOURCE: DEFAULT_PRICE_SOURCE,
+        CONF_PRICE_PROVIDER: DEFAULT_PRICE_PROVIDER,
+        CONF_PRICE_INTERVAL: DEFAULT_PRICE_INTERVAL,
+        CONF_PRICE_SURCHARGE: DEFAULT_PRICE_SURCHARGE,
+        CONF_PRICE_INCL_VAT: DEFAULT_PRICE_INCL_VAT,
+        CONF_PRICE_URL: "",
+        CONF_SMA_API_HOST: DEFAULT_SMA_API_HOST,
+        CONF_SMA_TOKEN: "",
+        CONF_SMA_PLANT_ID: "",
+        CONF_SMA_ENDPOINT: DEFAULT_SMA_ENDPOINT,
+        CONF_WEATHER_CITY: DEFAULT_WEATHER_CITY,
+        CONF_DRY_RUN: True,
+        CONF_BATTERIES: [],
+        CONF_POWERSTREAMS: [],
+        CONF_SMA_INVERTERS: [],
+        CONF_SMART_PLUGS: [],
+        CONF_HOMEWIZARD_METERS: [],
+    }
+
+
 class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle initial setup."""
 
@@ -66,20 +89,14 @@ class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> config_entries.FlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
+            data = _initial_setup_defaults()
+            data.update(user_input)
             try:
-                await self._validate_ecoflow_credentials(user_input)
+                await self._validate_ecoflow_credentials(data)
             except Exception:  # noqa: BLE001
                 errors["base"] = "ecoflow_auth_failed"
             else:
-                data = {
-                    **user_input,
-                    CONF_BATTERIES: [],
-                    CONF_POWERSTREAMS: [],
-                    CONF_SMA_INVERTERS: [],
-                    CONF_SMART_PLUGS: [],
-                    CONF_HOMEWIZARD_METERS: [],
-                }
-                return self.async_create_entry(title=user_input[CONF_NAME], data=data)
+                return self.async_create_entry(title=data[CONF_NAME], data=data)
 
         schema = vol.Schema(
             {
@@ -88,26 +105,6 @@ class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ): str,
                 vol.Required(CONF_ACCESS_KEY): str,
                 vol.Required(CONF_SECRET_KEY): str,
-                vol.Required(CONF_ECOFLOW_HOST, default=DEFAULT_ECOFLOW_HOST): str,
-                vol.Optional(CONF_PRICE_SOURCE, default=DEFAULT_PRICE_SOURCE): vol.In(
-                    {
-                        "energyzero": "EnergyZero",
-                        "epexprijzen": "epexprijzen.nl",
-                        "epexspot": "epexspot.com",
-                    }
-                ),
-                vol.Optional(CONF_PRICE_PROVIDER, default=DEFAULT_PRICE_PROVIDER): str,
-                vol.Optional(CONF_PRICE_INTERVAL, default=DEFAULT_PRICE_INTERVAL): vol.In(
-                    {"hourly": "Uurprijzen", "quarterly": "Kwartierprijzen"}
-                ),
-                vol.Optional(CONF_PRICE_SURCHARGE, default=DEFAULT_PRICE_SURCHARGE): float,
-                vol.Optional(CONF_PRICE_INCL_VAT, default=DEFAULT_PRICE_INCL_VAT): bool,
-                vol.Optional(CONF_PRICE_URL, default=""): str,
-                vol.Optional(CONF_SMA_API_HOST, default=DEFAULT_SMA_API_HOST): str,
-                vol.Optional(CONF_SMA_TOKEN, default=""): str,
-                vol.Optional(CONF_SMA_PLANT_ID, default=""): str,
-                vol.Optional(CONF_SMA_ENDPOINT, default=DEFAULT_SMA_ENDPOINT): str,
-                vol.Required(CONF_DRY_RUN, default=True): bool,
             }
         )
         return self.async_show_form(
@@ -149,12 +146,13 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_menu(
             step_id="init",
             menu_options=[
-                "general",
-                "add_device",
                 "import_ecoflow",
                 "import_homewizard",
+                "add_device",
                 "edit_device",
                 "remove_device",
+                "general",
+                "advanced",
             ],
         )
 
@@ -239,6 +237,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
 
         serial = _ecoflow_serial(self._pending_import_device)
         default_name = _ecoflow_name(self._pending_import_device)
+        suggested_type = _suggest_ecoflow_device_type(self._pending_import_device)
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -263,7 +262,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required("name", default=default_name): str,
-                    vol.Required("device_type"): vol.In(
+                    vol.Required("device_type", default=suggested_type): vol.In(
                         {
                             "delta_pro": "EcoFlow Delta Pro",
                             "delta_pro_3": "EcoFlow Delta Pro 3",
@@ -282,6 +281,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     or self._pending_import_device.get("model")
                     or "onbekend"
                 ),
+                "suggested_type": _ecoflow_device_type_label(suggested_type),
             },
         )
 
@@ -302,7 +302,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("phase", default="l1"): vol.In(
                         {"l1": "Fase 1", "l2": "Fase 2", "l3": "Fase 3"}
                     ),
-                    vol.Required("battery_serial", default=""): vol.In(batteries),
+                    vol.Required(
+                        "battery_serial", default=self._default_battery_serial()
+                    ): vol.In(batteries),
                 }
             ),
         )
@@ -343,7 +345,6 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                             "powerstream": "EcoFlow PowerStream",
                             "smart_plug": "EcoFlow Smart Plug",
                             "homewizard": "HomeWizard lokale meter",
-                            "homewizard_ha": "HomeWizard via Home Assistant",
                             "sma": "SMA cloud omvormer",
                         }
                     )
@@ -352,6 +353,39 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_general(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        current = self._settings()
+        if user_input is not None:
+            return self._save(user_input)
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_PRICE_SOURCE,
+                    default=current.get(CONF_PRICE_SOURCE, DEFAULT_PRICE_SOURCE),
+                ): vol.In(
+                    {
+                        "energyzero": "EnergyZero",
+                        "epexprijzen": "epexprijzen.nl",
+                        "epexspot": "epexspot.com",
+                    }
+                ),
+                vol.Required(
+                    CONF_PRICE_SURCHARGE,
+                    default=current.get(CONF_PRICE_SURCHARGE, DEFAULT_PRICE_SURCHARGE),
+                ): float,
+                vol.Required(
+                    CONF_WEATHER_CITY,
+                    default=current.get(CONF_WEATHER_CITY, DEFAULT_WEATHER_CITY),
+                ): vol.In({city: city for city in WEATHER_CITIES}),
+                vol.Required(CONF_DRY_RUN, default=current.get(CONF_DRY_RUN, True)): bool,
+            }
+        )
+        return self.async_show_form(
+            step_id="general", data_schema=schema
+        )
+
+    async def async_step_advanced(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
         current = self._settings()
@@ -368,15 +402,11 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required(
-                    CONF_PRICE_SOURCE,
-                    default=current.get(CONF_PRICE_SOURCE, DEFAULT_PRICE_SOURCE),
-                ): vol.In(
-                    {
-                        "energyzero": "EnergyZero",
-                        "epexprijzen": "epexprijzen.nl",
-                        "epexspot": "epexspot.com",
-                    }
-                ),
+                    CONF_ECOFLOW_HOST,
+                    default=current.get(CONF_ECOFLOW_HOST, DEFAULT_ECOFLOW_HOST),
+                ): str,
+                vol.Required(CONF_ACCESS_KEY, default=current.get(CONF_ACCESS_KEY, "")): str,
+                vol.Required(CONF_SECRET_KEY, default=current.get(CONF_SECRET_KEY, "")): str,
                 vol.Required(
                     CONF_PRICE_PROVIDER,
                     default=current.get(CONF_PRICE_PROVIDER, DEFAULT_PRICE_PROVIDER),
@@ -386,16 +416,10 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     default=current.get(CONF_PRICE_INTERVAL, DEFAULT_PRICE_INTERVAL),
                 ): vol.In({"hourly": "Uurprijzen", "quarterly": "Kwartierprijzen"}),
                 vol.Required(
-                    CONF_PRICE_SURCHARGE,
-                    default=current.get(CONF_PRICE_SURCHARGE, DEFAULT_PRICE_SURCHARGE),
-                ): float,
-                vol.Required(
                     CONF_PRICE_INCL_VAT,
                     default=current.get(CONF_PRICE_INCL_VAT, DEFAULT_PRICE_INCL_VAT),
                 ): bool,
-                vol.Optional(
-                    CONF_PRICE_URL, default=current.get(CONF_PRICE_URL, "")
-                ): str,
+                vol.Optional(CONF_PRICE_URL, default=current.get(CONF_PRICE_URL, "")): str,
                 vol.Optional(
                     CONF_SMA_API_HOST,
                     default=current.get(CONF_SMA_API_HOST, DEFAULT_SMA_API_HOST),
@@ -408,15 +432,10 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     CONF_SMA_ENDPOINT,
                     default=current.get(CONF_SMA_ENDPOINT, DEFAULT_SMA_ENDPOINT),
                 ): str,
-                vol.Required(
-                    CONF_WEATHER_CITY,
-                    default=current.get(CONF_WEATHER_CITY, DEFAULT_WEATHER_CITY),
-                ): vol.In({city: city for city in WEATHER_CITIES}),
-                vol.Required(CONF_DRY_RUN, default=current.get(CONF_DRY_RUN, True)): bool,
             }
         )
         return self.async_show_form(
-            step_id="general", data_schema=schema, errors=errors
+            step_id="advanced", data_schema=schema, errors=errors
         )
 
     async def async_step_add_battery(
@@ -478,27 +497,22 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                command = json.loads(user_input["command"])
-            except json.JSONDecodeError:
-                errors["command"] = "invalid_json"
+                await self._validate_ecoflow_device(user_input["serial"])
+            except Exception:  # noqa: BLE001
+                errors["base"] = "cannot_connect"
             else:
-                try:
-                    await self._validate_ecoflow_device(user_input["serial"])
-                except Exception:  # noqa: BLE001
-                    errors["base"] = "cannot_connect"
-                else:
-                    values = self._settings()
-                    values.setdefault(CONF_POWERSTREAMS, []).append(
-                        {
-                            "name": user_input["name"],
-                            "serial": user_input["serial"],
-                            "max_watts": user_input["max_watts"],
-                            "phase": user_input["phase"],
-                            "battery_serial": user_input["battery_serial"],
-                            "command": command,
-                        }
-                    )
-                    return self._save(values)
+                values = self._settings()
+                values.setdefault(CONF_POWERSTREAMS, []).append(
+                    {
+                        "name": user_input["name"],
+                        "serial": user_input["serial"],
+                        "max_watts": user_input["max_watts"],
+                        "phase": user_input["phase"],
+                        "battery_serial": user_input["battery_serial"],
+                        "command": DEFAULT_POWERSTREAM_COMMAND,
+                    }
+                )
+                return self._save(values)
         return self.async_show_form(
             step_id="device_powerstream",
             data_schema=vol.Schema(
@@ -509,12 +523,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("phase", default="l1"): vol.In(
                         {"l1": "Fase 1", "l2": "Fase 2", "l3": "Fase 3"}
                     ),
-                    vol.Required("battery_serial", default=""): vol.In(
-                        self._battery_choices_with_none()
-                    ),
                     vol.Required(
-                        "command", default=json.dumps(DEFAULT_POWERSTREAM_COMMAND)
-                    ): str,
+                        "battery_serial", default=self._default_battery_serial()
+                    ): vol.In(self._battery_choices_with_none()),
                 }
             ),
             errors=errors,
@@ -606,27 +617,21 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                on_command = json.loads(user_input["on_command"])
-                off_command = json.loads(user_input["off_command"])
-            except json.JSONDecodeError:
-                errors["base"] = "invalid_json"
+                await self._validate_ecoflow_device(user_input["serial"])
+            except Exception:  # noqa: BLE001
+                errors["base"] = "cannot_connect"
             else:
-                try:
-                    await self._validate_ecoflow_device(user_input["serial"])
-                except Exception:  # noqa: BLE001
-                    errors["base"] = "cannot_connect"
-                else:
-                    values = self._settings()
-                    values.setdefault(CONF_SMART_PLUGS, []).append(
-                        {
-                            "name": user_input["name"],
-                            "serial": user_input["serial"],
-                            "charges": user_input["charges"],
-                            "on_command": on_command,
-                            "off_command": off_command,
-                        }
-                    )
-                    return self._save(values)
+                values = self._settings()
+                values.setdefault(CONF_SMART_PLUGS, []).append(
+                    {
+                        "name": user_input["name"],
+                        "serial": user_input["serial"],
+                        "charges": user_input["charges"],
+                        "on_command": DEFAULT_SMART_PLUG_ON_COMMAND,
+                        "off_command": DEFAULT_SMART_PLUG_OFF_COMMAND,
+                    }
+                )
+                return self._save(values)
         return self.async_show_form(
             step_id="device_smart_plug",
             data_schema=vol.Schema(
@@ -636,12 +641,6 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("charges"): vol.In(
                         self._battery_choices() or {"": "Geen batterij toegevoegd"}
                     ),
-                    vol.Required(
-                        "on_command", default=json.dumps(DEFAULT_SMART_PLUG_ON_COMMAND)
-                    ): str,
-                    vol.Required(
-                        "off_command", default=json.dumps(DEFAULT_SMART_PLUG_OFF_COMMAND)
-                    ): str,
                 }
             ),
             errors=errors,
@@ -718,25 +717,20 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                command = json.loads(user_input["command"])
-            except json.JSONDecodeError:
-                errors["command"] = "invalid_json"
+                await self._validate_ecoflow_device(user_input["serial"])
+            except Exception:  # noqa: BLE001
+                errors["base"] = "cannot_connect"
             else:
-                try:
-                    await self._validate_ecoflow_device(user_input["serial"])
-                except Exception:  # noqa: BLE001
-                    errors["base"] = "cannot_connect"
-                else:
-                    item = {
-                        **current,
-                        "name": user_input["name"],
-                        "serial": user_input["serial"],
-                        "max_watts": user_input["max_watts"],
-                        "phase": user_input["phase"],
-                        "battery_serial": user_input["battery_serial"],
-                        "command": command,
-                    }
-                    return self._replace_device(group, index, item)
+                item = {
+                    **current,
+                    "name": user_input["name"],
+                    "serial": user_input["serial"],
+                    "max_watts": user_input["max_watts"],
+                    "phase": user_input["phase"],
+                    "battery_serial": user_input["battery_serial"],
+                    "command": current.get("command", DEFAULT_POWERSTREAM_COMMAND),
+                }
+                return self._replace_device(group, index, item)
         return self.async_show_form(
             step_id="edit_powerstreams",
             data_schema=vol.Schema(
@@ -750,12 +744,6 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         "battery_serial", default=current.get("battery_serial", "")
                     ): vol.In(self._battery_choices_with_none()),
-                    vol.Required(
-                        "command",
-                        default=json.dumps(
-                            current.get("command", DEFAULT_POWERSTREAM_COMMAND)
-                        ),
-                    ): str,
                 }
             ),
             errors=errors,
@@ -844,25 +832,23 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                on_command = json.loads(user_input["on_command"])
-                off_command = json.loads(user_input["off_command"])
-            except json.JSONDecodeError:
-                errors["base"] = "invalid_json"
+                await self._validate_ecoflow_device(user_input["serial"])
+            except Exception:  # noqa: BLE001
+                errors["base"] = "cannot_connect"
             else:
-                try:
-                    await self._validate_ecoflow_device(user_input["serial"])
-                except Exception:  # noqa: BLE001
-                    errors["base"] = "cannot_connect"
-                else:
-                    item = {
-                        **current,
-                        "name": user_input["name"],
-                        "serial": user_input["serial"],
-                        "charges": user_input["charges"],
-                        "on_command": on_command,
-                        "off_command": off_command,
-                    }
-                    return self._replace_device(group, index, item)
+                item = {
+                    **current,
+                    "name": user_input["name"],
+                    "serial": user_input["serial"],
+                    "charges": user_input["charges"],
+                    "on_command": current.get(
+                        "on_command", DEFAULT_SMART_PLUG_ON_COMMAND
+                    ),
+                    "off_command": current.get(
+                        "off_command", DEFAULT_SMART_PLUG_OFF_COMMAND
+                    ),
+                }
+                return self._replace_device(group, index, item)
         return self.async_show_form(
             step_id="edit_smart_plugs",
             data_schema=vol.Schema(
@@ -874,18 +860,6 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         "charges", default=current.get("charges", "")
                     ): vol.In(self._battery_choices() or {"": "Geen batterij toegevoegd"}),
-                    vol.Required(
-                        "on_command",
-                        default=json.dumps(
-                            current.get("on_command", DEFAULT_SMART_PLUG_ON_COMMAND)
-                        ),
-                    ): str,
-                    vol.Required(
-                        "off_command",
-                        default=json.dumps(
-                            current.get("off_command", DEFAULT_SMART_PLUG_OFF_COMMAND)
-                        ),
-                    ): str,
                 }
             ),
             errors=errors,
@@ -1035,6 +1009,12 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
 
     def _battery_choices_with_none(self) -> dict[str, str]:
         return {"": "Geen batterij gekoppeld", **self._battery_choices()}
+
+    def _default_battery_serial(self) -> str:
+        choices = self._battery_choices()
+        if len(choices) == 1:
+            return next(iter(choices))
+        return ""
 
     def _homewizard_ha_configured(self, device_id: str) -> bool:
         for item in self._settings().get(CONF_HOMEWIZARD_METERS, []):
@@ -1192,3 +1172,27 @@ def _ecoflow_name(device: dict[str, Any]) -> str:
             return str(value)
     serial = _ecoflow_serial(device)
     return f"EcoFlow {serial}" if serial else "EcoFlow apparaat"
+
+
+def _suggest_ecoflow_device_type(device: dict[str, Any]) -> str:
+    text = " ".join(
+        str(device.get(key) or "")
+        for key in ("deviceType", "productName", "model", "deviceName", "name")
+    ).lower()
+    compact = text.replace("-", " ").replace("_", " ")
+    if "powerstream" in compact or "power stream" in compact:
+        return "powerstream"
+    if "smart plug" in compact or "smartplug" in compact or "plug" in compact:
+        return "smart_plug"
+    if "delta pro 3" in compact or "deltapro3" in compact or "dp3" in compact:
+        return "delta_pro_3"
+    return "delta_pro"
+
+
+def _ecoflow_device_type_label(device_type: str) -> str:
+    return {
+        "delta_pro": "EcoFlow Delta Pro",
+        "delta_pro_3": "EcoFlow Delta Pro 3",
+        "powerstream": "EcoFlow PowerStream",
+        "smart_plug": "EcoFlow Smart Plug",
+    }.get(device_type, "EcoFlow Delta Pro")

@@ -58,10 +58,17 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_WEATHER_CITY,
     DOMAIN,
+    POWERSTREAM_STRATEGY_BUFFER_50,
     POWERSTREAM_STRATEGY_SELF_USE,
+    POWERSTREAM_STRATEGY_TRADING,
+    STRATEGY_BUFFER_50,
+    STRATEGY_EXPORT,
     STRATEGY_IDLE,
+    STRATEGY_SELF_USE,
     WEATHER_CITIES,
 )
+from .power import normalize_homewizard_power_w, normalize_powerstream_watts
+from .policy import best_scenario, powerstream_group_decision, scenario_is_actionable
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -180,7 +187,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if not values:
                     response = await self.ecoflow.get_device_quotas(serial, None)
                     values = _extract_values(response)
-                raw_target_watts = _first_number_or_match(
+                raw_target_watts, target_watts_source = _first_number_or_match_with_source(
                     values,
                     (
                         "permanentWatts",
@@ -196,7 +203,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     ),
                     target_watts,
                 )
-                target_watts = _normalize_powerstream_watts(
+                target_watts = normalize_powerstream_watts(
                     raw_target_watts,
                     float(device.get("max_watts") or 0),
                 )
@@ -206,11 +213,15 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "values": values,
                     "target_watts": target_watts,
                     "raw_target_watts": raw_target_watts,
+                    "target_watts_source": target_watts_source,
                     "max_watts": float(device.get("max_watts") or 0),
                     "phase": device.get("phase", "l1"),
                     "battery_serial": battery_serial,
                     "battery_name": _battery_name(settings, battery_serial),
                     "battery_soc": _battery_soc_for_serial(batteries, battery_serial),
+                    "battery_free_wh": _battery_free_wh_for_serial(
+                        batteries, battery_serial, _battery_name(settings, battery_serial)
+                    ),
                     "response_debug": _response_debug(response),
                 }
             except Exception as err:  # noqa: BLE001
@@ -219,11 +230,15 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "name": device.get("name", serial),
                     "values": {},
                     "target_watts": target_watts,
+                    "target_watts_source": "stored_target",
                     "max_watts": float(device.get("max_watts") or 0),
                     "phase": device.get("phase", "l1"),
                     "battery_serial": battery_serial,
                     "battery_name": _battery_name(settings, battery_serial),
                     "battery_soc": _battery_soc_for_serial(batteries, battery_serial),
+                    "battery_free_wh": _battery_free_wh_for_serial(
+                        batteries, battery_serial, _battery_name(settings, battery_serial)
+                    ),
                     "error": str(err),
                 }
 
@@ -293,13 +308,13 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 name = item.get("name", source_id)
                 homewizard_meters[name] = reading
                 if reading.get("role") == "solar_total":
-                    active_power = _normalize_homewizard_power_w(
+                    active_power = normalize_homewizard_power_w(
                         reading.get("active_power_w")
                     )
                     homewizard_solar_power += abs(active_power)
                     for phase, watts in reading.get("phase_power_w", {}).items():
                         homewizard_phase_power[phase] += abs(
-                            _normalize_homewizard_power_w(watts)
+                            normalize_homewizard_power_w(watts)
                         )
             except Exception as err:  # noqa: BLE001
                 errors[f"homewizard_{source_id}"] = str(err)
@@ -313,11 +328,8 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         corrected_homewizard_solar = homewizard_solar_power - powerstream_export
         corrected_phase_power = {
-            phase: max(
-                0.0,
-                watts
-                - self._tracked_powerstream_export(phase, powerstreams=powerstreams),
-            )
+            phase: watts
+            - self._tracked_powerstream_export(phase, powerstreams=powerstreams)
             for phase, watts in homewizard_phase_power.items()
         }
         effective_solar_power = corrected_homewizard_solar if homewizard_meters else solar_power
@@ -325,7 +337,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             strategy = self.powerstream_strategies.get(serial, POWERSTREAM_STRATEGY_SELF_USE)
             item["group_strategy"] = strategy
             item.update(
-                _powerstream_group_decision(
+                powerstream_group_decision(
                     strategy,
                     item,
                     price_now,
@@ -345,11 +357,8 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         corrected_homewizard_solar = homewizard_solar_power - powerstream_export
         corrected_phase_power = {
-            phase: max(
-                0.0,
-                watts
-                - self._tracked_powerstream_export(phase, powerstreams=powerstreams),
-            )
+            phase: watts
+            - self._tracked_powerstream_export(phase, powerstreams=powerstreams)
             for phase, watts in homewizard_phase_power.items()
         }
         effective_solar_power = corrected_homewizard_solar if homewizard_meters else solar_power
@@ -382,6 +391,8 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "strategy": self.strategy,
             "dry_run": self.dry_run,
             "last_action": previous.get("last_action"),
+            "last_powerstream_command": previous.get("last_powerstream_command"),
+            "last_powerstream_error": previous.get("last_powerstream_error"),
             "errors": errors,
             "status": "ok" if not errors else f"{len(errors)} bron(nen) met fout",
         }
@@ -421,6 +432,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         usable_export_w = export_capacity_w if battery_soc is None or battery_soc > 10 else 0.0
         buffer_export_w = export_capacity_w if battery_soc is None or battery_soc > 50 else 0.0
         solar_surplus_w = max(0.0, float(solar_power_w or 0))
+        input_warnings = _scenario_input_warnings(price_now, cheap, expensive, battery_soc)
 
         simulated = {
             "self_use": self._scenario_result(
@@ -430,6 +442,10 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 eur_per_hour=(min(solar_surplus_w, export_capacity_w) / 1000) * max(price, spread),
                 price=price,
                 battery_soc=battery_soc,
+                reason="netto zonopwek beschikbaar"
+                if solar_surplus_w > 100
+                else "geen bruikbare zonopwek",
+                input_warnings=input_warnings,
             ),
             "trading": self._scenario_result(
                 label="Handelen",
@@ -450,6 +466,12 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 else 0.0,
                 price=price,
                 battery_soc=battery_soc,
+                reason="hoge prijs en accu boven minimum"
+                if expensive is not None and price >= expensive and usable_export_w > 0
+                else "lage prijs, laden voorbereiden"
+                if cheap is not None and price <= cheap
+                else "prijs niet laag of hoog genoeg",
+                input_warnings=input_warnings,
             ),
             "buffer_50": self._scenario_result(
                 label="Buffer 50%",
@@ -462,6 +484,10 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 else 0.0,
                 price=price,
                 battery_soc=battery_soc,
+                reason="hoge prijs en buffer blijft boven 50%"
+                if buffer_export_w > 0 and expensive is not None and price >= expensive
+                else "buffer wordt bewaakt",
+                input_warnings=input_warnings,
             ),
         }
 
@@ -486,7 +512,10 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         eur_per_hour: float,
         price: float,
         battery_soc: float | None,
+        reason: str,
+        input_warnings: list[str] | None = None,
     ) -> dict[str, Any]:
+        warnings = input_warnings or []
         return {
             "label": label,
             "action": action,
@@ -494,6 +523,9 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "eur_per_hour": round(eur_per_hour, 4),
             "price_eur_kwh": price,
             "battery_soc": battery_soc,
+            "reason": _scenario_reason(reason, warnings),
+            "input_ready": not warnings,
+            "input_warnings": warnings,
         }
 
     def _scenario_period_keys(self, now) -> dict[str, str]:
@@ -518,18 +550,20 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 continue
         return capacity or float(self.export_watts or 0)
 
-    async def async_set_powerstream_watts(self, serial: str, watts: int) -> None:
+    async def async_set_powerstream_watts(
+        self, serial: str, watts: int, source: str = "handmatig"
+    ) -> None:
         """Set a PowerStream output target using configured command template."""
         device = self._powerstream(serial)
         watts = max(0, min(watts, int(device.get("max_watts", watts))))
         commands = _powerstream_command_candidates(device.get("command"), watts)
         self.powerstream_targets[serial] = watts
-        base_data = self._with_powerstream_target(serial, watts)
+        base_data = self._with_powerstream_target(serial, watts, source)
         if self.dry_run:
             self.async_set_updated_data(
                 {
                     **base_data,
-                    "last_action": f"dry-run {serial} -> {watts} W",
+                    "last_action": f"dry-run {source} {serial} -> {watts} W",
                     "last_powerstream_command": commands[0],
                 }
             )
@@ -540,7 +574,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.async_set_updated_data(
                 {
                     **base_data,
-                    "last_action": f"probeer {serial} -> {watts} W",
+                    "last_action": f"probeer {source} {serial} -> {watts} W",
                     "last_powerstream_command": command,
                     "last_powerstream_error": None,
                 }
@@ -552,7 +586,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.async_set_updated_data(
                     {
                         **base_data,
-                        "last_action": f"{serial} -> {watts} W mislukt",
+                        "last_action": f"{source} {serial} -> {watts} W mislukt",
                         "last_powerstream_command": command,
                         "last_powerstream_error": str(err),
                     }
@@ -567,7 +601,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.async_set_updated_data(
             {
                 **base_data,
-                "last_action": f"{serial} -> {watts} W",
+                "last_action": f"{source} {serial} -> {watts} W",
                 "last_powerstream_command": used_command,
                 "last_powerstream_error": None,
             }
@@ -593,14 +627,19 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         bands: dict[str, float | None],
         solar_power: float,
         errors: dict[str, str],
+        default_strategy: str = POWERSTREAM_STRATEGY_SELF_USE,
     ) -> None:
         for device in self.settings.get(CONF_POWERSTREAMS, []):
             serial = device.get("serial")
             if not serial or "VUL_HIER" in serial:
                 continue
             item = powerstreams.get(serial, {})
-            strategy = self.powerstream_strategies.get(serial, POWERSTREAM_STRATEGY_SELF_USE)
-            decision = _powerstream_group_decision(
+            if not isinstance(item, dict):
+                item = {}
+            powerstreams[str(serial)] = item
+            strategy = self.powerstream_strategies.get(str(serial), default_strategy)
+            item["group_strategy"] = strategy
+            decision = powerstream_group_decision(
                 strategy, item, price_now, bands, solar_power
             )
             item.update(decision)
@@ -615,15 +654,19 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
                 continue
             try:
-                await self._async_send_powerstream_watts(serial, desired)
+                used_command = await self._async_send_powerstream_watts(serial, desired)
             except Exception as err:  # noqa: BLE001
                 errors[f"powerstream_strategy_{serial}"] = str(err)
                 item["strategy_error"] = str(err)
                 continue
+            errors.pop(f"powerstream_strategy_{serial}", None)
             self._powerstream_last_strategy_set[serial] = dt_util.utcnow()
             self.powerstream_targets[serial] = desired
             item["target_watts"] = float(desired)
             item["raw_target_watts"] = float(desired * 10)
+            item["target_watts_source"] = "strategy_command"
+            item["command_source"] = "strategie"
+            item["last_strategy_command"] = used_command
             item["strategy_error"] = None
             item["strategy_throttled"] = False
             item["strategy_next_update_seconds"] = 60
@@ -646,7 +689,9 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return command
         raise EcoFlowApiError("; ".join(errors))
 
-    def _with_powerstream_target(self, serial: str, watts: int) -> dict[str, Any]:
+    def _with_powerstream_target(
+        self, serial: str, watts: int, source: str
+    ) -> dict[str, Any]:
         data = dict(self.data or {})
         powerstreams = {
             key: dict(value) for key, value in (data.get("powerstreams") or {}).items()
@@ -654,8 +699,11 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         item = dict(powerstreams.get(serial, {}))
         item["target_watts"] = float(watts)
         item["raw_target_watts"] = float(watts * 10)
+        item["target_watts_source"] = "command"
+        item["command_source"] = source
         powerstreams[serial] = item
         data["powerstreams"] = powerstreams
+        data["last_powerstream_source"] = source
         data["powerstream_export_w"] = self._tracked_powerstream_export(
             powerstreams=powerstreams
         )
@@ -759,44 +807,147 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         bands = (self.data or {}).get("price_bands") or {}
         solar_power = float((self.data or {}).get("corrected_solar_power") or 0)
 
-        if self.powerstream_strategies:
-            powerstreams = (self.data or {}).get("powerstreams", {})
-            for device in self.settings.get(CONF_POWERSTREAMS, []):
-                serial = device.get("serial")
-                if not serial or "VUL_HIER" in serial:
-                    continue
-                strategy = self.powerstream_strategies.get(
-                    serial, POWERSTREAM_STRATEGY_SELF_USE
-                )
-                decision = _powerstream_group_decision(
-                    strategy,
-                    powerstreams.get(serial, {}),
-                    price_now,
-                    bands,
-                    solar_power,
-                )
-                await self.async_set_powerstream_watts(
-                    serial, int(decision.get("suggested_watts") or 0)
-                )
-        elif price_now is not None and self.strategy != STRATEGY_IDLE:
-            target = self.self_use_watts
-            cheap = bands.get("cheap")
-            expensive = bands.get("expensive")
-            if cheap is not None and price_now <= cheap:
-                target = 0
-            elif expensive is not None and price_now >= expensive:
-                target = self.export_watts
-
+        if self.strategy == STRATEGY_IDLE:
             for device in self.settings.get(CONF_POWERSTREAMS, []):
                 serial = device.get("serial")
                 if serial and "VUL_HIER" not in serial:
-                    await self.async_set_powerstream_watts(serial, target)
+                    await self.async_set_powerstream_watts(serial, 0, "strategie uit")
+            for device in self.settings.get(CONF_SMART_PLUGS, []):
+                serial = device.get("serial")
+                if serial and "VUL_HIER" not in serial:
+                    await self.async_set_smart_plug(serial, False)
+            self.async_set_updated_data(
+                {**(self.data or {}), "last_action": "strategie uit"}
+            )
+            return
+
+        if self.powerstream_strategies:
+            await self._async_apply_strategy_groups(
+                price_now,
+                bands,
+                solar_power,
+                POWERSTREAM_STRATEGY_SELF_USE,
+            )
+        elif price_now is not None and self.strategy != STRATEGY_IDLE:
+            default_strategy = {
+                STRATEGY_SELF_USE: POWERSTREAM_STRATEGY_SELF_USE,
+                STRATEGY_EXPORT: POWERSTREAM_STRATEGY_TRADING,
+                STRATEGY_BUFFER_50: POWERSTREAM_STRATEGY_BUFFER_50,
+            }.get(self.strategy, POWERSTREAM_STRATEGY_SELF_USE)
+            await self._async_apply_strategy_groups(
+                price_now,
+                bands,
+                solar_power,
+                default_strategy,
+            )
 
         plug_on = solar_power >= self.solar_plug_threshold_watts
         for device in self.settings.get(CONF_SMART_PLUGS, []):
             serial = device.get("serial")
             if serial and "VUL_HIER" not in serial:
                 await self.async_set_smart_plug(serial, plug_on)
+
+    async def _async_apply_strategy_groups(
+        self,
+        price_now: float | None,
+        bands: dict[str, float | None],
+        solar_power: float,
+        default_strategy: str,
+    ) -> None:
+        """Apply PowerStream strategy through the same throttled path as polling."""
+        data = dict(self.data or {})
+        powerstreams = {
+            str(key): dict(value)
+            for key, value in (data.get("powerstreams") or {}).items()
+            if isinstance(value, dict)
+        }
+        errors = dict(data.get("errors") or {})
+        await self._async_apply_group_strategies(
+            powerstreams,
+            price_now,
+            bands,
+            solar_power,
+            errors,
+            default_strategy,
+        )
+        throttled = [
+            item for item in powerstreams.values() if item.get("strategy_throttled")
+        ]
+        failed = [
+            item for item in powerstreams.values() if item.get("strategy_error")
+        ]
+        last_strategy_command = next(
+            (
+                item.get("last_strategy_command")
+                for item in powerstreams.values()
+                if item.get("last_strategy_command")
+            ),
+            data.get("last_powerstream_command"),
+        )
+        data.update(
+            {
+                "powerstreams": powerstreams,
+                "errors": errors,
+                "powerstream_export_w": self._tracked_powerstream_export(
+                    powerstreams=powerstreams
+                ),
+                "status": "ok" if not errors else f"{len(errors)} bron(nen) met fout",
+                "last_powerstream_command": last_strategy_command,
+                "last_powerstream_error": failed[0].get("strategy_error")
+                if failed
+                else None,
+                "last_action": (
+                    "strategie wacht op 1-minuut begrenzing"
+                    if throttled
+                    else "strategie-command faalde"
+                    if failed
+                    else "strategie toegepast"
+                ),
+            }
+        )
+        self.async_set_updated_data(data)
+
+    async def async_apply_best_scenario(self) -> None:
+        """Select and apply the currently best simulated scenario."""
+        scenario = best_scenario((self.data or {}).get("scenarios", {}), {})
+        key = scenario.get("key")
+        strategy_map = {
+            "self_use": (STRATEGY_SELF_USE, POWERSTREAM_STRATEGY_SELF_USE),
+            "trading": (STRATEGY_EXPORT, POWERSTREAM_STRATEGY_TRADING),
+            "buffer_50": (STRATEGY_BUFFER_50, POWERSTREAM_STRATEGY_BUFFER_50),
+        }
+        if key not in strategy_map:
+            self.async_set_updated_data(
+                {**(self.data or {}), "last_action": "geen toepasbaar advies"}
+            )
+            return
+        if not scenario_is_actionable(scenario):
+            self.async_set_updated_data(
+                {
+                    **(self.data or {}),
+                    "last_action": f"advies wacht: {scenario.get('reason', 'geen actie nodig')}",
+                }
+            )
+            return
+        global_strategy, group_strategy = strategy_map[str(key)]
+        self.strategy = global_strategy
+        for device in self.settings.get(CONF_POWERSTREAMS, []):
+            serial = device.get("serial")
+            if serial and "VUL_HIER" not in serial:
+                self.powerstream_strategies[str(serial)] = group_strategy
+        await self.async_apply_strategy()
+        strategy_action = (self.data or {}).get("last_action")
+        last_action = (
+            f"advies gestart: {scenario.get('label', key)}"
+            if strategy_action == "strategie toegepast"
+            else f"advies gekozen: {scenario.get('label', key)}; {strategy_action}"
+        )
+        self.async_set_updated_data(
+            {
+                **(self.data or {}),
+                "last_action": last_action,
+            }
+        )
 
     async def async_set_smart_plug(self, serial: str, on: bool) -> None:
         """Set a configured EcoFlow smart plug on or off."""
@@ -921,9 +1072,17 @@ def _flatten_values(data: Any, prefix: str, values: dict[str, Any]) -> None:
 def _first_number_or_match(
     values: dict[str, Any], keys: tuple[str, ...], default: float = 0.0
 ) -> float:
+    value, _source = _first_number_or_match_with_source(values, keys, default)
+    return value
+
+
+def _first_number_or_match_with_source(
+    values: dict[str, Any], keys: tuple[str, ...], default: float = 0.0
+) -> tuple[float, str]:
     exact = _first_number(values, keys, None)
     if exact is not None:
-        return exact
+        source = next((key for key in keys if _first_number(values, (key,), None) is not None), "telemetry")
+        return exact, str(source)
     for key, value in values.items():
         normalized = key.lower().replace("_", "").replace("-", "")
         if "watt" not in normalized and "power" not in normalized:
@@ -935,10 +1094,10 @@ def _first_number_or_match(
         if isinstance(value, dict) and "value" in value:
             value = value["value"]
         try:
-            return float(value)
+            return float(value), str(key)
         except (TypeError, ValueError):
             continue
-    return default
+    return default, "stored_target"
 
 
 def _needs_battery_power_fallback(values: dict[str, Any]) -> bool:
@@ -1047,6 +1206,28 @@ def _battery_min_soc(batteries: dict[str, Any]) -> float | None:
     return min(values)
 
 
+def _scenario_input_warnings(
+    price_now: float | None,
+    cheap: float | None,
+    expensive: float | None,
+    battery_soc: float | None,
+) -> list[str]:
+    warnings: list[str] = []
+    if price_now is None:
+        warnings.append("prijs ontbreekt")
+    if cheap is None or expensive is None:
+        warnings.append("prijsgrenzen ontbreken")
+    if battery_soc is None:
+        warnings.append("accu-SoC onbekend")
+    return warnings
+
+
+def _scenario_reason(reason: str, warnings: list[str]) -> str:
+    if not warnings:
+        return reason
+    return f"input beperkt: {', '.join(warnings)}; {reason}"
+
+
 def _battery_soc_for_serial(
     batteries: dict[str, Any], serial: str | None
 ) -> float | None:
@@ -1054,6 +1235,48 @@ def _battery_soc_for_serial(
         return None
     item = batteries.get(str(serial)) or {}
     return _battery_soc_value(item.get("values", {}))
+
+
+def _battery_free_wh_for_serial(
+    batteries: dict[str, Any], serial: str | None, battery_name: str | None
+) -> float | None:
+    if not serial:
+        return None
+    item = batteries.get(str(serial)) or {}
+    values = item.get("values", {}) if isinstance(item, dict) else {}
+    soc = _battery_soc_value(values)
+    capacity = _battery_capacity_wh(values, battery_name)
+    if soc is None or capacity is None:
+        return None
+    return round(max(0.0, capacity * (100.0 - float(soc)) / 100.0), 0)
+
+
+def _battery_capacity_wh(values: dict[str, Any], battery_name: str | None) -> float | None:
+    capacity = _first_number_or_match(
+        values,
+        (
+            "cmsBattFullEnergy",
+            "ems.fullEnergy",
+            "pd.fullEnergy",
+            "fullEnergy",
+            "fullEnergyWh",
+            "batteryFullEnergy",
+            "bmsDesignCap",
+            "bms_emsStatus.designCap",
+            "bms_bmsStatus.designCap",
+        ),
+        0,
+    )
+    if capacity <= 0:
+        normalized = str(battery_name or "").lower().replace(" ", "")
+        if "pro3" in normalized or "delta3" in normalized:
+            return 8192.0
+        if "pro" in normalized:
+            return 7200.0
+        return None
+    if capacity < 100:
+        capacity *= 1000
+    return round(capacity, 0)
 
 
 def _battery_name(settings: dict[str, Any], serial: str | None) -> str | None:
@@ -1072,67 +1295,6 @@ def _fallback_battery_serial(
         return None
     serial = configured_batteries[index].get("serial")
     return str(serial) if serial else None
-
-
-def _powerstream_group_decision(
-    strategy: str,
-    item: dict[str, Any],
-    price_now: float | None,
-    bands: dict[str, float | None],
-    solar_power_w: float,
-) -> dict[str, Any]:
-    max_watts = float(item.get("max_watts") or 0)
-    if max_watts <= 0:
-        max_watts = 800.0
-    soc = item.get("battery_soc")
-    battery_ready = soc is None or float(soc) > 20
-    cheap = bands.get("cheap")
-    expensive = bands.get("expensive")
-    price = float(price_now or 0)
-    solar = float(solar_power_w or 0)
-
-    if strategy == "idle":
-        return {
-            "group_action": "stand-by",
-            "suggested_watts": 0,
-            "decision_reason": "strategie uit",
-        }
-    if strategy == "max_trading":
-        if cheap is not None and price <= cheap and solar > 100:
-            return {
-                "group_action": "laden",
-                "suggested_watts": 0,
-                "decision_reason": "lage prijs en zon",
-            }
-        if expensive is not None and price >= expensive and battery_ready:
-            return {
-                "group_action": "terugleveren",
-                "suggested_watts": round(max_watts, 0),
-                "decision_reason": "hoge prijs",
-            }
-        return {
-            "group_action": "wachten",
-            "suggested_watts": 0,
-            "decision_reason": "geen handelsmoment",
-        }
-
-    if solar > 300:
-        return {
-            "group_action": "laden",
-            "suggested_watts": 0,
-            "decision_reason": "netto zonopwek",
-        }
-    if expensive is not None and price >= expensive and battery_ready:
-        return {
-            "group_action": "eigen gebruik",
-            "suggested_watts": round(max_watts, 0),
-            "decision_reason": "hoge prijs weinig zon",
-        }
-    return {
-        "group_action": "stand-by",
-        "suggested_watts": 0,
-        "decision_reason": "geen actie nodig",
-    }
 
 
 def _expected_savings(price_now: float | None, weather: dict[str, Any]) -> float:
@@ -1245,28 +1407,6 @@ def _is_soc_limit_or_setting(normalized_key: str) -> bool:
         "stop",
     )
     return any(part in normalized_key for part in blocked_parts)
-
-
-def _normalize_powerstream_watts(value: float | None, max_watts: float) -> float:
-    if value is None:
-        return 0.0
-    normalized = float(value)
-    if max_watts > 0 and abs(normalized) > max_watts * 1.5:
-        if abs(normalized / 10) <= max_watts * 1.5:
-            normalized = normalized / 10
-    elif abs(normalized) > 1000 and abs(normalized / 10) <= 1000:
-        normalized = normalized / 10
-    return round(normalized, 1)
-
-
-def _normalize_homewizard_power_w(value: Any) -> float:
-    try:
-        normalized = float(value or 0)
-    except (TypeError, ValueError):
-        return 0.0
-    if abs(normalized) >= 2500 and abs(normalized / 10) <= 1500:
-        normalized = normalized / 10
-    return round(normalized, 1)
 
 
 def _extract_serials(response: dict[str, Any]) -> list[str]:

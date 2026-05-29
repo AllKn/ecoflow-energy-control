@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import APP_NAME, DOMAIN
+from .const import APP_NAME, CONF_DRY_RUN, DOMAIN, LEGACY_DASHBOARD_OBJECT_PREFIX
 from .coordinator import EcoFlowEnergyCoordinator
 
 
@@ -26,6 +26,7 @@ class DryRunSwitch(CoordinatorEntity[EcoFlowEnergyCoordinator], SwitchEntity):
 
     _attr_has_entity_name = True
     _attr_name = "testmodus"
+    _attr_suggested_object_id = f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_testmodus"
 
     def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
         super().__init__(coordinator)
@@ -39,10 +40,19 @@ class DryRunSwitch(CoordinatorEntity[EcoFlowEnergyCoordinator], SwitchEntity):
     def is_on(self) -> bool:
         return self.coordinator.dry_run
 
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        return {
+            "eec_device_type": "control",
+            "eec_sensor_role": "test_mode",
+        }
+
     async def async_turn_on(self, **kwargs) -> None:
         self.coordinator.dry_run = True
+        self.coordinator.settings[CONF_DRY_RUN] = True
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
         self.coordinator.dry_run = False
+        self.coordinator.settings[CONF_DRY_RUN] = False
         self.async_write_ha_state()

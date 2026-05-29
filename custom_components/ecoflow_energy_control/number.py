@@ -120,9 +120,15 @@ class PowerStreamOutputNumber(CoordinatorEntity[EcoFlowEnergyCoordinator], Numbe
             "managed_battery_serial": data.get("battery_serial"),
             "managed_battery_name": data.get("battery_name"),
             "managed_battery_soc": data.get("battery_soc"),
+            "managed_battery_free_wh": data.get("battery_free_wh"),
             "group_strategy": data.get("group_strategy"),
             "group_action": data.get("group_action"),
+            "decision_reason": data.get("decision_reason"),
             "suggested_watts": data.get("suggested_watts"),
+            "strategy_throttled": data.get("strategy_throttled"),
+            "strategy_next_update_seconds": data.get("strategy_next_update_seconds"),
+            "strategy_error": data.get("strategy_error"),
+            "command_source": data.get("command_source"),
             "phase": data.get("phase"),
         }
 

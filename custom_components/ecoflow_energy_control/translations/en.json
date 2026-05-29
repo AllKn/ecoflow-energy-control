@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "EEC app",
-        "description": "Configure EcoFlow Cloud, spot prices, PowerStreams and local SMA inverters.",
+        "description": "Connect EcoFlow Cloud. Prices, weather and test mode are configured automatically and can be changed later.",
         "data": {
           "name": "Name",
           "access_key": "EcoFlow access key",
@@ -36,29 +36,42 @@
       "init": {
         "title": "EEC app options",
         "menu_options": {
-          "general": "General settings",
-          "add_device": "Add device",
           "import_ecoflow": "Import EcoFlow devices",
-          "import_homewizard": "Import HomeWizard from Home Assistant",
+          "import_homewizard": "Import HomeWizard",
+          "add_device": "Add manually",
           "edit_device": "Edit device",
-          "remove_device": "Remove device"
+          "remove_device": "Remove device",
+          "general": "Basic settings",
+          "advanced": "Technical settings"
         }
       },
       "general": {
-        "title": "General settings"
+        "title": "Basic settings",
+        "description": "Choose only what the automatic flow needs: price source, surcharge, weather city and test mode."
+      },
+      "advanced": {
+        "title": "Technical settings",
+        "description": "Only needed for other API hosts, a custom price URL, SMA Cloud or new EcoFlow API keys."
       },
       "add_device": {
-        "title": "Add device"
+        "title": "Add manually",
+        "description": "Use this only when import does not work. The app checks the connection before saving the device."
       },
       "import_ecoflow": {
-        "title": "Import EcoFlow devices"
+        "title": "Import EcoFlow devices",
+        "description": "The app reads devices from EcoFlow Cloud. Then choose the right type for each device."
       },
       "import_ecoflow_configure": {
         "title": "Configure EcoFlow device",
-        "description": "Serial number: {serial}\nEcoFlow type: {raw_type}"
+        "description": "Serial number: {serial}\nEcoFlow type: {raw_type}\nSuggested: {suggested_type}\nThe connection is checked before this device is added.",
+        "data": {
+          "name": "Name",
+          "device_type": "Device type"
+        }
       },
       "import_ecoflow_powerstream": {
         "title": "PowerStream settings",
+        "description": "Link this PowerStream to the battery it may manage. This is used for advice, sliders and automatic control.",
         "data": {
           "max_watts": "Maximum export power",
           "phase": "Phase",
@@ -66,10 +79,12 @@
         }
       },
       "import_ecoflow_smart_plug": {
-        "title": "Smart Plug settings"
+        "title": "Smart Plug settings",
+        "description": "Choose which battery this Smart Plug may charge during solar surplus or low prices."
       },
       "edit_device": {
-        "title": "Edit device"
+        "title": "Edit device",
+        "description": "Change the name, link or limits of an existing device."
       },
       "device_delta_pro": {
         "title": "Add Delta Pro"
@@ -84,8 +99,7 @@
           "serial": "Serial number",
           "max_watts": "Maximum export power",
           "phase": "Phase",
-          "battery_serial": "Linked Delta Pro",
-          "command": "EcoFlow command JSON"
+          "battery_serial": "Linked Delta Pro"
         }
       },
       "device_sma": {
@@ -107,8 +121,7 @@
           "serial": "Serial number",
           "max_watts": "Maximum export power",
           "phase": "Phase",
-          "battery_serial": "Linked Delta Pro",
-          "command": "EcoFlow command JSON"
+          "battery_serial": "Linked Delta Pro"
         }
       },
       "edit_sma_inverters": {

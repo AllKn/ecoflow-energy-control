@@ -22,6 +22,7 @@ from .const import (
     CONF_SMART_PLUGS,
     DEFAULT_PRICE_SOURCE,
     DOMAIN,
+    SERVICE_APPLY_BEST_SCENARIO,
     SERVICE_APPLY_STRATEGY,
     SERVICE_SET_SMART_PLUG,
     SERVICE_SET_POWERSTREAM_WATTS,
@@ -67,6 +68,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def apply_strategy(call: ServiceCall) -> None:
         await coordinator.async_apply_strategy()
 
+    async def apply_best_scenario(call: ServiceCall) -> None:
+        await coordinator.async_apply_best_scenario()
+
     async def set_smart_plug(call: ServiceCall) -> None:
         await coordinator.async_set_smart_plug(
             call.data[ATTR_SERIAL], bool(call.data[ATTR_ON])
@@ -78,6 +82,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     if not hass.services.has_service(DOMAIN, SERVICE_APPLY_STRATEGY):
         hass.services.async_register(DOMAIN, SERVICE_APPLY_STRATEGY, apply_strategy)
+    if not hass.services.has_service(DOMAIN, SERVICE_APPLY_BEST_SCENARIO):
+        hass.services.async_register(
+            DOMAIN, SERVICE_APPLY_BEST_SCENARIO, apply_best_scenario
+        )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_SMART_PLUG):
         hass.services.async_register(DOMAIN, SERVICE_SET_SMART_PLUG, set_smart_plug)
 

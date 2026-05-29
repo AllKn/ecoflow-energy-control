@@ -8,8 +8,41 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import APP_NAME, CONF_POWERSTREAMS, DOMAIN, POWERSTREAM_STRATEGIES, STRATEGIES
+from .const import (
+    APP_NAME,
+    CONF_POWERSTREAMS,
+    DOMAIN,
+    LEGACY_DASHBOARD_OBJECT_PREFIX,
+    POWERSTREAM_STRATEGIES,
+    POWERSTREAM_STRATEGY_BUFFER_50,
+    POWERSTREAM_STRATEGY_IDLE,
+    POWERSTREAM_STRATEGY_SELF_USE,
+    POWERSTREAM_STRATEGY_TRADING,
+    STRATEGIES,
+    STRATEGY_BUFFER_50,
+    STRATEGY_EXPORT,
+    STRATEGY_IDLE,
+    STRATEGY_SELF_USE,
+)
 from .coordinator import EcoFlowEnergyCoordinator
+
+STRATEGY_LABELS = {
+    STRATEGY_SELF_USE: "Eigen gebruik",
+    STRATEGY_EXPORT: "Terugleveren",
+    STRATEGY_BUFFER_50: "Buffer 50%",
+    STRATEGY_IDLE: "Uit",
+}
+STRATEGY_VALUES = {label: value for value, label in STRATEGY_LABELS.items()}
+
+POWERSTREAM_STRATEGY_LABELS = {
+    POWERSTREAM_STRATEGY_SELF_USE: "Eigen gebruik",
+    POWERSTREAM_STRATEGY_TRADING: "Handelen",
+    POWERSTREAM_STRATEGY_BUFFER_50: "Buffer 50%",
+    POWERSTREAM_STRATEGY_IDLE: "Uit",
+}
+POWERSTREAM_STRATEGY_VALUES = {
+    label: value for value, label in POWERSTREAM_STRATEGY_LABELS.items()
+}
 
 
 async def async_setup_entry(
@@ -35,7 +68,8 @@ class StrategySelect(CoordinatorEntity[EcoFlowEnergyCoordinator], SelectEntity):
 
     _attr_has_entity_name = True
     _attr_name = "strategie"
-    _attr_options = STRATEGIES
+    _attr_suggested_object_id = f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_strategie"
+    _attr_options = [STRATEGY_LABELS[value] for value in STRATEGIES]
 
     def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
         super().__init__(coordinator)
@@ -47,11 +81,20 @@ class StrategySelect(CoordinatorEntity[EcoFlowEnergyCoordinator], SelectEntity):
 
     @property
     def current_option(self) -> str:
-        return self.coordinator.strategy
+        return STRATEGY_LABELS.get(self.coordinator.strategy, self.coordinator.strategy)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        return {
+            "eec_device_type": "control",
+            "eec_sensor_role": "global_strategy",
+            "strategy": self.coordinator.strategy,
+        }
 
     async def async_select_option(self, option: str) -> None:
-        if option in STRATEGIES:
-            self.coordinator.strategy = option
+        strategy = STRATEGY_VALUES.get(option, option)
+        if strategy in STRATEGIES:
+            self.coordinator.strategy = strategy
             self.async_write_ha_state()
 
 
@@ -59,7 +102,7 @@ class PowerStreamStrategySelect(CoordinatorEntity[EcoFlowEnergyCoordinator], Sel
     """Per-PowerStream strategy selector."""
 
     _attr_has_entity_name = True
-    _attr_options = POWERSTREAM_STRATEGIES
+    _attr_options = [POWERSTREAM_STRATEGY_LABELS[value] for value in POWERSTREAM_STRATEGIES]
 
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
@@ -80,9 +123,14 @@ class PowerStreamStrategySelect(CoordinatorEntity[EcoFlowEnergyCoordinator], Sel
     def current_option(self) -> str:
         data = (self.coordinator.data or {}).get("powerstreams", {}).get(self._serial, {})
         return str(
-            data.get("group_strategy")
-            or self.coordinator.powerstream_strategies.get(self._serial)
-            or "max_self_use"
+            POWERSTREAM_STRATEGY_LABELS.get(
+                str(
+                    data.get("group_strategy")
+                    or self.coordinator.powerstream_strategies.get(self._serial)
+                    or POWERSTREAM_STRATEGY_SELF_USE
+                ),
+                POWERSTREAM_STRATEGY_LABELS[POWERSTREAM_STRATEGY_SELF_USE],
+            )
         )
 
     @property
@@ -94,11 +142,17 @@ class PowerStreamStrategySelect(CoordinatorEntity[EcoFlowEnergyCoordinator], Sel
             "serial": self._serial,
             "managed_battery_name": data.get("battery_name"),
             "managed_battery_soc": data.get("battery_soc"),
+            "managed_battery_free_wh": data.get("battery_free_wh"),
             "suggested_watts": data.get("suggested_watts"),
             "action": data.get("group_action"),
+            "decision_reason": data.get("decision_reason"),
+            "strategy_throttled": data.get("strategy_throttled"),
+            "strategy_next_update_seconds": data.get("strategy_next_update_seconds"),
+            "strategy_error": data.get("strategy_error"),
         }
 
     async def async_select_option(self, option: str) -> None:
-        if option in POWERSTREAM_STRATEGIES:
-            self.coordinator.set_powerstream_strategy(self._serial, option)
+        strategy = POWERSTREAM_STRATEGY_VALUES.get(option, option)
+        if strategy in POWERSTREAM_STRATEGIES:
+            self.coordinator.set_powerstream_strategy(self._serial, strategy)
             self.async_write_ha_state()

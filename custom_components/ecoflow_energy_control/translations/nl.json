@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "EEC app",
-        "description": "Stel EcoFlow Cloud, spotprijzen, PowerStreams en lokale SMA omvormers in.",
+        "description": "Verbind EcoFlow Cloud. Prijzen, weer en testmodus worden automatisch ingesteld en kun je later aanpassen.",
         "data": {
           "name": "Naam",
           "access_key": "EcoFlow access key",
@@ -36,29 +36,42 @@
       "init": {
         "title": "EEC app opties",
         "menu_options": {
-          "general": "Algemene instellingen",
-          "add_device": "Apparaat toevoegen",
           "import_ecoflow": "EcoFlow apparaten importeren",
-          "import_homewizard": "HomeWizard uit Home Assistant importeren",
+          "import_homewizard": "HomeWizard importeren",
+          "add_device": "Handmatig toevoegen",
           "edit_device": "Apparaat wijzigen",
-          "remove_device": "Apparaat verwijderen"
+          "remove_device": "Apparaat verwijderen",
+          "general": "Basisinstellingen",
+          "advanced": "Technische instellingen"
         }
       },
       "general": {
-        "title": "Algemene instellingen"
+        "title": "Basisinstellingen",
+        "description": "Kies alleen wat de automatische flow nodig heeft: prijsbron, opslag, weerstad en testmodus."
+      },
+      "advanced": {
+        "title": "Technische instellingen",
+        "description": "Alleen nodig bij andere API-hosts, eigen prijs-URL, SMA cloud of nieuwe EcoFlow API-sleutels."
       },
       "add_device": {
-        "title": "Apparaat toevoegen"
+        "title": "Handmatig toevoegen",
+        "description": "Gebruik dit alleen als importeren niet lukt. De app controleert de verbinding voordat het apparaat wordt opgeslagen."
       },
       "import_ecoflow": {
-        "title": "EcoFlow apparaten importeren"
+        "title": "EcoFlow apparaten importeren",
+        "description": "De app haalt apparaten uit de EcoFlow Cloud op. Kies daarna per apparaat het juiste type."
       },
       "import_ecoflow_configure": {
         "title": "EcoFlow apparaat instellen",
-        "description": "Serienummer: {serial}\nEcoFlow type: {raw_type}"
+        "description": "Serienummer: {serial}\nEcoFlow type: {raw_type}\nVoorgesteld: {suggested_type}\nDe verbinding wordt gecontroleerd voordat dit apparaat wordt toegevoegd.",
+        "data": {
+          "name": "Naam",
+          "device_type": "Apparaattype"
+        }
       },
       "import_ecoflow_powerstream": {
         "title": "PowerStream instellingen",
+        "description": "Koppel deze PowerStream aan de batterij die hij mag beheren. Dit wordt gebruikt voor advies, sliders en automatische sturing.",
         "data": {
           "max_watts": "Maximaal terugleververmogen",
           "phase": "Fase",
@@ -66,10 +79,12 @@
         }
       },
       "import_ecoflow_smart_plug": {
-        "title": "Smart Plug instellingen"
+        "title": "Smart Plug instellingen",
+        "description": "Kies welke batterij deze Smart Plug bij zon of lage prijs mag laden."
       },
       "edit_device": {
-        "title": "Apparaat wijzigen"
+        "title": "Apparaat wijzigen",
+        "description": "Pas naam, koppeling of limieten van een bestaand apparaat aan."
       },
       "device_delta_pro": {
         "title": "Delta Pro toevoegen"
@@ -84,8 +99,7 @@
           "serial": "Serienummer",
           "max_watts": "Maximaal terugleververmogen",
           "phase": "Fase",
-          "battery_serial": "Gekoppelde Delta Pro",
-          "command": "EcoFlow command JSON"
+          "battery_serial": "Gekoppelde Delta Pro"
         }
       },
       "device_sma": {
@@ -107,8 +121,7 @@
           "serial": "Serienummer",
           "max_watts": "Maximaal terugleververmogen",
           "phase": "Fase",
-          "battery_serial": "Gekoppelde Delta Pro",
-          "command": "EcoFlow command JSON"
+          "battery_serial": "Gekoppelde Delta Pro"
         }
       },
       "edit_sma_inverters": {

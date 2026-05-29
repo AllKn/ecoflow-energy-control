@@ -4,17 +4,33 @@ views:
     path: eec-scenarios
     icon: mdi:chart-timeline-variant
     cards:
-      - type: entities
-        title: Simulatie
-        entities:
-          - entity: sensor.ecoflow_energy_control_applicatie_versie
-            name: Versie
-          - entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
-            name: Prijs nu
-          - entity: sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
-            name: Netto zon/verbruik
-          - entity: sensor.ecoflow_energy_control_applicatie_status
-            name: Status
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Simulatie
+          show_header_toggle: false
+        filter:
+          include:
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: app_version
+              options:
+                name: Versie
+            - attributes:
+                eec_device_type: price
+                eec_sensor_role: price_now
+              options:
+                name: Prijs nu
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: corrected_power
+              options:
+                name: Netto zon/verbruik
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: app_status
+              options:
+                name: Status
 
       - type: custom:auto-entities
         card:

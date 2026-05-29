@@ -1,138 +1,855 @@
 title: EEC app
 views:
-  - title: Energie
+  - title: Main
     path: ecoflow-energy
-    icon: mdi:home-lightning-bolt
+    icon: mdi:view-dashboard
     cards:
-      - type: entities
-        title: EEC app - instellingen
-        entities:
-          - entity: select.ecoflow_energy_control_applicatie_strategie
-            name: Strategie
-          - entity: switch.ecoflow_energy_control_applicatie_testmodus
-            name: Testmodus
-          - entity: sensor.ecoflow_energy_control_applicatie_versie
-            name: Versie
-          - entity: sensor.ecoflow_energy_control_applicatie_status
-            name: Status
-          - entity: sensor.ecoflow_energy_control_applicatie_laatste_actie
-            name: Laatste actie
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Flow
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_readiness_score
+              options:
+                type: gauge
+                name: Data
+                min: 0
+                max: 100
+                severity:
+                  red: 0
+                  yellow: 60
+                  green: 90
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_auto_mode
+              options:
+                type: entity
+                name: Auto
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_confidence_score
+              options:
+                type: gauge
+                name: Zeker
+                min: 0
+                max: 100
+                severity:
+                  red: 0
+                  yellow: 60
+                  green: 85
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_best_period_value
+              options:
+                type: entity
+                name: Totalen
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_flow_summary
+              options:
+                type: entity
+                name: Advies
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_value_rate
+              options:
+                type: gauge
+                name: EUR/u
+                min: -1
+                max: 1
+                severity:
+                  red: -1
+                  yellow: 0
+                  green: 0.2
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_problem
+              options:
+                type: entity
+                name: Probleem
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: global_strategy
+              options:
+                type: entity
+                name: Scenario
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: test_mode
+              options:
+                type: entity
+                name: Test
+            - attributes:
+                eec_device_type: action
+                eec_sensor_role: apply_best_scenario
+              options:
+                type: button
+                name: Advies
+                icon: mdi:play
+                show_state: false
 
-      - type: grid
-        title: EEC app - acties
-        columns: 3
-        square: false
-        cards:
-          - type: button
-            entity: button.ecoflow_energy_control_applicatie_ecoflow_api_controleren
-            name: EcoFlow API
-            icon: mdi:cloud-check
-            show_state: false
-            tap_action:
-              action: call-service
-              service: button.press
-              service_data:
-                entity_id: button.ecoflow_energy_control_applicatie_ecoflow_api_controleren
-          - type: button
-            entity: button.ecoflow_energy_control_applicatie_epex_prijzen_ophalen
-            name: Prijzen ophalen
-            icon: mdi:currency-eur
-            show_state: false
-            tap_action:
-              action: call-service
-              service: button.press
-              service_data:
-                entity_id: button.ecoflow_energy_control_applicatie_epex_prijzen_ophalen
-          - type: button
-            entity: button.ecoflow_energy_control_applicatie_strategie_nu_toepassen
-            name: Strategie starten
-            icon: mdi:play-circle
-            show_state: false
-            tap_action:
-              action: call-service
-              service: button.press
-              service_data:
-                entity_id: button.ecoflow_energy_control_applicatie_strategie_nu_toepassen
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Basis
+          columns: 6
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: corrected_power
+              options:
+                type: gauge
+                name: Netto W
+                min: -4000
+                max: 8000
+                severity:
+                  red: -4000
+                  yellow: 0
+                  green: 1000
+            - attributes:
+                eec_device_type: price
+                eec_sensor_role: price_now
+              options:
+                type: gauge
+                name: EUR/kWh
+                min: -0.2
+                max: 0.8
+                severity:
+                  green: -0.2
+                  yellow: 0.2
+                  red: 0.35
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_soc
+              options:
+                type: gauge
+                name: Accu
+                min: 0
+                max: 100
+                severity:
+                  red: 0
+                  yellow: 30
+                  green: 60
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_available_kwh
+              options:
+                type: gauge
+                name: kWh
+                min: 0
+                max: 16
+                severity:
+                  red: 0
+                  yellow: 4
+                  green: 9
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: powerstream_export
+              options:
+                type: gauge
+                name: Terug W
+                min: 0
+                max: 1800
+                severity:
+                  green: 0
+                  yellow: 600
+                  red: 1200
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: expected_savings
+              options:
+                type: entity
+                name: Zon EUR
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: decision_context
+              options:
+                type: entity
+                name: Context
+
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Scenario - nu
+          columns: 5
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_best
+              options:
+                type: entity
+                name: Beste
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_alignment
+              options:
+                type: entity
+                name: Match
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_choice_state
+              options:
+                type: entity
+                name: Keuze
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_choice_delta
+              options:
+                type: gauge
+                name: Mis EUR/u
+                min: 0
+                max: 1
+                severity:
+                  green: 0
+                  yellow: 0.05
+                  red: 0.2
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_action_state
+              options:
+                type: entity
+                name: Sturen
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_scenario_input
+              options:
+                type: entity
+                name: Input
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_confidence_score
+              options:
+                type: gauge
+                name: Zeker
+                min: 0
+                max: 100
+                severity:
+                  red: 0
+                  yellow: 60
+                  green: 85
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_confidence_reason
+              options:
+                type: entity
+                name: Zekerheid
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_measurement_state
+              options:
+                type: entity
+                name: Meting
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_value_rate
+              options:
+                type: gauge
+                name: EUR/u
+                min: -1
+                max: 1
+                severity:
+                  red: -1
+                  yellow: 0
+                  green: 0.2
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_best_power
+              options:
+                type: gauge
+                name: W
+                min: -1600
+                max: 1600
+                severity:
+                  red: -1600
+                  yellow: 0
+                  green: 400
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_next_command
+              options:
+                type: entity
+                name: Volgende
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_best_period_value
+              options:
+                type: entity
+                name: Totalen
 
       - type: custom:auto-entities
         card:
           type: entities
-          title: EEC app - apparaatstatus
+          title: Keuze wijzigen
           show_header_toggle: false
         filter:
           include:
             - attributes:
-                eec_sensor_role: api_status
-        sort:
-          method: name
+                eec_device_type: control
+                eec_sensor_role: global_strategy
+              options:
+                name: Scenario
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: test_mode
+              options:
+                name: Testmodus
+
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Gereedheid
+          columns: 6
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_overview
+              options:
+                type: entity
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_setup
+              options:
+                type: entity
+                name: Setup
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: app_status
+              options:
+                type: entity
+                name: Status
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: app_version
+              options:
+                type: entity
+                name: Versie
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_source_summary
+              options:
+                type: entity
+                name: Bronnen
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_problem
+              options:
+                type: entity
+                name: Probleem
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_live_proof
+              options:
+                type: entity
+                name: Bewijs
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_readiness_score
+              options:
+                type: gauge
+                name: Score
+                min: 0
+                max: 100
+                severity:
+                  red: 0
+                  yellow: 60
+                  green: 90
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_ready_state
+              options:
+                type: entity
+                name: Klaar
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_readiness
+              options:
+                type: entity
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_next_step
+              options:
+                type: entity
 
       - type: custom:auto-entities
         card:
           type: entities
-          title: EEC app - batterijen
+          title: Datacheck
           show_header_toggle: false
         filter:
           include:
             - attributes:
-                eec_device_type: battery
-          exclude:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_check
+        sort:
+          method: attribute
+          attribute: check_key
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Advies
+          show_header_toggle: false
+        filter:
+          include:
             - attributes:
-                eec_sensor_role: api_status
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_flow_summary
+              options:
+                name: Flow
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_flow_snapshot
+              options:
+                name: Overzicht
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_start_state
+              options:
+                name: Start
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_start_reason
+              options:
+                name: Waarom start
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_auto_mode
+              options:
+                name: Auto
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_best
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_alignment
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_choice_summary
+              options:
+                name: Scenario keuze
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: decision_context
+              options:
+                name: Waarom
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_execution_plan
+              options:
+                name: Uitvoerplan
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_best_day_value
+              options:
+                name: Dag EUR
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_measurement_state
+              options:
+                name: Meting
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_confidence_reason
+              options:
+                name: Zekerheid
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_next_command
+              options:
+                name: Volgende actie
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: execution_status
+              options:
+                name: Sturing
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: last_action
+              options:
+                name: Laatste actie
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_action_state
+              options:
+                name: Uitvoerbaar
+
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Handmatig
+          columns: 3
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: action
+                eec_sensor_role: apply_strategy
+              options:
+                type: button
+                name: Start
+                icon: mdi:play-circle
+                show_state: false
+            - attributes:
+                eec_device_type: action
+                eec_sensor_role: check_ecoflow_api
+              options:
+                type: button
+                name: EcoFlow
+                icon: mdi:cloud-check
+                show_state: false
+            - attributes:
+                eec_device_type: action
+                eec_sensor_role: refresh_prices
+              options:
+                type: button
+                name: Prijzen
+                icon: mdi:currency-eur
+                show_state: false
+
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Nu
+          columns: 4
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: corrected_power
+              options:
+                type: gauge
+                name: Netto W
+                min: -4000
+                max: 8000
+                severity:
+                  red: -4000
+                  yellow: 0
+                  green: 1000
+            - attributes:
+                eec_device_type: price
+                eec_sensor_role: price_now
+              options:
+                type: gauge
+                name: EUR/kWh
+                min: -0.2
+                max: 0.8
+                severity:
+                  green: -0.2
+                  yellow: 0.2
+                  red: 0.35
+            - attributes:
+                eec_device_type: price
+                eec_sensor_role: price_cheap_band
+              options:
+                type: gauge
+                name: Goedkoop
+                min: -0.2
+                max: 0.8
+                severity:
+                  green: -0.2
+                  yellow: 0.2
+                  red: 0.35
+            - attributes:
+                eec_device_type: price
+                eec_sensor_role: price_expensive_band
+              options:
+                type: gauge
+                name: Duur
+                min: -0.2
+                max: 0.8
+                severity:
+                  green: -0.2
+                  yellow: 0.2
+                  red: 0.35
+
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Opslag totaal
+          columns: 4
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_soc
+              options:
+                type: gauge
+                name: Accu
+                min: 0
+                max: 100
+                severity:
+                  red: 0
+                  yellow: 30
+                  green: 60
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_available_kwh
+              options:
+                type: gauge
+                name: kWh
+                min: 0
+                max: 16
+                severity:
+                  red: 0
+                  yellow: 4
+                  green: 9
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_free_kwh
+              options:
+                type: gauge
+                name: Ruimte
+                min: 0
+                max: 16
+                severity:
+                  red: 0
+                  yellow: 4
+                  green: 9
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_available_eur
+              options:
+                type: entity
+                name: EUR
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_free_eur
+              options:
+                type: entity
+                name: Ruimte EUR
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: expected_savings
+              options:
+                type: entity
+                name: Zon EUR/kWp
         sort:
           method: name
 
       - type: custom:auto-entities
         card:
-          type: history-graph
-          title: Batterijvermogen - 24 uur
-          hours_to_show: 24
+          type: grid
+          title: Batterijen
+          columns: 2
+          square: false
+        card_param: cards
         filter:
           include:
             - attributes:
                 eec_device_type: battery
-                eec_sensor_role: net_power
+                eec_sensor_role: soc
+              options:
+                type: gauge
+                min: 0
+                max: 100
+                severity:
+                  red: 0
+                  yellow: 30
+                  green: 60
             - attributes:
                 eec_device_type: battery
-                eec_sensor_role: charge_power
+                eec_sensor_role: available_kwh
+              options:
+                type: gauge
+                min: 0
+                max: 10
+                severity:
+                  red: 0
+                  yellow: 2.5
+                  green: 6
             - attributes:
                 eec_device_type: battery
-                eec_sensor_role: discharge_power
+                eec_sensor_role: available_eur
+              options:
+                type: entity
         sort:
           method: name
 
       - type: custom:auto-entities
         card:
           type: entities
-          title: PowerStream + Delta Pro sturing
+          title: PowerStreams - sturen
           show_header_toggle: false
         filter:
           include:
             - attributes:
                 eec_device_type: powerstream
-          exclude:
+                eec_sensor_role: powerstream_setpoint
             - attributes:
-                eec_sensor_role: api_status
+                eec_device_type: powerstream
+                eec_sensor_role: group_strategy
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_action
         sort:
           method: name
 
       - type: custom:auto-entities
         card:
-          type: history-graph
-          title: PowerStreams - 24 uur
-          hours_to_show: 24
+          type: grid
+          title: PowerStreams - live
+          columns: 2
+          square: false
+        card_param: cards
         filter:
           include:
             - attributes:
                 eec_device_type: powerstream
                 eec_sensor_role: power
+              options:
+                type: gauge
+                name: Nu W
+                min: 0
+                max: 900
+                severity:
+                  green: 0
+                  yellow: 400
+                  red: 700
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_suggested_watts
+              options:
+                type: gauge
+                name: Advies W
+                min: 0
+                max: 900
+                severity:
+                  green: 0
+                  yellow: 400
+                  red: 700
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_delta_watts
+              options:
+                type: gauge
+                name: Nog W
+                min: 0
+                max: 900
+                severity:
+                  green: 0
+                  yellow: 50
+                  red: 400
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_command_status
+              options:
+                type: entity
+                name: Status
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_battery_soc
+              options:
+                type: gauge
+                min: 0
+                max: 100
+                severity:
+                  red: 0
+                  yellow: 30
+                  green: 60
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_available_wh
+              options:
+                type: gauge
+                min: 0
+                max: 9000
+                severity:
+                  red: 0
+                  yellow: 2500
+                  green: 6000
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: group_free_wh
+              options:
+                type: gauge
+                min: 0
+                max: 9000
+                severity:
+                  red: 0
+                  yellow: 2500
+                  green: 6000
+            - attributes:
+                eec_device_type: powerstream
+                eec_sensor_role: mode
+              options:
+                type: entity
         sort:
           method: name
 
-      - type: gauge
-        entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
-        name: Prijs nu
-        min: -0.2
-        max: 0.8
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Scenario's - advies
+          show_header_toggle: false
+        filter:
+          include:
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_action
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_reason
+        sort:
+          method: name
+
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Scenario's - effect
+          columns: 2
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_power
+              options:
+                type: gauge
+                min: -1600
+                max: 1600
+                severity:
+                  red: -1600
+                  yellow: 0
+                  green: 400
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_eur_per_hour
+              options:
+                type: gauge
+                min: -1
+                max: 1
+                severity:
+                  red: -1
+                  yellow: 0
+                  green: 0.2
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_day_eur
+              options:
+                type: entity
+        sort:
+          method: name
 
       - type: custom:apexcharts-card
         header:
@@ -170,8 +887,7 @@ views:
             data_generator: |
               const now = Date.now();
               const end = now + 24 * 60 * 60 * 1000;
-              const source = hass.states['sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen'];
-              const prices = source ? source.attributes.prices || [] : [];
+              const prices = entity.attributes.prices || [];
               const value = Number(entity.state);
               if (!Number.isFinite(value)) return [];
               return prices
@@ -194,52 +910,45 @@ views:
                 .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
                 .filter((item) => item[0] >= now && item[0] <= end);
 
-      - type: entities
-        title: Prijsgrenzen
-        entities:
-          - sensor.ecoflow_energy_control_applicatie_goedkope_prijsgrens
-          - sensor.ecoflow_energy_control_applicatie_dure_prijsgrens
-          - sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
-          - sensor.ecoflow_energy_control_applicatie_hoogste_prijs_tot_morgen
-
-      - type: gauge
-        entity: sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
-        name: Netto zon/verbruik
-        min: -4000
-        max: 8000
-        severity:
-          red: -4000
-          yellow: 0
-          green: 1000
-
-      - type: entities
-        title: Weer en zonverwachting
-        show_header_toggle: false
-        entities:
-          - entity: sensor.ecoflow_energy_control_applicatie_zon_nu
-            name: Nu
-          - type: attribute
-            entity: sensor.ecoflow_energy_control_applicatie_zon_nu
-            attribute: weather_label
-            name: Verwachting
-          - type: attribute
-            entity: sensor.ecoflow_energy_control_applicatie_zon_nu
-            attribute: temperature
-            name: Temperatuur
-          - entity: sensor.ecoflow_energy_control_applicatie_zon_4_uur
-            name: 4u
-          - entity: sensor.ecoflow_energy_control_applicatie_zon_12_uur
-            name: 12u
-          - entity: sensor.ecoflow_energy_control_applicatie_zon_24_uur
-            name: 24u
-          - entity: sensor.ecoflow_energy_control_applicatie_verwachte_besparing
-            name: Besparing 24u
-
-      - type: markdown
-        title: Weericonen
-        content: >
-          {{ state_attr('sensor.ecoflow_energy_control_applicatie_zon_nu',
-          'icon_summary') }}
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Weer
+          show_header_toggle: false
+        filter:
+          include:
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_now
+              options:
+                name: Nu
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_solar_4h
+              options:
+                name: 4u
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_solar_12h
+              options:
+                name: 12u
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_solar_24h
+              options:
+                name: 24u
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_icon_summary
+              options:
+                name: Komende uren
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: expected_savings
+              options:
+                name: Besparing
+        sort:
+          method: name
 
       - type: custom:apexcharts-card
         header:
@@ -262,7 +971,7 @@ views:
               datetimeFormatter:
                 hour: HH:mm
         series:
-          - entity: sensor.ecoflow_energy_control_applicatie_zon_nu
+          - entity: sensor.ecoflow_energy_control_applicatie_komende_uren
             name: °C
             type: column
             data_generator: |
@@ -274,38 +983,40 @@ views:
                 .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
                 .filter((item) => item[0] >= now && item[0] <= end);
 
-      - type: entities
-        title: Opwekcorrectie
-        entities:
-          - sensor.ecoflow_energy_control_applicatie_homewizard_opwek_ruw
-          - sensor.ecoflow_energy_control_applicatie_powerstream_teruglevering
-          - sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
-          - sensor.ecoflow_energy_control_applicatie_sma_totaal_vermogen
-
       - type: custom:auto-entities
         card:
           type: entities
-          title: EEC app - HomeWizard meters
+          title: Netto opwek
           show_header_toggle: false
         filter:
           include:
             - attributes:
-                eec_device_type: homewizard
-        sort:
-          method: name
+                eec_device_type: solar
+                eec_sensor_role: homewizard_raw_power
+              options:
+                name: HomeWizard
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: powerstream_export
+              options:
+                name: Accu terug
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: corrected_power
+              options:
+                name: Netto
 
       - type: custom:auto-entities
         card:
-          type: history-graph
-          title: HomeWizard vermogen - 24 uur
-          hours_to_show: 24
+          type: entities
+          title: Diagnose
+          show_header_toggle: false
         filter:
           include:
             - attributes:
-                eec_device_type: homewizard
-                eec_sensor_role: power
+                eec_sensor_role: api_status
             - attributes:
                 eec_device_type: homewizard
-                eec_sensor_role: phase_power
+                eec_sensor_role: power
         sort:
           method: name

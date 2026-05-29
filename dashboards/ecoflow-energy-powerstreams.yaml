@@ -1,78 +1,115 @@
-title: EEC PowerStreams
+title: EEC app PowerStreams
 views:
   - title: PowerStreams
     path: eec-powerstreams
     icon: mdi:solar-power-variant
     cards:
-      - type: entities
-        title: Modus
-        show_header_toggle: false
-        entities:
-          - entity: switch.ecoflow_energy_control_applicatie_testmodus
-            name: Test
-          - entity: select.ecoflow_energy_control_applicatie_strategie
-            name: Scenario
-          - entity: sensor.ecoflow_energy_control_applicatie_verwachte_besparing
-            name: EUR/kWp
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Modus
+          show_header_toggle: false
+        filter:
+          include:
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: test_mode
+              options:
+                name: Test
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: global_strategy
+              options:
+                name: Scenario
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: expected_savings
+              options:
+                name: EUR/kWp
 
-      - type: horizontal-stack
-        cards:
-          - type: gauge
-            entity: sensor.ecoflow_energy_control_applicatie_stroomprijs_nu
-            name: EUR/kWh
-            min: -0.2
-            max: 0.8
-            severity:
-              green: -0.2
-              yellow: 0.2
-              red: 0.35
-          - type: gauge
-            entity: sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd
-            name: Netto W
-            min: -4000
-            max: 8000
-            severity:
-              red: -4000
-              yellow: 0
-              green: 1500
-          - type: gauge
-            entity: sensor.ecoflow_energy_control_applicatie_zon_24_uur
-            name: 24h zon
-            min: 0
-            max: 7000
-            severity:
-              red: 0
-              yellow: 1500
-              green: 3500
+      - type: custom:auto-entities
+        card:
+          type: grid
+          title: Nu
+          columns: 3
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: price
+                eec_sensor_role: price_now
+              options:
+                type: gauge
+                name: EUR/kWh
+                min: -0.2
+                max: 0.8
+                severity:
+                  green: -0.2
+                  yellow: 0.2
+                  red: 0.35
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: corrected_power
+              options:
+                type: gauge
+                name: Netto W
+                min: -4000
+                max: 8000
+                severity:
+                  red: -4000
+                  yellow: 0
+                  green: 1500
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_solar_24h
+              options:
+                type: gauge
+                name: 24h zon
+                min: 0
+                max: 7000
+                severity:
+                  red: 0
+                  yellow: 1500
+                  green: 3500
 
-      - type: entities
-        title: Weer
-        show_header_toggle: false
-        entities:
-          - entity: sensor.ecoflow_energy_control_applicatie_zon_nu
-            name: Nu
-          - type: attribute
-            entity: sensor.ecoflow_energy_control_applicatie_zon_nu
-            attribute: weather_label
-            name: Verwachting
-          - type: attribute
-            entity: sensor.ecoflow_energy_control_applicatie_zon_nu
-            attribute: temperature
-            name: Temperatuur
-          - entity: sensor.ecoflow_energy_control_applicatie_zon_4_uur
-            name: 4u
-          - entity: sensor.ecoflow_energy_control_applicatie_zon_12_uur
-            name: 12u
-          - entity: sensor.ecoflow_energy_control_applicatie_zon_24_uur
-            name: 24u
-          - entity: sensor.ecoflow_energy_control_applicatie_verwachte_besparing
-            name: EUR 24u
-
-      - type: markdown
-        title: Komende uren
-        content: >
-          {{ state_attr('sensor.ecoflow_energy_control_applicatie_zon_nu',
-          'icon_summary') }}
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Weer
+          show_header_toggle: false
+        filter:
+          include:
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_now
+              options:
+                name: Nu
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_icon_summary
+              options:
+                name: Komende uren
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_solar_4h
+              options:
+                name: 4u
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_solar_12h
+              options:
+                name: 12u
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_solar_24h
+              options:
+                name: 24u
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: expected_savings
+              options:
+                name: EUR 24u
 
       - type: custom:apexcharts-card
         header:
@@ -95,7 +132,7 @@ views:
               datetimeFormatter:
                 hour: HH:mm
         series:
-          - entity: sensor.ecoflow_energy_control_applicatie_zon_nu
+          - entity: sensor.ecoflow_energy_control_applicatie_komende_uren
             name: °C
             type: column
             data_generator: |
