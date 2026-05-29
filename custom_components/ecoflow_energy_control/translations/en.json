@@ -5,7 +5,7 @@
         "title": "EEC app",
         "description": "Connect EcoFlow Cloud. Prices, weather and test mode are configured automatically and can be changed later.",
         "data": {
-          "name": "Name",
+          "name": "Friendly name",
           "access_key": "EcoFlow access key",
           "secret_key": "EcoFlow secret key",
           "ecoflow_host": "EcoFlow API host",
@@ -65,7 +65,7 @@
         "title": "Configure EcoFlow device",
         "description": "Serial number: {serial}\nEcoFlow type: {raw_type}\nSuggested: {suggested_type}\nThe connection is checked before this device is added.",
         "data": {
-          "name": "Name",
+          "name": "Friendly name",
           "device_type": "Device type"
         }
       },
@@ -95,7 +95,7 @@
       "device_powerstream": {
         "title": "Add PowerStream",
         "data": {
-          "name": "Name",
+          "name": "Friendly name",
           "serial": "Serial number",
           "max_watts": "Maximum export power",
           "phase": "Phase",
@@ -117,7 +117,7 @@
       "edit_powerstreams": {
         "title": "Edit PowerStream",
         "data": {
-          "name": "Name",
+          "name": "Friendly name",
           "serial": "Serial number",
           "max_watts": "Maximum export power",
           "phase": "Phase",

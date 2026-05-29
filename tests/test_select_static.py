@@ -46,6 +46,12 @@ class SelectStaticTest(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertIn(f'"{field}"', self.text)
 
+    def test_powerstream_strategy_uses_friendly_device_name_as_prefix_only(self) -> None:
+        self.assertIn('self._attr_name = "strategie"', self.text)
+        self.assertIn("LEGACY_DASHBOARD_OBJECT_PREFIX", self.text)
+        self.assertIn("slugify(", self.text)
+        self.assertNotIn('self._attr_name = f"{name} strategie"', self.text)
+
 
 if __name__ == "__main__":
     unittest.main()

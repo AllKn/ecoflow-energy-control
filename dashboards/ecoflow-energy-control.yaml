@@ -116,6 +116,12 @@ views:
                   yellow: 0
                   green: 1000
             - attributes:
+                eec_device_type: solar
+                eec_sensor_role: grid_flow_state
+              options:
+                type: entity
+                name: Net
+            - attributes:
                 eec_device_type: price
                 eec_sensor_role: price_now
               options:
@@ -151,6 +157,42 @@ views:
                   red: 0
                   yellow: 4
                   green: 9
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_charge_w
+              options:
+                type: gauge
+                name: Accu in
+                min: 0
+                max: 4000
+                severity:
+                  green: 0
+                  yellow: 1000
+                  red: 2500
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_discharge_w
+              options:
+                type: gauge
+                name: Accu uit
+                min: 0
+                max: 4000
+                severity:
+                  green: 0
+                  yellow: 1000
+                  red: 2500
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_net_w
+              options:
+                type: gauge
+                name: Accu netto
+                min: -4000
+                max: 4000
+                severity:
+                  red: -4000
+                  yellow: 0
+                  green: 500
             - attributes:
                 eec_device_type: solar
                 eec_sensor_role: powerstream_export
@@ -408,11 +450,6 @@ views:
           include:
             - attributes:
                 eec_device_type: dashboard
-                eec_sensor_role: dashboard_flow_summary
-              options:
-                name: Flow
-            - attributes:
-                eec_device_type: dashboard
                 eec_sensor_role: dashboard_flow_snapshot
               options:
                 name: Overzicht
@@ -426,11 +463,6 @@ views:
                 eec_sensor_role: dashboard_start_reason
               options:
                 name: Waarom start
-            - attributes:
-                eec_device_type: dashboard
-                eec_sensor_role: dashboard_auto_mode
-              options:
-                name: Auto
             - attributes:
                 eec_device_type: scenario
                 eec_sensor_role: scenario_best
@@ -682,6 +714,48 @@ views:
                 eec_sensor_role: available_eur
               options:
                 type: entity
+            - attributes:
+                eec_device_type: battery
+                eec_sensor_role: charge_power
+              options:
+                type: gauge
+                name: In W
+                min: 0
+                max: 4000
+                severity:
+                  green: 0
+                  yellow: 1000
+                  red: 2500
+            - attributes:
+                eec_device_type: battery
+                eec_sensor_role: discharge_power
+              options:
+                type: gauge
+                name: Uit W
+                min: 0
+                max: 4000
+                severity:
+                  green: 0
+                  yellow: 1000
+                  red: 2500
+            - attributes:
+                eec_device_type: battery
+                eec_sensor_role: net_power
+              options:
+                type: gauge
+                name: Netto W
+                min: -4000
+                max: 4000
+                severity:
+                  red: -4000
+                  yellow: 0
+                  green: 500
+            - attributes:
+                eec_device_type: battery
+                eec_sensor_role: mode
+              options:
+                type: entity
+                name: Status
         sort:
           method: name
 

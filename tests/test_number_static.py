@@ -39,6 +39,12 @@ class NumberStaticTest(unittest.TestCase):
         self.assertIn("self._attr_native_step = 10", self.text)
         self.assertIn("UnitOfPower.WATT", self.text)
 
+    def test_powerstream_setpoint_uses_friendly_device_name_as_prefix_only(self) -> None:
+        self.assertIn('self._attr_name = "teruglevering instellen"', self.text)
+        self.assertIn("LEGACY_DASHBOARD_OBJECT_PREFIX", self.text)
+        self.assertIn("slugify(", self.text)
+        self.assertNotIn('self._attr_name = f"{name} teruglevering instellen"', self.text)
+
 
 if __name__ == "__main__":
     unittest.main()

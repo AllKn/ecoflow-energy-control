@@ -284,7 +284,7 @@ def _check_execution(data: dict[str, Any], settings: dict[str, Any]) -> dict[str
     details["throttled"] = len(throttled)
     if throttled:
         return _check(
-            "execution", "gedeeltelijk", "wacht op 1-minuut begrenzing", details
+            "execution", "gedeeltelijk", "wacht op 10-minuten begrenzing", details
         )
     if settings.get("dry_run", True):
         return _check("execution", "gedeeltelijk", "testmodus staat aan", details)

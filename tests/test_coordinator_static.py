@@ -137,7 +137,11 @@ class CoordinatorStaticTest(unittest.TestCase):
     def test_group_strategy_commands_are_rate_limited_per_powerstream(self) -> None:
         self.assertIn("def _can_update_powerstream_strategy", self.coordinator)
         self.assertIn("def _powerstream_strategy_wait_seconds", self.coordinator)
-        self.assertIn("return max(0, int(60 - elapsed))", self.coordinator)
+        self.assertIn("POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS", self.coordinator)
+        self.assertIn(
+            "return max(0, int(POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS - elapsed))",
+            self.coordinator,
+        )
 
         block = self.coordinator[
             self.coordinator.index("async def _async_apply_group_strategies") : self.coordinator.index(
@@ -151,7 +155,10 @@ class CoordinatorStaticTest(unittest.TestCase):
         self.assertIn('"strategy_next_update_seconds"] = self._powerstream_strategy_wait_seconds', block)
         self.assertIn("self._powerstream_last_strategy_set[serial] = dt_util.utcnow()", block)
         self.assertIn('"strategy_throttled"] = False', block)
-        self.assertIn('"strategy_next_update_seconds"] = 60', block)
+        self.assertIn(
+            '"strategy_next_update_seconds"] = POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS',
+            block,
+        )
 
     def test_manual_strategy_apply_uses_same_throttled_group_path(self) -> None:
         self.assertIn("async def _async_apply_strategy_groups", self.coordinator)
@@ -172,7 +179,7 @@ class CoordinatorStaticTest(unittest.TestCase):
         ]
         self.assertIn("await self._async_apply_group_strategies", helper_block)
         self.assertIn('"last_powerstream_command": last_strategy_command', helper_block)
-        self.assertIn('"strategie wacht op 1-minuut begrenzing"', helper_block)
+        self.assertIn('"strategie wacht op 10-minuten begrenzing"', helper_block)
 
 
 if __name__ == "__main__":

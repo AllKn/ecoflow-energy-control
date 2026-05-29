@@ -28,6 +28,9 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("eec_sensor_role: battery_fleet_free_kwh", self.text)
         self.assertIn("eec_sensor_role: battery_fleet_available_eur", self.text)
         self.assertIn("eec_sensor_role: battery_fleet_free_eur", self.text)
+        self.assertIn("eec_sensor_role: battery_fleet_charge_w", self.text)
+        self.assertIn("eec_sensor_role: battery_fleet_discharge_w", self.text)
+        self.assertIn("eec_sensor_role: battery_fleet_net_w", self.text)
         self.assertIn("eec_sensor_role: scenario_best", self.text)
         self.assertIn("eec_sensor_role: scenario_alignment", self.text)
         self.assertIn("eec_sensor_role: dashboard_ready_state", self.text)
@@ -131,9 +134,13 @@ class MainDashboardStaticTest(unittest.TestCase):
                 "price_cheap_band",
                 "price_expensive_band",
                 "corrected_power",
+                "grid_flow_state",
                 "battery_fleet_soc",
                 "battery_fleet_available_kwh",
                 "battery_fleet_free_kwh",
+                "battery_fleet_charge_w",
+                "battery_fleet_discharge_w",
+                "battery_fleet_net_w",
                 "weather_icon_summary",
                 "expected_savings",
             ),
@@ -275,9 +282,13 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("columns: 6", block)
         for role in (
             "corrected_power",
+            "grid_flow_state",
             "price_now",
             "battery_fleet_soc",
             "battery_fleet_available_kwh",
+            "battery_fleet_charge_w",
+            "battery_fleet_discharge_w",
+            "battery_fleet_net_w",
             "powerstream_export",
             "expected_savings",
             "decision_context",
@@ -303,9 +314,7 @@ class MainDashboardStaticTest(unittest.TestCase):
         start = self.text.index("title: Advies")
         end = self.text.index("title: Handmatig")
         block = self.text[start:end]
-        self.assertIn("eec_sensor_role: dashboard_flow_summary", block)
         self.assertIn("eec_sensor_role: dashboard_flow_snapshot", block)
-        self.assertIn("eec_sensor_role: dashboard_auto_mode", block)
         self.assertIn("eec_sensor_role: scenario_best", block)
         self.assertIn("eec_sensor_role: scenario_alignment", block)
         self.assertIn("eec_sensor_role: scenario_choice_summary", block)
@@ -320,7 +329,6 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("eec_sensor_role: execution_status", block)
         self.assertIn("eec_sensor_role: last_action", block)
         self.assertIn("eec_sensor_role: dashboard_action_state", block)
-        self.assertIn("name: Auto", block)
         self.assertIn("name: Overzicht", block)
         self.assertIn("name: Waarom start", block)
         self.assertIn("name: Scenario keuze", block)
@@ -395,6 +403,29 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("eec_sensor_role: battery_fleet_free_kwh", block)
         self.assertIn("eec_sensor_role: battery_fleet_available_eur", block)
         self.assertIn("eec_sensor_role: battery_fleet_free_eur", block)
+        self.assertIn("eec_sensor_role: battery_fleet_charge_w", self.text)
+        self.assertIn("eec_sensor_role: battery_fleet_discharge_w", self.text)
+        self.assertIn("eec_sensor_role: battery_fleet_net_w", self.text)
+
+    def test_battery_card_shows_input_output_and_status_per_battery(self) -> None:
+        start = self.text.index("title: Batterijen")
+        end = self.text.index("title: PowerStreams - sturen")
+        block = self.text[start:end]
+        for role in (
+            "soc",
+            "available_kwh",
+            "available_eur",
+            "charge_power",
+            "discharge_power",
+            "net_power",
+            "mode",
+        ):
+            with self.subTest(role=role):
+                self.assertIn(f"eec_sensor_role: {role}", block)
+        self.assertIn("name: In W", block)
+        self.assertIn("name: Uit W", block)
+        self.assertIn("name: Netto W", block)
+        self.assertIn("name: Status", block)
 
     def test_net_solar_card_is_dynamic(self) -> None:
         start = self.text.index("title: Netto opwek")

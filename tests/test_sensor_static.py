@@ -20,6 +20,7 @@ class SensorStaticTest(unittest.TestCase):
             "price_cheap_band",
             "price_expensive_band",
             "corrected_power",
+            "grid_flow_state",
             "expected_savings",
             "weather_now",
             "weather_icon_summary",
@@ -58,12 +59,29 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn("_attr_suggested_object_id", self.text)
         self.assertIn("slugify(", self.text)
 
-    def test_battery_fleet_exposes_free_storage(self) -> None:
+    def test_battery_fleet_exposes_storage_and_power_flow(self) -> None:
         self.assertIn("BatteryFleetFreeEnergySensor(coordinator)", self.text)
         self.assertIn("BatteryFleetFreeValueSensor(coordinator)", self.text)
+        self.assertIn("BatteryFleetChargePowerSensor(coordinator)", self.text)
+        self.assertIn("BatteryFleetDischargePowerSensor(coordinator)", self.text)
+        self.assertIn("BatteryFleetNetPowerSensor(coordinator)", self.text)
         self.assertIn('_fleet_attrs("battery_fleet_free_kwh")', self.text)
         self.assertIn('_fleet_attrs("battery_fleet_free_eur")', self.text)
+        self.assertIn('_fleet_attrs("battery_fleet_charge_w")', self.text)
+        self.assertIn('_fleet_attrs("battery_fleet_discharge_w")', self.text)
+        self.assertIn('_fleet_attrs("battery_fleet_net_w")', self.text)
         self.assertIn('"free_kwh"', self.text)
+        self.assertIn('"charge_w"', self.text)
+        self.assertIn('"discharge_w"', self.text)
+        self.assertIn('"net_w"', self.text)
+
+    def test_device_entities_use_short_role_labels_with_friendly_device_names(self) -> None:
+        self.assertIn("def _apply_device_entity_label", self.text)
+        self.assertIn("_attr_name = label", self.text)
+        self.assertIn("LEGACY_DASHBOARD_OBJECT_PREFIX}_{device_name}_{object_suffix}", self.text)
+        self.assertIn('super().__init__(coordinator, f"{serial}_soc", "SoC")', self.text)
+        self.assertIn('super().__init__(coordinator, f"{serial}_api_status", "API status")', self.text)
+        self.assertIn('super().__init__(coordinator, f"{serial}_powerstream_power", "vermogen")', self.text)
 
     def test_powerstream_groups_expose_free_storage(self) -> None:
         self.assertIn("PowerStreamGroupFreeEnergySensor(coordinator, serial, name)", self.text)

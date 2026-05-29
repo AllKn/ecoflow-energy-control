@@ -7,6 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import slugify
 
 from .const import (
     APP_NAME,
@@ -109,8 +110,11 @@ class PowerStreamStrategySelect(CoordinatorEntity[EcoFlowEnergyCoordinator], Sel
     ) -> None:
         super().__init__(coordinator)
         self._serial = serial
-        self._attr_name = f"{name} strategie"
+        self._attr_name = "strategie"
         self._attr_unique_id = f"{DOMAIN}_{serial}_powerstream_strategy"
+        self._attr_suggested_object_id = slugify(
+            f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_{name}_strategie"
+        )
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"ecoflow_{serial}")},
             "name": name,

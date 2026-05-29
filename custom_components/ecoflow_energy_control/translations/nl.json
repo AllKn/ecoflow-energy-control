@@ -5,7 +5,7 @@
         "title": "EEC app",
         "description": "Verbind EcoFlow Cloud. Prijzen, weer en testmodus worden automatisch ingesteld en kun je later aanpassen.",
         "data": {
-          "name": "Naam",
+          "name": "Vriendelijke naam",
           "access_key": "EcoFlow access key",
           "secret_key": "EcoFlow secret key",
           "ecoflow_host": "EcoFlow API host",
@@ -65,7 +65,7 @@
         "title": "EcoFlow apparaat instellen",
         "description": "Serienummer: {serial}\nEcoFlow type: {raw_type}\nVoorgesteld: {suggested_type}\nDe verbinding wordt gecontroleerd voordat dit apparaat wordt toegevoegd.",
         "data": {
-          "name": "Naam",
+          "name": "Vriendelijke naam",
           "device_type": "Apparaattype"
         }
       },
@@ -95,7 +95,7 @@
       "device_powerstream": {
         "title": "PowerStream toevoegen",
         "data": {
-          "name": "Naam",
+          "name": "Vriendelijke naam",
           "serial": "Serienummer",
           "max_watts": "Maximaal terugleververmogen",
           "phase": "Fase",
@@ -117,7 +117,7 @@
       "edit_powerstreams": {
         "title": "PowerStream wijzigen",
         "data": {
-          "name": "Naam",
+          "name": "Vriendelijke naam",
           "serial": "Serienummer",
           "max_watts": "Maximaal terugleververmogen",
           "phase": "Fase",

@@ -131,7 +131,7 @@ Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijs
 
 ## Huidige Versie
 
-`0.5.167`
+`0.5.169`
 
 ## EcoFlow Signing
 
@@ -466,3 +466,7 @@ Versie `0.5.165` brengt blokkades nog dichter bij de startflow. De bovenste `Flo
 Versie `0.5.166` maakt de `Probleem`-tegel nog duidelijker. De tekst begint nu met `blokkeert` bij echte actie nodig en met `let op` bij waarschuwingen, gevolgd door het leesbare bronlabel.
 
 Versie `0.5.167` zet de automatische stuurstatus direct in de bovenste `Flow`-kaart. De tegel `Auto` laat nu meteen zien of de app actief stuurt, in testmodus staat, wacht, uit staat, afwijkt of geblokkeerd is.
+
+Versie `0.5.168` ruimt het detailblok `Advies` op. `Flow` en `Auto` staan alleen nog bovenaan in de primaire flow, waardoor het adviesdetail minder dubbele regels bevat en sneller te scannen is.
+
+Versie `0.5.169` maakt apparaatnamen en stroomflow rustiger. EcoFlow, PowerStream en HomeWizard entiteiten gebruiken nu de ingestelde vriendelijke apparaatnaam als device-label en korte rolteksten als entiteit. Automatische PowerStream-strategiecommando's worden maximaal eens per 10 minuten verstuurd. Het hoofd-dashboard toont daarnaast totale accu-in/uit/netto waarden en een leesbare netrichting: `verbruik van net` of `levering aan net`.

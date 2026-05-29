@@ -4,7 +4,7 @@ from __future__ import annotations
 
 DOMAIN = "ecoflow_energy_control"
 APP_NAME = "EEC app"
-APP_VERSION = "0.5.167"
+APP_VERSION = "0.5.169"
 LEGACY_DASHBOARD_OBJECT_PREFIX = "ecoflow_energy_control_applicatie"
 
 CONF_ACCESS_KEY = "access_key"
@@ -39,6 +39,7 @@ DEFAULT_PRICE_URL = ""
 DEFAULT_SMA_API_HOST = "https://api.sma.energy"
 DEFAULT_SMA_ENDPOINT = "/monitoring/v1/plants/{plant_id}/devices/{device_id}/measurements/recent"
 DEFAULT_SCAN_INTERVAL = 60
+POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS = 600
 DEFAULT_HOMEWIZARD_ROLE = "solar_total"
 DEFAULT_WEATHER_CITY = "Amsterdam"
 WEATHER_CITIES = {

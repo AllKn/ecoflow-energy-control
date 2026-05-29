@@ -54,6 +54,7 @@ async def async_setup_entry(
         TotalSolarPowerSensor(coordinator),
         HomeWizardSolarPowerSensor(coordinator),
         CorrectedSolarPowerSensor(coordinator),
+        CorrectedGridFlowSensor(coordinator),
         PowerStreamExportSensor(coordinator),
         WeatherNowSensor(coordinator),
         WeatherIconSummarySensor(coordinator),
@@ -66,6 +67,9 @@ async def async_setup_entry(
         BatteryFleetFreeEnergySensor(coordinator),
         BatteryFleetAvailableValueSensor(coordinator),
         BatteryFleetFreeValueSensor(coordinator),
+        BatteryFleetChargePowerSensor(coordinator),
+        BatteryFleetDischargePowerSensor(coordinator),
+        BatteryFleetNetPowerSensor(coordinator),
         BestScenarioSensor(coordinator),
         ScenarioAlignmentSensor(coordinator),
         ScenarioChoiceSummarySensor(coordinator),
@@ -380,6 +384,42 @@ class CorrectedSolarPowerSensor(BaseSensor):
         }
 
 
+class CorrectedGridFlowSensor(BaseSensor):
+    """Readable grid direction based on corrected HomeWizard power."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "corrected_grid_flow", "netrichting")
+
+    @property
+    def native_value(self) -> str:
+        value = float((self.coordinator.data or {}).get("corrected_solar_power") or 0)
+        if value < -20:
+            return "levering aan net"
+        if value > 20:
+            return "verbruik van net"
+        return "neutraal"
+
+    @property
+    def icon(self) -> str:
+        return {
+            "levering aan net": "mdi:transmission-tower-export",
+            "verbruik van net": "mdi:transmission-tower-import",
+            "neutraal": "mdi:transmission-tower",
+        }.get(self.native_value, "mdi:transmission-tower")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data or {}
+        return {
+            "eec_device_type": "solar",
+            "eec_sensor_role": "grid_flow_state",
+            "corrected_power_w": data.get("corrected_solar_power"),
+            "raw_homewizard_solar_w": data.get("homewizard_solar_power"),
+            "battery_export_subtracted_w": data.get("powerstream_export_w"),
+            "meaning": "positief is verbruik van net; negatief is levering aan net",
+        }
+
+
 class PowerStreamExportSensor(BaseSensor):
     """Tracked PowerStream export controlled by this integration."""
 
@@ -635,6 +675,70 @@ class BatteryFleetFreeValueSensor(BaseSensor):
             **summary,
             "price_eur_kwh": (self.coordinator.data or {}).get("price_now"),
             "meaning": "geschatte waarde/kosten om vrije opslagruimte te vullen",
+        }
+
+
+class BatteryFleetChargePowerSensor(BaseSensor):
+    """Combined live charging power for all configured EcoFlow batteries."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "battery_fleet_charge_power", "accu in")
+
+    @property
+    def native_value(self) -> float:
+        return _battery_fleet_summary(self.coordinator)["charge_w"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            **_fleet_attrs("battery_fleet_charge_w"),
+            **_battery_fleet_summary(self.coordinator),
+        }
+
+
+class BatteryFleetDischargePowerSensor(BaseSensor):
+    """Combined live discharging power for all configured EcoFlow batteries."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "battery_fleet_discharge_power", "accu uit")
+
+    @property
+    def native_value(self) -> float:
+        return _battery_fleet_summary(self.coordinator)["discharge_w"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            **_fleet_attrs("battery_fleet_discharge_w"),
+            **_battery_fleet_summary(self.coordinator),
+        }
+
+
+class BatteryFleetNetPowerSensor(BaseSensor):
+    """Combined battery flow: positive is discharge, negative is charge."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "battery_fleet_net_power", "accu netto")
+
+    @property
+    def native_value(self) -> float:
+        return _battery_fleet_summary(self.coordinator)["net_w"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            **_fleet_attrs("battery_fleet_net_w"),
+            **_battery_fleet_summary(self.coordinator),
+            "meaning": "positief is levering uit accu; negatief is laden naar accu",
         }
 
 
@@ -2082,8 +2186,9 @@ class BatterySocSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_soc", f"{name} SoC")
+        super().__init__(coordinator, f"{serial}_soc", "SoC")
         self._serial = serial
+        _apply_device_entity_label(self, name, "SoC", "soc")
         self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
@@ -2109,11 +2214,10 @@ class BatteryAvailableEnergySensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(
-            coordinator, f"{serial}_available_kwh", f"{name} beschikbaar"
-        )
+        super().__init__(coordinator, f"{serial}_available_kwh", "beschikbaar")
         self._serial = serial
         self._name = name
+        _apply_device_entity_label(self, name, "beschikbaar", "beschikbaar")
         self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
@@ -2147,9 +2251,10 @@ class BatteryAvailableValueSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_available_eur", f"{name} waarde")
+        super().__init__(coordinator, f"{serial}_available_eur", "waarde")
         self._serial = serial
         self._name = name
+        _apply_device_entity_label(self, name, "waarde", "waarde")
         self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
@@ -2184,11 +2289,10 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
         name: str,
         device_type: str,
     ) -> None:
-        super().__init__(
-            coordinator, f"{serial}_api_status", f"{_status_label(device_type)} {name}"
-        )
+        super().__init__(coordinator, f"{serial}_api_status", "API status")
         self._serial = serial
         self._device_type = device_type
+        _apply_device_entity_label(self, name, "API status", "api_status")
         self._attr_device_info = _ecoflow_device_info(serial, name, device_type)
 
     @property
@@ -2272,8 +2376,9 @@ class BatteryChargePowerSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_charge_power", f"{name} laadvermogen")
+        super().__init__(coordinator, f"{serial}_charge_power", "laadvermogen")
         self._serial = serial
+        _apply_device_entity_label(self, name, "laadvermogen", "laadvermogen")
         self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
@@ -2303,10 +2408,9 @@ class BatteryDischargePowerSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(
-            coordinator, f"{serial}_discharge_power", f"{name} ontlaadvermogen"
-        )
+        super().__init__(coordinator, f"{serial}_discharge_power", "ontlaadvermogen")
         self._serial = serial
+        _apply_device_entity_label(self, name, "ontlaadvermogen", "ontlaadvermogen")
         self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
@@ -2328,8 +2432,9 @@ class BatteryChargeSourceSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_charge_source", f"{name} laadbron")
+        super().__init__(coordinator, f"{serial}_charge_source", "laadbron")
         self._serial = serial
+        _apply_device_entity_label(self, name, "laadbron", "laadbron")
         self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
@@ -2358,8 +2463,9 @@ class BatteryNetPowerSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_net_power", f"{name} netto vermogen")
+        super().__init__(coordinator, f"{serial}_net_power", "netto vermogen")
         self._serial = serial
+        _apply_device_entity_label(self, name, "netto vermogen", "netto_vermogen")
         self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
@@ -2381,18 +2487,15 @@ class BatteryModeSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_mode", f"{name} status")
+        super().__init__(coordinator, f"{serial}_mode", "status")
         self._serial = serial
+        _apply_device_entity_label(self, name, "status", "status")
         self._attr_device_info = _ecoflow_device_info(serial, name, "battery")
 
     @property
     def native_value(self) -> str:
         net = _battery_net_power(self.coordinator, self._serial)
-        if net > 20:
-            return "ontladen"
-        if net < -20:
-            return "laden"
-        return "stand-by"
+        return _battery_mode_from_net(net)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -2408,8 +2511,9 @@ class PowerStreamTargetSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_powerstream_power", f"{name} vermogen")
+        super().__init__(coordinator, f"{serial}_powerstream_power", "vermogen")
         self._serial = serial
+        _apply_device_entity_label(self, name, "vermogen", "vermogen")
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
@@ -2441,8 +2545,9 @@ class PowerStreamModeSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_powerstream_mode", f"{name} status")
+        super().__init__(coordinator, f"{serial}_powerstream_mode", "status")
         self._serial = serial
+        _apply_device_entity_label(self, name, "status", "status")
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
@@ -2482,8 +2587,9 @@ class PowerStreamGroupSuggestedPowerSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_group_suggested_watts", f"{name} advies")
+        super().__init__(coordinator, f"{serial}_group_suggested_watts", "advies")
         self._serial = serial
+        _apply_device_entity_label(self, name, "advies", "advies")
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
@@ -2509,8 +2615,9 @@ class PowerStreamGroupDeltaPowerSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_group_delta_watts", f"{name} nog")
+        super().__init__(coordinator, f"{serial}_group_delta_watts", "nog")
         self._serial = serial
+        _apply_device_entity_label(self, name, "nog", "nog")
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
@@ -2533,8 +2640,9 @@ class PowerStreamGroupCommandStatusSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_group_command_status", f"{name} bijsturen")
+        super().__init__(coordinator, f"{serial}_group_command_status", "bijsturen")
         self._serial = serial
+        _apply_device_entity_label(self, name, "bijsturen", "bijsturen")
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
@@ -2581,8 +2689,9 @@ class PowerStreamGroupBatterySocSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_group_battery_soc", f"{name} accu")
+        super().__init__(coordinator, f"{serial}_group_battery_soc", "accu")
         self._serial = serial
+        _apply_device_entity_label(self, name, "accu", "accu")
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
@@ -2612,10 +2721,9 @@ class PowerStreamGroupAvailableEnergySensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(
-            coordinator, f"{serial}_group_available_wh", f"{name} beschikbaar"
-        )
+        super().__init__(coordinator, f"{serial}_group_available_wh", "beschikbaar")
         self._serial = serial
+        _apply_device_entity_label(self, name, "beschikbaar", "beschikbaar")
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
@@ -2647,8 +2755,9 @@ class PowerStreamGroupFreeEnergySensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_group_free_wh", f"{name} ruimte")
+        super().__init__(coordinator, f"{serial}_group_free_wh", "ruimte")
         self._serial = serial
+        _apply_device_entity_label(self, name, "ruimte", "ruimte")
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
@@ -2679,8 +2788,9 @@ class PowerStreamGroupActionSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, serial: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"{serial}_group_action", f"{name} actie")
+        super().__init__(coordinator, f"{serial}_group_action", "actie")
         self._serial = serial
+        _apply_device_entity_label(self, name, "actie", "actie")
         self._attr_device_info = _ecoflow_device_info(serial, name, "powerstream")
 
     @property
@@ -2719,9 +2829,10 @@ class HomeWizardMeterStatusSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, host: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"homewizard_{host}_status", f"{name} status")
+        super().__init__(coordinator, f"homewizard_{host}_status", "status")
         self._host = host
         self._name = name
+        _apply_device_entity_label(self, name, "status", "status")
         self._attr_device_info = _homewizard_device_info(host, name)
 
     @property
@@ -2761,9 +2872,10 @@ class HomeWizardMeterPowerSensor(BaseSensor):
     def __init__(
         self, coordinator: EcoFlowEnergyCoordinator, host: str, name: str
     ) -> None:
-        super().__init__(coordinator, f"homewizard_{host}_power", f"{name} vermogen")
+        super().__init__(coordinator, f"homewizard_{host}_power", "vermogen")
         self._host = host
         self._name = name
+        _apply_device_entity_label(self, name, "vermogen", "vermogen")
         self._attr_device_info = _homewizard_device_info(host, name)
 
     @property
@@ -2801,11 +2913,14 @@ class HomeWizardMeterPhasePowerSensor(BaseSensor):
         super().__init__(
             coordinator,
             f"homewizard_{host}_{phase}_power",
-            f"{name} {phase.upper()} vermogen",
+            f"{phase.upper()} vermogen",
         )
         self._host = host
         self._name = name
         self._phase = phase
+        _apply_device_entity_label(
+            self, name, f"{phase.upper()} vermogen", f"{phase}_vermogen"
+        )
         self._attr_device_info = _homewizard_device_info(host, name)
 
     @property
@@ -3292,6 +3407,9 @@ def _selected_scenario_key(strategy: str) -> str | None:
 def _battery_fleet_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     total_capacity_wh = 0.0
     total_available_wh = 0.0
+    total_charge_w = 0.0
+    total_discharge_w = 0.0
+    total_net_w = 0.0
     batteries = []
     configured = {
         str(device.get("serial")): str(device.get("name") or device.get("serial"))
@@ -3304,6 +3422,12 @@ def _battery_fleet_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, A
         values = item.get("values", {}) if isinstance(item, dict) else {}
         soc = _battery_soc_value(values)
         capacity = _battery_capacity_wh(values, name)
+        charge_w = _battery_charge_power(values)
+        discharge_w = _battery_discharge_power(values)
+        net_w = _battery_net_power(coordinator, serial)
+        total_charge_w += charge_w
+        total_discharge_w += discharge_w
+        total_net_w += net_w
         if soc is None or capacity is None:
             batteries.append(
                 {
@@ -3313,6 +3437,10 @@ def _battery_fleet_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, A
                     "capacity_kwh": round(capacity / 1000, 2) if capacity else None,
                     "available_kwh": None,
                     "free_kwh": None,
+                    "charge_w": round(charge_w, 0),
+                    "discharge_w": round(discharge_w, 0),
+                    "net_w": round(net_w, 0),
+                    "mode": _battery_mode_from_net(net_w),
                 }
             )
             continue
@@ -3328,6 +3456,10 @@ def _battery_fleet_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, A
                 "capacity_kwh": round(capacity / 1000, 2),
                 "available_kwh": round(available / 1000, 2),
                 "free_kwh": round(free / 1000, 2),
+                "charge_w": round(charge_w, 0),
+                "discharge_w": round(discharge_w, 0),
+                "net_w": round(net_w, 0),
+                "mode": _battery_mode_from_net(net_w),
             }
         )
     free_wh = max(0.0, total_capacity_wh - total_available_wh)
@@ -3338,9 +3470,20 @@ def _battery_fleet_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, A
         "available_kwh": round(total_available_wh / 1000, 2),
         "free_kwh": round(free_wh / 1000, 2),
         "capacity_kwh": round(total_capacity_wh / 1000, 2),
+        "charge_w": round(total_charge_w, 0),
+        "discharge_w": round(total_discharge_w, 0),
+        "net_w": round(total_net_w, 0),
         "battery_count": len(batteries),
         "batteries": batteries,
     }
+
+
+def _battery_mode_from_net(net: float) -> str:
+    if net > 20:
+        return "ontladen"
+    if net < -20:
+        return "laden"
+    return "stand-by"
 
 
 def _fleet_attrs(sensor_role: str) -> dict[str, Any]:
@@ -4274,6 +4417,16 @@ def _device_attrs(device_type: str, serial: str, sensor_role: str) -> dict[str, 
         "eec_sensor_role": sensor_role,
         "serial": serial,
     }
+
+
+def _apply_device_entity_label(
+    entity: BaseSensor, device_name: str, label: str, object_suffix: str
+) -> None:
+    """Keep device entities short while preserving stable readable object ids."""
+    entity._attr_name = label
+    entity._attr_suggested_object_id = slugify(
+        f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_{device_name}_{object_suffix}"
+    )
 
 
 def _ecoflow_device_info(serial: str, name: str, device_type: str) -> dict[str, Any]:

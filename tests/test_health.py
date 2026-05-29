@@ -543,7 +543,7 @@ class DashboardReadinessTest(unittest.TestCase):
         self.assertIn("execution", result["warnings"])
         self.assertEqual(
             result["next_step"],
-            "controleer sturing: wacht op 1-minuut begrenzing",
+            "controleer sturing: wacht op 10-minuten begrenzing",
         )
 
 

@@ -8,8 +8,9 @@ from homeassistant.const import UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import slugify
 
-from .const import APP_NAME, CONF_POWERSTREAMS, DOMAIN
+from .const import APP_NAME, CONF_POWERSTREAMS, DOMAIN, LEGACY_DASHBOARD_OBJECT_PREFIX
 from .coordinator import EcoFlowEnergyCoordinator
 
 
@@ -89,8 +90,11 @@ class PowerStreamOutputNumber(CoordinatorEntity[EcoFlowEnergyCoordinator], Numbe
     ) -> None:
         super().__init__(coordinator)
         self._serial = serial
-        self._attr_name = f"{name} teruglevering instellen"
+        self._attr_name = "teruglevering instellen"
         self._attr_unique_id = f"{DOMAIN}_{serial}_powerstream_output_setpoint"
+        self._attr_suggested_object_id = slugify(
+            f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_{name}_teruglevering_instellen"
+        )
         self._attr_native_min_value = 0
         self._attr_native_max_value = max(0, max_watts)
         self._attr_native_step = 10

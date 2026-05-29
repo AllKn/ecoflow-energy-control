@@ -59,6 +59,7 @@ from .const import (
     DEFAULT_WEATHER_CITY,
     DOMAIN,
     POWERSTREAM_STRATEGY_BUFFER_50,
+    POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS,
     POWERSTREAM_STRATEGY_SELF_USE,
     POWERSTREAM_STRATEGY_TRADING,
     STRATEGY_BUFFER_50,
@@ -618,7 +619,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if last_update is None:
             return 0
         elapsed = (dt_util.utcnow() - last_update).total_seconds()
-        return max(0, int(60 - elapsed))
+        return max(0, int(POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS - elapsed))
 
     async def _async_apply_group_strategies(
         self,
@@ -669,7 +670,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             item["last_strategy_command"] = used_command
             item["strategy_error"] = None
             item["strategy_throttled"] = False
-            item["strategy_next_update_seconds"] = 60
+            item["strategy_next_update_seconds"] = POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS
 
     async def _async_send_powerstream_watts(self, serial: str, watts: int) -> dict[str, Any]:
         device = self._powerstream(serial)
@@ -897,7 +898,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if failed
                 else None,
                 "last_action": (
-                    "strategie wacht op 1-minuut begrenzing"
+                    "strategie wacht op 10-minuten begrenzing"
                     if throttled
                     else "strategie-command faalde"
                     if failed
