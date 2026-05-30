@@ -9,6 +9,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 TRANSLATIONS = ROOT / "custom_components" / "ecoflow_energy_control" / "translations"
+DOMAIN = "ecoflow_energy_control"
 USER_VISIBLE_ARTIFACTS = (
     ROOT / "custom_components" / "ecoflow_energy_control" / "manifest.json",
     ROOT / "custom_components" / "ecoflow_energy_control" / "translations" / "en.json",
@@ -32,6 +33,14 @@ def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]
 
 
 class ArtifactIntegrityTest(unittest.TestCase):
+    def _current_version(self) -> str:
+        manifest = json.loads(
+            (ROOT / "custom_components" / DOMAIN / "manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        return str(manifest["version"])
+
     def test_translation_json_has_no_duplicate_keys(self) -> None:
         for path in sorted(TRANSLATIONS.glob("*.json")):
             with self.subTest(path=path.name):
@@ -72,6 +81,55 @@ class ArtifactIntegrityTest(unittest.TestCase):
             for value in blocked:
                 with self.subTest(path=path.name, value=value):
                     self.assertNotIn(value, text)
+
+    def test_docs_track_current_version_and_presentation_sources(self) -> None:
+        version = self._current_version()
+        ontwikkeling = (ROOT / "docs" / "ontwikkeling.md").read_text(
+            encoding="utf-8"
+        )
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        pptx = ROOT / "docs" / "eec-app-ontwikkeling.pptx"
+        self.assertIn(f"`{version}`", ontwikkeling)
+        self.assertIn("docs/eec-app-ontwikkeling.pptx", readme)
+        self.assertTrue(pptx.exists())
+        self.assertGreater(pptx.stat().st_size, 0)
+        for index in range(1, 8):
+            with self.subTest(slide=index):
+                self.assertTrue(
+                    (ROOT / "docs" / "presentation-src" / f"slide-{index:02d}.mjs").exists()
+                )
+
+    def test_live_validation_checklist_is_shipped_and_linked(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        checklist = (ROOT / "docs" / "live-validatie.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("docs/live-validatie.md", readme)
+        for marker in (
+            "Flow",
+            "Basis",
+            "Scenario - nu",
+            "Controle",
+            "Datacheck",
+            "Scenario hulp",
+            "Handmatig - tools",
+            "EcoFlow bewijs",
+            "HomeWizard bewijs",
+            "Klaar voor live sturen",
+            "Test",
+            "Flow > Advies",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, checklist)
+
+    def test_generated_presentation_scratch_is_not_shipped(self) -> None:
+        blocked = (
+            ROOT / "docs" / "artifact-build-manifest.json",
+            ROOT / "outputs",
+        )
+        for path in blocked:
+            with self.subTest(path=path.name):
+                self.assertFalse(path.exists())
 
 
 if __name__ == "__main__":

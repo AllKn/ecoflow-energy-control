@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "EEC app",
-        "description": "Connect EcoFlow Cloud. Prices, weather and test mode are configured automatically and can be changed later.",
+        "description": "Enter only your EcoFlow Cloud API keys. Configure prices, weather, test mode and devices later via Configure.",
         "data": {
           "name": "Friendly name",
           "access_key": "EcoFlow access key",
@@ -28,16 +28,16 @@
       "invalid_json": "One of the JSON fields is invalid.",
       "cannot_connect": "The connection could not be verified. Check the API settings, serial number, device id or IP address.",
       "ecoflow_auth_failed": "The EcoFlow API keys could not be validated. Check access key, secret key and region host.",
-      "no_importable_devices": "No new EcoFlow devices were found to import."
+      "no_importable_devices": "No new devices were found to import."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "EEC app options",
+        "title": "Configure EEC app - start with devices",
         "menu_options": {
           "import_ecoflow": "Import EcoFlow devices",
-          "import_homewizard": "Import HomeWizard",
+          "import_homewizard": "Import HomeWizard from Home Assistant",
           "add_device": "Add manually",
           "edit_device": "Edit device",
           "remove_device": "Remove device",
@@ -60,6 +60,10 @@
       "import_ecoflow": {
         "title": "Import EcoFlow devices",
         "description": "The app reads devices from EcoFlow Cloud. Then choose the right type for each device."
+      },
+      "import_homewizard": {
+        "title": "Import HomeWizard from Home Assistant",
+        "description": "Use existing Home Assistant HomeWizard devices as P1/grid meter or solar source. No extra local meter setup is needed."
       },
       "import_ecoflow_configure": {
         "title": "Configure EcoFlow device",
@@ -106,7 +110,12 @@
         "title": "Add SMA inverter"
       },
       "device_homewizard": {
-        "title": "Add HomeWizard meter"
+        "title": "Add HomeWizard meter",
+        "data": {
+          "name": "Friendly name",
+          "host": "IP address or host name",
+          "role": "Use as"
+        }
       },
       "device_smart_plug": {
         "title": "Add Smart Plug"
@@ -128,7 +137,12 @@
         "title": "Edit SMA inverter"
       },
       "edit_homewizard_meters": {
-        "title": "Edit HomeWizard meter"
+        "title": "Edit HomeWizard meter",
+        "data": {
+          "name": "Friendly name",
+          "host": "IP address or host name",
+          "role": "Use as"
+        }
       },
       "edit_smart_plugs": {
         "title": "Edit Smart Plug"

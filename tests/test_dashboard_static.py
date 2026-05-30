@@ -15,6 +15,12 @@ OPTIONAL_DASHBOARDS = (
     ROOT / "dashboards" / "ecoflow-energy-scenarios.yaml",
 )
 README = ROOT / "README.md"
+FRONTEND_REQUIREMENTS = ROOT / "dashboards" / "frontend-requirements.yaml"
+
+
+def _declared_frontend_cards() -> set[str]:
+    text = FRONTEND_REQUIREMENTS.read_text(encoding="utf-8")
+    return set(re.findall(r"^\s*-\s+card:\s+([a-z0-9_-]+)\s*$", text, re.MULTILINE))
 
 
 class MainDashboardStaticTest(unittest.TestCase):
@@ -31,25 +37,24 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("eec_sensor_role: battery_fleet_charge_w", self.text)
         self.assertIn("eec_sensor_role: battery_fleet_discharge_w", self.text)
         self.assertIn("eec_sensor_role: battery_fleet_net_w", self.text)
-        self.assertIn("eec_sensor_role: scenario_best", self.text)
-        self.assertIn("eec_sensor_role: scenario_alignment", self.text)
         self.assertIn("eec_sensor_role: dashboard_ready_state", self.text)
-        self.assertIn("eec_sensor_role: dashboard_flow_snapshot", self.text)
-        self.assertIn("eec_sensor_role: dashboard_flow_summary", self.text)
+        self.assertIn("eec_sensor_role: dashboard_main_summary", self.text)
+        self.assertIn("eec_sensor_role: dashboard_control_verdict", self.text)
         self.assertIn("eec_sensor_role: dashboard_value_rate", self.text)
         self.assertIn("eec_sensor_role: dashboard_best_power", self.text)
-        self.assertIn("eec_sensor_role: dashboard_best_day_value", self.text)
         self.assertIn("eec_sensor_role: dashboard_best_period_value", self.text)
+        self.assertIn("eec_sensor_role: dashboard_scenario_overview", self.text)
         self.assertIn("eec_sensor_role: dashboard_scenario_input", self.text)
         self.assertIn("eec_sensor_role: dashboard_confidence_score", self.text)
         self.assertIn("eec_sensor_role: dashboard_confidence_reason", self.text)
-        self.assertIn("eec_sensor_role: dashboard_choice_delta", self.text)
         self.assertIn("eec_sensor_role: dashboard_measurement_state", self.text)
-        self.assertIn("eec_sensor_role: dashboard_choice_state", self.text)
         self.assertIn("eec_sensor_role: dashboard_readiness", self.text)
         self.assertIn("eec_sensor_role: dashboard_overview", self.text)
+        self.assertIn("eec_sensor_role: dashboard_energy_flow", self.text)
         self.assertIn("eec_sensor_role: dashboard_setup", self.text)
+        self.assertIn("eec_sensor_role: dashboard_insight_state", self.text)
         self.assertIn("eec_sensor_role: dashboard_live_proof", self.text)
+        self.assertIn("eec_sensor_role: dashboard_live_validation", self.text)
         self.assertIn("eec_sensor_role: dashboard_readiness_score", self.text)
         self.assertIn("eec_sensor_role: dashboard_next_step", self.text)
         self.assertIn("eec_sensor_role: dashboard_check", self.text)
@@ -67,6 +72,8 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("eec_sensor_role: app_version", self.text)
         self.assertIn("eec_device_type: solar", self.text)
         self.assertIn("eec_sensor_role: corrected_power", self.text)
+        self.assertIn("eec_sensor_role: grid_status", self.text)
+        self.assertIn("eec_sensor_role: grid_power", self.text)
         self.assertIn("eec_device_type: price", self.text)
         self.assertIn("eec_sensor_role: price_now", self.text)
         self.assertIn("eec_sensor_role: price_cheap_band", self.text)
@@ -89,19 +96,22 @@ class MainDashboardStaticTest(unittest.TestCase):
     def test_main_dashboard_contains_complete_user_flow(self) -> None:
         required_roles = {
             "zien": (
+                "dashboard_insight_state",
+                "dashboard_main_summary",
                 "dashboard_readiness_score",
                 "dashboard_ready_state",
-                "dashboard_flow_snapshot",
-                "dashboard_flow_summary",
+                "dashboard_energy_flow",
                 "dashboard_value_rate",
+                "dashboard_scenario_overview",
+                "dashboard_scenario_plan",
                 "dashboard_scenario_input",
                 "dashboard_confidence_score",
                 "dashboard_confidence_reason",
                 "dashboard_measurement_state",
-                "dashboard_choice_state",
                 "dashboard_start_state",
                 "dashboard_start_reason",
                 "dashboard_auto_mode",
+                "dashboard_control_verdict",
                 "dashboard_next_command",
                 "dashboard_action_state",
                 "dashboard_check",
@@ -115,9 +125,7 @@ class MainDashboardStaticTest(unittest.TestCase):
             "kiezen": (
                 "global_strategy",
                 "test_mode",
-                "scenario_best",
-                "scenario_alignment",
-                "scenario_choice_summary",
+                "dashboard_strategy_guide",
                 "dashboard_execution_plan",
                 "decision_context",
             ),
@@ -135,6 +143,9 @@ class MainDashboardStaticTest(unittest.TestCase):
                 "price_expensive_band",
                 "corrected_power",
                 "grid_flow_state",
+                "grid_status",
+                "grid_power",
+                "p1_history",
                 "battery_fleet_soc",
                 "battery_fleet_available_kwh",
                 "battery_fleet_free_kwh",
@@ -200,16 +211,18 @@ class MainDashboardStaticTest(unittest.TestCase):
         for title in (
             "title: Flow",
             "title: Basis",
-            "title: Keuze wijzigen",
-            "title: Gereedheid",
+            "title: P1 historie",
+            "title: Scenario hulp",
+            "title: Controle",
+            "title: Waarom",
             "title: Datacheck",
-            "title: Handmatig",
-            "title: Opslag totaal",
+            "title: Handmatig - tools",
+            "title: Prijsgrenzen",
+            "title: Opslag waarde",
             "title: PowerStreams - sturen",
             "title: PowerStreams - live",
-            "title: Scenario's - advies",
+            "title: Scenario's - details",
             "title: Scenario - nu",
-            "title: Scenario's - effect",
             "title: Uurtarieven - komende 24 uur",
             "title: Weer",
             "title: Diagnose",
@@ -217,20 +230,89 @@ class MainDashboardStaticTest(unittest.TestCase):
             with self.subTest(title=title):
                 self.assertIn(title, self.text)
 
+    def test_main_dashboard_daily_route_order_is_explicit(self) -> None:
+        titles = re.findall(r"^\s+title: (.+)$", self.text, re.MULTILINE)
+        route = [
+            title
+            for title in titles
+            if title
+            in {
+                "Flow",
+                "Basis",
+                "Scenario - nu",
+                "P1 historie",
+                "Controle",
+                "Scenario hulp",
+                "Waarom",
+                "Datacheck",
+                "Prijsgrenzen",
+                "Opslag waarde",
+                "Accu's - in/uit",
+                "PowerStreams - sturen",
+                "PowerStreams - live",
+                "Scenario's - details",
+                "Uurtarieven - komende 24 uur",
+                "Weer",
+                "Weer - temperatuur 24 uur",
+                "Netto opwek",
+                "Diagnose",
+                "Handmatig - tools",
+            }
+        ]
+        self.assertEqual(
+            route,
+            [
+                "Flow",
+                "Basis",
+                "Scenario - nu",
+                "P1 historie",
+                "Controle",
+                "Scenario hulp",
+                "Waarom",
+                "Datacheck",
+                "Prijsgrenzen",
+                "Opslag waarde",
+                "Accu's - in/uit",
+                "PowerStreams - sturen",
+                "PowerStreams - live",
+                "Scenario's - details",
+                "Uurtarieven - komende 24 uur",
+                "Weer",
+                "Weer - temperatuur 24 uur",
+                "Netto opwek",
+                "Diagnose",
+                "Handmatig - tools",
+            ],
+        )
+
+    def test_dashboard_contract_has_one_primary_route(self) -> None:
+        self.assertIn("title: EEC app", self.text)
+        self.assertIn("  - title: Main", self.text)
+        self.assertIn("    path: ecoflow-energy", self.text)
+        for path in OPTIONAL_DASHBOARDS:
+            text = path.read_text(encoding="utf-8")
+            with self.subTest(path=path.name):
+                self.assertNotIn("path: ecoflow-energy", text)
+                self.assertNotIn("- title: Main", text)
+
     def test_readme_points_to_main_dashboard_as_primary_flow(self) -> None:
         readme = README.read_text(encoding="utf-8")
         self.assertIn("Het primaire dashboard staat in:", readme)
         self.assertIn("dashboards/ecoflow-energy-control.yaml", readme)
         self.assertIn("volledige flow", readme)
+        self.assertIn("Voor normaal gebruik heb je alleen dit dashboard nodig", readme)
         self.assertIn("Optionele detail- en testdashboards", readme)
         for marker in (
             "Voor live validatie na een update kijk je bovenaan naar:",
             "**Flow**",
             "**Basis**",
             "**Scenario - nu**",
-            "**Gereedheid > Probleem**",
-            "**Gereedheid > Bewijs**",
+            "**Controle > Aandacht**",
+            "**Controle > Bewijs**",
             "**Datacheck**",
+            "**Flow > Advies** is de normale bediening",
+            "**Scenario hulp** is naslag",
+            "**Handmatig - tools** is alleen voor diagnose",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, readme)
@@ -239,23 +321,48 @@ class MainDashboardStaticTest(unittest.TestCase):
         start = self.text.index("title: Flow")
         end = self.text.index("title: Basis")
         block = self.text[start:end]
+        roles = re.findall(r"eec_sensor_role: ([a-z0-9_]+)", block)
+        self.assertEqual(
+            roles,
+            [
+                "dashboard_main_summary",
+                "dashboard_insight_state",
+                "dashboard_live_validation",
+                "dashboard_energy_flow",
+                "dashboard_control_verdict",
+                "dashboard_value_rate",
+                "dashboard_next_step",
+                "global_strategy",
+                "test_mode",
+                "apply_best_scenario",
+            ],
+        )
         self.assertIn("type: grid\n          title: Flow", self.text)
         self.assertIn("columns: 5", block)
         self.assertLessEqual(block.count("eec_sensor_role:"), 10)
-        self.assertIn("eec_sensor_role: dashboard_readiness_score", block)
-        self.assertIn("eec_sensor_role: dashboard_auto_mode", block)
-        self.assertIn("name: Auto", block)
-        self.assertIn("eec_sensor_role: dashboard_confidence_score", block)
-        self.assertIn("name: Zeker", block)
-        self.assertIn("eec_sensor_role: dashboard_best_period_value", block)
-        self.assertIn("name: Totalen", block)
-        self.assertIn("eec_sensor_role: dashboard_flow_summary", block)
+        self.assertEqual(block.count("type: tile"), 8)
+        self.assertIn("eec_sensor_role: dashboard_main_summary", block)
+        self.assertIn("name: Main", block)
+        self.assertIn("eec_sensor_role: dashboard_insight_state", block)
+        self.assertIn("name: Inzicht", block)
+        self.assertNotIn("eec_sensor_role: dashboard_readiness_score", block)
+        self.assertNotIn("eec_sensor_role: dashboard_flow_snapshot", block)
+        self.assertNotIn("name: Kort", block)
+        self.assertIn("eec_sensor_role: dashboard_live_validation", block)
+        self.assertIn("name: Live", block)
+        self.assertIn("eec_sensor_role: dashboard_energy_flow", block)
+        self.assertIn("name: Stroom", block)
+        self.assertIn("eec_sensor_role: dashboard_control_verdict", block)
+        self.assertIn("name: Nu", block)
         self.assertIn("eec_sensor_role: dashboard_value_rate", block)
         self.assertIn("name: EUR/u", block)
         self.assertIn("min: -1", block)
         self.assertIn("max: 1", block)
-        self.assertIn("eec_sensor_role: dashboard_problem", block)
-        self.assertIn("name: Probleem", block)
+        self.assertIn("eec_sensor_role: dashboard_next_step", block)
+        self.assertIn("name: Stap", block)
+        self.assertNotIn("eec_sensor_role: dashboard_flow_phase", block)
+        self.assertNotIn("name: Fase", block)
+        self.assertNotIn("eec_sensor_role: dashboard_start_state", block)
         self.assertIn("eec_sensor_role: global_strategy", block)
         self.assertIn("name: Scenario", block)
         self.assertIn("eec_sensor_role: test_mode", block)
@@ -273,16 +380,20 @@ class MainDashboardStaticTest(unittest.TestCase):
         flow_pos = self.text.index("title: Flow")
         basis_pos = self.text.index("title: Basis")
         scenario_pos = self.text.index("title: Scenario - nu")
-        control_pos = self.text.index("title: Keuze wijzigen")
+        history_pos = self.text.index("title: P1 historie")
+        control_pos = self.text.index("title: Controle")
         self.assertLess(flow_pos, basis_pos)
         self.assertLess(basis_pos, scenario_pos)
-        self.assertLess(scenario_pos, control_pos)
+        self.assertLess(scenario_pos, history_pos)
+        self.assertLess(history_pos, control_pos)
         block = self.text[basis_pos:scenario_pos]
         self.assertIn("type: grid\n          title: Basis", self.text)
         self.assertIn("columns: 6", block)
         for role in (
             "corrected_power",
             "grid_flow_state",
+            "grid_status",
+            "grid_power",
             "price_now",
             "battery_fleet_soc",
             "battery_fleet_available_kwh",
@@ -296,84 +407,136 @@ class MainDashboardStaticTest(unittest.TestCase):
             with self.subTest(role=role):
                 self.assertIn(f"eec_sensor_role: {role}", block)
         self.assertIn("name: Context", block)
+        self.assertNotIn("eec_sensor_role: p1_history", block)
 
-    def test_control_card_is_dynamic(self) -> None:
-        start = self.text.index("title: Keuze wijzigen")
-        end = self.text.index("title: Gereedheid")
+    def test_p1_history_card_keeps_totals_out_of_live_basis(self) -> None:
+        start = self.text.index("title: P1 historie")
+        end = self.text.index("title: Controle")
         block = self.text[start:end]
-        self.assertIn("type: entities\n          title: Keuze wijzigen", self.text)
-        self.assertIn("eec_device_type: control", block)
-        self.assertIn("eec_sensor_role: global_strategy", block)
-        self.assertIn("eec_sensor_role: test_mode", block)
+        self.assertIn("type: grid\n          title: P1 historie", self.text)
+        self.assertIn("columns: 3", block)
+        self.assertEqual(block.count("eec_sensor_role: p1_history"), 3)
+        for period in ("today", "week", "month"):
+            with self.subTest(period=period):
+                self.assertIn(f"period: {period}", block)
+        self.assertIn("name: Dag", block)
+        self.assertIn("name: Week", block)
+        self.assertIn("name: Maand", block)
+
+    def test_scenario_help_card_avoids_duplicate_controls(self) -> None:
+        readiness_pos = self.text.index("title: Controle")
+        start = self.text.index("title: Scenario hulp")
+        end = self.text.index("title: Waarom")
+        block = self.text[start:end]
+        self.assertLess(readiness_pos, start)
+        self.assertIn("type: entities\n          title: Scenario hulp", self.text)
+        self.assertIn("eec_device_type: dashboard", block)
+        self.assertIn("eec_sensor_role: dashboard_strategy_guide", block)
+        self.assertNotIn("eec_sensor_role: global_strategy", block)
+        self.assertNotIn("eec_sensor_role: test_mode", block)
         self.assertNotIn("eec_sensor_role: app_status", block)
         self.assertNotIn("eec_sensor_role: execution_status", block)
         self.assertNotIn("eec_sensor_role: last_action", block)
         self.assertNotIn("eec_sensor_role: app_version", block)
 
+    def test_diagnostics_follow_explanation(self) -> None:
+        readiness_pos = self.text.index("title: Controle")
+        help_pos = self.text.index("title: Scenario hulp")
+        explanation_pos = self.text.index("title: Waarom")
+        checks_pos = self.text.index("title: Datacheck")
+        limits_pos = self.text.index("title: Prijsgrenzen")
+        manual_pos = self.text.index("title: Handmatig - tools")
+        self.assertLess(readiness_pos, help_pos)
+        self.assertLess(help_pos, explanation_pos)
+        self.assertLess(explanation_pos, checks_pos)
+        self.assertLess(checks_pos, limits_pos)
+        self.assertLess(limits_pos, manual_pos)
+
     def test_advice_card_compares_selected_and_best_scenario(self) -> None:
-        start = self.text.index("title: Advies")
-        end = self.text.index("title: Handmatig")
+        start = self.text.index("title: Waarom")
+        end = self.text.index("title: Datacheck")
         block = self.text[start:end]
-        self.assertIn("eec_sensor_role: dashboard_flow_snapshot", block)
-        self.assertIn("eec_sensor_role: scenario_best", block)
-        self.assertIn("eec_sensor_role: scenario_alignment", block)
-        self.assertIn("eec_sensor_role: scenario_choice_summary", block)
+        self.assertNotIn("eec_sensor_role: dashboard_flow_snapshot", block)
+        self.assertNotIn("eec_sensor_role: scenario_best", block)
+        self.assertNotIn("eec_sensor_role: scenario_alignment", block)
+        self.assertNotIn("eec_sensor_role: scenario_choice_summary", block)
         self.assertIn("eec_sensor_role: decision_context", block)
+        self.assertIn("eec_sensor_role: dashboard_auto_mode", block)
         self.assertIn("eec_sensor_role: dashboard_start_state", block)
         self.assertIn("eec_sensor_role: dashboard_start_reason", block)
         self.assertIn("eec_sensor_role: dashboard_execution_plan", block)
-        self.assertIn("eec_sensor_role: dashboard_best_day_value", block)
-        self.assertIn("eec_sensor_role: dashboard_measurement_state", block)
-        self.assertIn("eec_sensor_role: dashboard_confidence_reason", block)
-        self.assertIn("eec_sensor_role: dashboard_next_command", block)
+        self.assertNotIn("eec_sensor_role: dashboard_best_day_value", block)
+        self.assertNotIn("eec_sensor_role: dashboard_flow_summary", block)
+        self.assertNotIn("eec_sensor_role: dashboard_measurement_state", block)
+        self.assertNotIn("eec_sensor_role: dashboard_confidence_reason", block)
+        self.assertNotIn("eec_sensor_role: dashboard_next_command", block)
         self.assertIn("eec_sensor_role: execution_status", block)
         self.assertIn("eec_sensor_role: last_action", block)
-        self.assertIn("eec_sensor_role: dashboard_action_state", block)
-        self.assertIn("name: Overzicht", block)
+        self.assertNotIn("eec_sensor_role: dashboard_action_state", block)
+        self.assertNotIn("name: Overzicht", block)
         self.assertIn("name: Waarom start", block)
-        self.assertIn("name: Scenario keuze", block)
+        self.assertNotIn("name: Scenario keuze", block)
+        self.assertIn("name: Auto", block)
         self.assertIn("name: Uitvoerplan", block)
-        self.assertIn("name: Dag EUR", block)
-        self.assertIn("name: Meting", block)
-        self.assertIn("name: Zekerheid", block)
-        self.assertIn("name: Volgende actie", block)
+        self.assertNotIn("name: Kort advies", block)
+        self.assertNotIn("name: Dag EUR", block)
+        self.assertNotIn("name: Meting", block)
+        self.assertNotIn("name: Zekerheid", block)
+        self.assertNotIn("name: Volgende actie", block)
         self.assertIn("name: Sturing", block)
         self.assertIn("name: Laatste actie", block)
-        self.assertIn("name: Uitvoerbaar", block)
+        self.assertNotIn("name: Uitvoerbaar", block)
 
     def test_readiness_card_renders_as_grid_cards(self) -> None:
-        start = self.text.index("title: Gereedheid")
-        end = self.text.index("title: Datacheck")
+        start = self.text.index("title: Controle")
+        end = self.text.index("title: Scenario hulp")
         block = self.text[start:end]
-        self.assertIn("type: grid\n          title: Gereedheid", self.text)
+        self.assertIn("type: grid\n          title: Controle", self.text)
         self.assertIn("card_param: cards", block)
         self.assertIn("columns: 6", block)
         self.assertIn("eec_sensor_role: dashboard_overview", block)
         self.assertIn("eec_sensor_role: dashboard_setup", block)
+        self.assertIn("eec_sensor_role: dashboard_setup_progress", block)
+        self.assertNotIn("eec_sensor_role: dashboard_setup_advice", block)
+        sensor_text = (
+            ROOT / "custom_components" / "ecoflow_energy_control" / "sensor.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('setup.get("current_capability") or setup.get("state")', sensor_text)
+        self.assertNotIn("eec_sensor_role: dashboard_insight_state", block)
         self.assertIn("eec_sensor_role: app_status", block)
         self.assertIn("eec_sensor_role: app_version", block)
         self.assertIn("eec_sensor_role: dashboard_source_summary", block)
         self.assertIn("eec_sensor_role: dashboard_problem", block)
         self.assertIn("eec_sensor_role: dashboard_live_proof", block)
+        self.assertIn("eec_sensor_role: dashboard_readiness_score", block)
+        self.assertIn("eec_sensor_role: dashboard_ready_state", block)
+        self.assertIn("eec_sensor_role: dashboard_flow_phase", block)
+        self.assertNotIn("eec_sensor_role: dashboard_readiness\n", block)
+        self.assertNotIn("eec_sensor_role: dashboard_next_step", block)
         self.assertIn("name: Setup", block)
+        self.assertIn("name: Setup %", block)
+        self.assertNotIn("name: Setup advies", block)
+        self.assertNotIn("name: Advies", block)
+        self.assertNotIn("name: Inzicht", block)
         self.assertIn("name: Status", block)
         self.assertIn("name: Versie", block)
         self.assertIn("name: Bronnen", block)
-        self.assertIn("name: Probleem", block)
+        self.assertIn("name: Aandacht", block)
         self.assertIn("name: Bewijs", block)
+        self.assertIn("name: Fase", block)
 
     def test_data_check_card_is_dynamic(self) -> None:
         start = self.text.index("title: Datacheck")
-        end = self.text.index("title: Advies")
+        end = self.text.index("title: Prijsgrenzen")
         block = self.text[start:end]
         self.assertIn("eec_sensor_role: dashboard_check", block)
         self.assertIn("attribute: check_key", block)
 
     def test_manual_action_card_is_dynamic_grid(self) -> None:
-        start = self.text.index("title: Handmatig")
-        end = self.text.index("title: Nu")
+        start = self.text.index("title: Handmatig - tools")
+        end = len(self.text)
         block = self.text[start:end]
-        self.assertIn("type: grid\n          title: Handmatig", self.text)
+        self.assertIn("type: grid\n          title: Handmatig - tools", self.text)
         self.assertIn("card_param: cards", block)
         self.assertIn("columns: 3", block)
         self.assertIn("eec_device_type: action", block)
@@ -382,24 +545,26 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("eec_sensor_role: check_ecoflow_api", block)
         self.assertIn("eec_sensor_role: refresh_prices", block)
 
-    def test_now_card_is_dynamic_grid(self) -> None:
-        start = self.text.index("title: Nu")
-        end = self.text.index("title: Opslag totaal")
+    def test_price_limits_card_avoids_basis_duplicates(self) -> None:
+        start = self.text.index("title: Prijsgrenzen")
+        end = self.text.index("title: Opslag waarde")
         block = self.text[start:end]
-        self.assertIn("type: grid\n          title: Nu", self.text)
+        self.assertIn("type: grid\n          title: Prijsgrenzen", self.text)
         self.assertIn("card_param: cards", block)
-        self.assertIn("columns: 4", block)
-        self.assertIn("eec_sensor_role: corrected_power", block)
-        self.assertIn("eec_sensor_role: price_now", block)
+        self.assertIn("columns: 2", block)
+        self.assertNotIn("eec_sensor_role: corrected_power", block)
+        self.assertNotIn("eec_sensor_role: price_now", block)
         self.assertIn("eec_sensor_role: price_cheap_band", block)
         self.assertIn("eec_sensor_role: price_expensive_band", block)
 
-    def test_storage_total_card_shows_available_and_free_capacity(self) -> None:
-        start = self.text.index("title: Opslag totaal")
-        end = self.text.index("title: Batterijen")
+    def test_storage_value_card_avoids_basis_duplicates(self) -> None:
+        start = self.text.index("title: Opslag waarde")
+        end = self.text.index("title: Accu's - in/uit")
         block = self.text[start:end]
-        self.assertIn("columns: 4", block)
-        self.assertIn("eec_sensor_role: battery_fleet_available_kwh", block)
+        self.assertIn("columns: 3", block)
+        self.assertNotIn("eec_sensor_role: battery_fleet_soc", block)
+        self.assertNotIn("eec_sensor_role: battery_fleet_available_kwh", block)
+        self.assertNotIn("eec_sensor_role: expected_savings", block)
         self.assertIn("eec_sensor_role: battery_fleet_free_kwh", block)
         self.assertIn("eec_sensor_role: battery_fleet_available_eur", block)
         self.assertIn("eec_sensor_role: battery_fleet_free_eur", block)
@@ -408,7 +573,7 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("eec_sensor_role: battery_fleet_net_w", self.text)
 
     def test_battery_card_shows_input_output_and_status_per_battery(self) -> None:
-        start = self.text.index("title: Batterijen")
+        start = self.text.index("title: Accu's - in/uit")
         end = self.text.index("title: PowerStreams - sturen")
         block = self.text[start:end]
         for role in (
@@ -416,6 +581,7 @@ class MainDashboardStaticTest(unittest.TestCase):
             "available_kwh",
             "available_eur",
             "charge_power",
+            "charge_source",
             "discharge_power",
             "net_power",
             "mode",
@@ -423,6 +589,7 @@ class MainDashboardStaticTest(unittest.TestCase):
             with self.subTest(role=role):
                 self.assertIn(f"eec_sensor_role: {role}", block)
         self.assertIn("name: In W", block)
+        self.assertIn("name: Bron", block)
         self.assertIn("name: Uit W", block)
         self.assertIn("name: Netto W", block)
         self.assertIn("name: Status", block)
@@ -434,6 +601,14 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("eec_sensor_role: homewizard_raw_power", block)
         self.assertIn("eec_sensor_role: powerstream_export", block)
         self.assertIn("eec_sensor_role: corrected_power", block)
+        self.assertIn("eec_sensor_role: grid_power", block)
+        self.assertIn("eec_sensor_role: grid_status", block)
+        self.assertIn("eec_sensor_role: grid_flow_state", block)
+
+    def test_manual_tools_are_last_diagnostic_escape_hatch(self) -> None:
+        diagnostics_pos = self.text.index("title: Diagnose")
+        manual_pos = self.text.index("title: Handmatig - tools")
+        self.assertLess(diagnostics_pos, manual_pos)
 
     def test_powerstream_live_card_is_graphical(self) -> None:
         start = self.text.index("title: PowerStreams - live")
@@ -461,12 +636,16 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("max: 900", block)
         self.assertNotIn("max: 9000", block)
 
-    def test_scenario_effect_card_is_graphical(self) -> None:
-        start = self.text.index("title: Scenario's - effect")
+    def test_scenario_details_card_combines_advice_and_effect(self) -> None:
+        start = self.text.index("title: Scenario's - details")
         end = self.text.index("title: Uurtarieven - komende 24 uur")
         block = self.text[start:end]
-        self.assertIn("type: grid\n          title: Scenario's - effect", self.text)
+        self.assertIn("type: grid\n          title: Scenario's - details", self.text)
         self.assertIn("card_param: cards", block)
+        self.assertIn("columns: 2", block)
+        self.assertIn("eec_sensor_role: scenario_action", block)
+        self.assertIn("eec_sensor_role: scenario_executable", block)
+        self.assertIn("eec_sensor_role: scenario_reason", block)
         self.assertIn("eec_sensor_role: scenario_power", block)
         self.assertIn("eec_sensor_role: scenario_eur_per_hour", block)
         self.assertIn("eec_sensor_role: scenario_day_eur", block)
@@ -475,17 +654,13 @@ class MainDashboardStaticTest(unittest.TestCase):
     def test_current_scenario_card_summarizes_best_choice_and_execution(self) -> None:
         basis_pos = self.text.index("title: Basis")
         current_pos = self.text.index("title: Scenario - nu")
-        control_pos = self.text.index("title: Keuze wijzigen")
+        control_pos = self.text.index("title: Controle")
         self.assertLess(basis_pos, current_pos)
         self.assertLess(current_pos, control_pos)
         block = self.text[current_pos:control_pos]
         self.assertIn("type: grid\n          title: Scenario - nu", self.text)
         self.assertIn("columns: 5", block)
         for role in (
-            "scenario_best",
-            "scenario_alignment",
-            "dashboard_choice_state",
-            "dashboard_choice_delta",
             "dashboard_action_state",
             "dashboard_scenario_input",
             "dashboard_confidence_score",
@@ -495,14 +670,19 @@ class MainDashboardStaticTest(unittest.TestCase):
             "dashboard_best_power",
             "dashboard_next_command",
             "dashboard_best_period_value",
+            "dashboard_scenario_overview",
+            "dashboard_scenario_plan",
         ):
             with self.subTest(role=role):
                 self.assertIn(f"eec_sensor_role: {role}", block)
-        self.assertIn("name: Beste", block)
-        self.assertIn("name: Match", block)
-        self.assertIn("name: Keuze", block)
-        self.assertIn("name: Mis EUR/u", block)
-        self.assertIn("name: Sturen", block)
+        self.assertIn("name: Overzicht", block)
+        self.assertIn("name: Plan", block)
+        self.assertIn("name: Uitvoerbaar", block)
+        sensor_text = (
+            ROOT / "custom_components" / "ecoflow_energy_control" / "sensor.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("execution_hint", sensor_text)
+        self.assertIn("blocked_by", sensor_text)
         self.assertIn("name: Input", block)
         self.assertIn("name: Zeker", block)
         self.assertIn("name: Zekerheid", block)
@@ -515,10 +695,11 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("name: Totalen", block)
 
     def test_scenario_advice_includes_reasons(self) -> None:
-        start = self.text.index("title: Scenario's - advies")
-        end = self.text.index("title: Scenario's - effect")
+        start = self.text.index("title: Scenario's - details")
+        end = self.text.index("title: Uurtarieven - komende 24 uur")
         block = self.text[start:end]
         self.assertIn("eec_sensor_role: scenario_action", block)
+        self.assertIn("eec_sensor_role: scenario_executable", block)
         self.assertIn("eec_sensor_role: scenario_reason", block)
 
     def test_weather_card_is_dynamic(self) -> None:
@@ -540,15 +721,32 @@ class MainDashboardStaticTest(unittest.TestCase):
 class OptionalDashboardStaticTest(unittest.TestCase):
     def test_custom_dashboard_cards_are_documented(self) -> None:
         readme = README.read_text(encoding="utf-8")
+        requirements_text = FRONTEND_REQUIREMENTS.read_text(encoding="utf-8")
+        declared_cards = _declared_frontend_cards()
         dashboards = (MAIN_DASHBOARD, *OPTIONAL_DASHBOARDS)
         custom_cards = set()
         for path in dashboards:
             text = path.read_text(encoding="utf-8")
             custom_cards.update(re.findall(r"type: custom:([a-z0-9_-]+)", text))
         self.assertTrue(custom_cards)
+        self.assertEqual(custom_cards, declared_cards)
         for card in sorted(custom_cards):
             with self.subTest(card=card):
                 self.assertIn(f"`{card}`", readme)
+                self.assertIn(card, requirements_text)
+
+    def test_frontend_requirements_explain_missing_card_effect(self) -> None:
+        text = FRONTEND_REQUIREMENTS.read_text(encoding="utf-8")
+        cards = _declared_frontend_cards()
+        self.assertTrue(cards)
+        for card in cards:
+            with self.subTest(card=card):
+                start = text.index(f"card: {card}")
+                next_card = text.find("\n  - card:", start + 1)
+                block = text[start: next_card if next_card != -1 else len(text)]
+                self.assertIn("hacs_repository:", block)
+                self.assertIn("used_for:", block)
+                self.assertIn("missing_effect:", block)
 
     def test_optional_dashboards_do_not_use_old_fragile_summary_entities(self) -> None:
         blocked = (

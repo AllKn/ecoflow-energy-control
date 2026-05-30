@@ -6,7 +6,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower
+from homeassistant.const import UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -16,14 +16,23 @@ from .const import (
     APP_NAME,
     APP_VERSION,
     DOMAIN,
+    HOMEWIZARD_ROLE_GRID_METER,
     LEGACY_DASHBOARD_OBJECT_PREFIX,
+    POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS,
     STRATEGY_BUFFER_50,
     STRATEGY_EXPORT,
     STRATEGY_IDLE,
     STRATEGY_SELF_USE,
 )
 from .coordinator import EcoFlowEnergyCoordinator
-from .health import dashboard_readiness, source_summary
+from .health import (
+    dashboard_readiness,
+    live_missing_summary,
+    next_user_step,
+    setup_state,
+    simple_flow_stage,
+    source_summary,
+)
 from .power import normalize_live_power_w
 from .policy import (
     best_scenario,
@@ -34,6 +43,8 @@ from .policy import (
     next_dashboard_action,
     powerstream_group_decision,
     scenario_choice_summary,
+    scenario_execution_hint,
+    scenario_execution_state,
     scenario_is_actionable,
 )
 
@@ -53,6 +64,8 @@ async def async_setup_entry(
         ExpensiveBandSensor(coordinator),
         TotalSolarPowerSensor(coordinator),
         HomeWizardSolarPowerSensor(coordinator),
+        HomeWizardGridPowerSensor(coordinator),
+        HomeWizardGridStatusSensor(coordinator),
         CorrectedSolarPowerSensor(coordinator),
         CorrectedGridFlowSensor(coordinator),
         PowerStreamExportSensor(coordinator),
@@ -73,7 +86,9 @@ async def async_setup_entry(
         BestScenarioSensor(coordinator),
         ScenarioAlignmentSensor(coordinator),
         ScenarioChoiceSummarySensor(coordinator),
+        StrategyGuideSensor(coordinator),
         DecisionContextSensor(coordinator),
+        DashboardMainSummarySensor(coordinator),
         FlowReadySensor(coordinator),
         FlowSnapshotSensor(coordinator),
         FlowPhaseSensor(coordinator),
@@ -82,6 +97,8 @@ async def async_setup_entry(
         FlowBestPowerSensor(coordinator),
         FlowBestDayValueSensor(coordinator),
         FlowBestPeriodValueSensor(coordinator),
+        FlowScenarioOverviewSensor(coordinator),
+        FlowScenarioPlanSensor(coordinator),
         FlowScenarioInputSensor(coordinator),
         FlowConfidenceScoreSensor(coordinator),
         FlowConfidenceReasonSensor(coordinator),
@@ -89,6 +106,7 @@ async def async_setup_entry(
         FlowChoiceStateSensor(coordinator),
         FlowStartStateSensor(coordinator),
         FlowAutoModeSensor(coordinator),
+        FlowControlVerdictSensor(coordinator),
         FlowExecutionPlanSensor(coordinator),
         FlowMeasurementStateSensor(coordinator),
         FlowNextCommandSensor(coordinator),
@@ -96,18 +114,24 @@ async def async_setup_entry(
         FlowCommandDeltaSensor(coordinator),
         FlowCommandNeededSensor(coordinator),
         FlowStartReasonSensor(coordinator),
+        DashboardEnergyFlowSensor(coordinator),
         DashboardOverviewSensor(coordinator),
         DashboardSetupSensor(coordinator),
+        DashboardSetupProgressSensor(coordinator),
+        DashboardSetupAdviceSensor(coordinator),
         DashboardSourceSummarySensor(coordinator),
         DashboardProblemSensor(coordinator),
         DashboardLiveProofSensor(coordinator),
+        DashboardLiveValidationSensor(coordinator),
         DashboardReadinessSensor(coordinator),
         DashboardReadinessScoreSensor(coordinator),
+        DashboardInsightStateSensor(coordinator),
         DashboardNextStepSensor(coordinator),
         DashboardCheckSensor(coordinator, "prices", "prijzen"),
         DashboardCheckSensor(coordinator, "batteries", "batterijen"),
         DashboardCheckSensor(coordinator, "powerstreams", "PowerStreams"),
         DashboardCheckSensor(coordinator, "solar", "netto opwek"),
+        DashboardCheckSensor(coordinator, "p1_history", "P1 historie"),
         DashboardCheckSensor(coordinator, "weather", "weer"),
         DashboardCheckSensor(coordinator, "scenarios", "scenario's"),
         DashboardCheckSensor(coordinator, "execution", "sturing"),
@@ -120,6 +144,7 @@ async def async_setup_entry(
             [
                 ScenarioActionSensor(coordinator, scenario_key, label),
                 ScenarioReasonSensor(coordinator, scenario_key, label),
+                ScenarioExecutionSensor(coordinator, scenario_key, label),
                 ScenarioPowerSensor(coordinator, scenario_key, label),
                 ScenarioMoneyRateSensor(coordinator, scenario_key, label),
                 ScenarioTotalSensor(coordinator, scenario_key, label, "day", "vandaag"),
@@ -178,6 +203,9 @@ async def async_setup_entry(
                     HomeWizardMeterPhasePowerSensor(coordinator, host, name, "l1"),
                     HomeWizardMeterPhasePowerSensor(coordinator, host, name, "l2"),
                     HomeWizardMeterPhasePowerSensor(coordinator, host, name, "l3"),
+                    HomeWizardP1HistorySensor(coordinator, host, name, "today", "vandaag"),
+                    HomeWizardP1HistorySensor(coordinator, host, name, "week", "week"),
+                    HomeWizardP1HistorySensor(coordinator, host, name, "month", "maand"),
                 ]
             )
     async_add_entities(entities)
@@ -356,6 +384,59 @@ class HomeWizardSolarPowerSensor(BaseSensor):
         }
 
 
+class HomeWizardGridPowerSensor(BaseSensor):
+    """Raw HomeWizard P1/grid power."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "homewizard_grid_power", "netverbruik P1")
+
+    @property
+    def native_value(self) -> float:
+        return float((self.coordinator.data or {}).get("homewizard_grid_power") or 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data or {}
+        return {
+            "eec_device_type": "solar",
+            "eec_sensor_role": "grid_power",
+            "corrected_grid_power": data.get("corrected_grid_power"),
+            "corrected_grid_phase_power": data.get("corrected_grid_phase_power"),
+            "meaning": "positief is verbruik van net; negatief is levering aan net",
+        }
+
+
+class HomeWizardGridStatusSensor(BaseSensor):
+    """Visible status for the optional HomeWizard P1/grid meter."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "homewizard_grid_status", "P1 status")
+
+    @property
+    def native_value(self) -> str:
+        status = _homewizard_grid_status(self.coordinator)
+        return str(status.get("state"))
+
+    @property
+    def icon(self) -> str:
+        return {
+            "P1 ok": "mdi:meter-electric",
+            "P1 wacht": "mdi:meter-electric-outline",
+            "P1 ontbreekt": "mdi:meter-electric-off",
+        }.get(self.native_value, "mdi:meter-electric-outline")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "solar",
+            "eec_sensor_role": "grid_status",
+            **_homewizard_grid_status(self.coordinator),
+        }
+
+
 class CorrectedSolarPowerSensor(BaseSensor):
     """Solar power after subtracting controlled PowerStream export."""
 
@@ -392,7 +473,11 @@ class CorrectedGridFlowSensor(BaseSensor):
 
     @property
     def native_value(self) -> str:
-        value = float((self.coordinator.data or {}).get("corrected_solar_power") or 0)
+        data = self.coordinator.data or {}
+        value = data.get("corrected_grid_power")
+        if value is None:
+            value = data.get("corrected_solar_power")
+        value = float(value or 0)
         if value < -20:
             return "levering aan net"
         if value > 20:
@@ -413,6 +498,8 @@ class CorrectedGridFlowSensor(BaseSensor):
         return {
             "eec_device_type": "solar",
             "eec_sensor_role": "grid_flow_state",
+            "grid_power_w": data.get("homewizard_grid_power"),
+            "corrected_grid_power_w": data.get("corrected_grid_power"),
             "corrected_power_w": data.get("corrected_solar_power"),
             "raw_homewizard_solar_w": data.get("homewizard_solar_power"),
             "battery_export_subtracted_w": data.get("powerstream_export_w"),
@@ -836,6 +923,30 @@ class ScenarioChoiceSummarySensor(BaseSensor):
         }
 
 
+class StrategyGuideSensor(BaseSensor):
+    """Short dashboard help for the available user strategies."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "strategy_guide", "strategie hulp")
+
+    @property
+    def native_value(self) -> str:
+        guide = _strategy_guide(self.coordinator)
+        return str(guide.get("selected_summary"))
+
+    @property
+    def icon(self) -> str:
+        return "mdi:help-circle-outline"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_strategy_guide",
+            **_strategy_guide(self.coordinator),
+        }
+
+
 class DecisionContextSensor(BaseSensor):
     """Compact explanation of the inputs behind the current advice."""
 
@@ -1113,6 +1224,90 @@ class FlowBestPeriodValueSensor(BaseSensor):
         }
 
 
+class FlowScenarioOverviewSensor(BaseSensor):
+    """One-line scenario explanation for the main dashboard."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "dashboard_scenario_overview", "scenario nu")
+
+    @property
+    def native_value(self) -> str:
+        return str(_scenario_overview(self.coordinator).get("summary"))
+
+    @property
+    def icon(self) -> str:
+        state = str(_scenario_overview(self.coordinator).get("state"))
+        return {
+            "volgt advies": "mdi:check-circle",
+            "wijkt af": "mdi:swap-horizontal",
+            "uit": "mdi:pause-circle",
+            "data nodig": "mdi:database-alert",
+            "wacht": "mdi:timer-sand",
+        }.get(state, "mdi:chart-timeline-variant")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_scenario_overview",
+            **_scenario_overview(self.coordinator),
+        }
+
+
+class FlowScenarioPlanSensor(BaseSensor):
+    """Visible plain-language scenario plan for the main dashboard."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "dashboard_scenario_plan", "scenario plan")
+
+    @property
+    def native_value(self) -> str:
+        overview = _scenario_overview(self.coordinator)
+        plan = overview.get("plan_summary") or overview.get("summary")
+        hint = overview.get("execution_hint")
+        if hint:
+            return _state_text(f"{hint}: {plan}")
+        if overview.get("execution_state") != "uitvoerbaar":
+            reason = overview.get("execution_summary") or overview.get("execution_blocker")
+            if reason:
+                return _state_text(f"{reason}: {plan}")
+        return _state_text(plan)
+
+    @property
+    def icon(self) -> str:
+        state = str(_scenario_overview(self.coordinator).get("state"))
+        return {
+            "volgt advies": "mdi:clipboard-check",
+            "wijkt af": "mdi:clipboard-alert",
+            "uit": "mdi:clipboard-off",
+            "data nodig": "mdi:clipboard-text-clock",
+            "wacht": "mdi:clipboard-text-clock",
+        }.get(state, "mdi:clipboard-text")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        overview = _scenario_overview(self.coordinator)
+        return {
+            "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_scenario_plan",
+            "plan": overview.get("plan_summary"),
+            "selected_plan": overview.get("selected_plan"),
+            "best_plan": overview.get("best_plan"),
+            "choice_state": overview.get("choice_state"),
+            "choice_summary": overview.get("choice_summary"),
+            "delta_eur_per_hour": overview.get("delta_eur_per_hour"),
+            "execution_state": overview.get("execution_state"),
+            "execution_summary": overview.get("execution_summary"),
+            "execution_blocker": overview.get("execution_blocker"),
+            "execution_hint": overview.get("execution_hint"),
+            "next_command": overview.get("next_command"),
+            "can_execute": overview.get("can_execute"),
+            "command_required": overview.get("command_required"),
+            "blocked_by": overview.get("blocked_by"),
+            "test_mode": overview.get("test_mode"),
+        }
+
+
 class FlowScenarioInputSensor(BaseSensor):
     """Compact input quality for the currently best scenario."""
 
@@ -1215,6 +1410,39 @@ class FlowConfidenceReasonSensor(BaseSensor):
         }
 
 
+class DashboardLiveValidationSensor(BaseSensor):
+    """Single visible state for whether live Home Assistant proof is sufficient."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "dashboard_live_validation", "live validatie")
+
+    @property
+    def native_value(self) -> str:
+        return str(_live_validation(self.coordinator).get("state"))
+
+    @property
+    def icon(self) -> str:
+        state = str(_live_validation(self.coordinator).get("state"))
+        return {
+            "live klaar": "mdi:check-decagram",
+            "basis live": "mdi:lightbulb-on",
+            "testmodus": "mdi:test-tube",
+            "sturing beperkt": "mdi:progress-wrench",
+            "optimalisatie beperkt": "mdi:tune",
+            "data nodig": "mdi:database-alert",
+            "actie nodig": "mdi:alert-decagram",
+            "geen bewijs": "mdi:help-circle",
+        }.get(state, "mdi:shield-question")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_live_validation",
+            **_live_validation(self.coordinator),
+        }
+
+
 class FlowChoiceStateSensor(BaseSensor):
     """Compact selected-versus-advised scenario state for the top flow."""
 
@@ -1290,6 +1518,29 @@ class FlowReadySensor(BaseSensor):
             "eec_device_type": "dashboard",
             "eec_sensor_role": "dashboard_ready_state",
             **_flow_ready_state(self.coordinator),
+        }
+
+
+class DashboardMainSummarySensor(BaseSensor):
+    """One compact top-level summary for the main dashboard."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "dashboard_main_summary", "main")
+
+    @property
+    def native_value(self) -> str:
+        return str(_main_summary(self.coordinator).get("summary"))
+
+    @property
+    def icon(self) -> str:
+        return str(_main_summary(self.coordinator).get("icon"))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_main_summary",
+            **_main_summary(self.coordinator),
         }
 
 
@@ -1440,6 +1691,29 @@ class FlowAutoModeSensor(BaseSensor):
             "eec_device_type": "dashboard",
             "eec_sensor_role": "dashboard_auto_mode",
             **auto_mode,
+        }
+
+
+class FlowControlVerdictSensor(BaseSensor):
+    """One-line verdict for whether the app may control devices now."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "dashboard_control_verdict", "stuuradvies")
+
+    @property
+    def native_value(self) -> str:
+        return str(_control_verdict(self.coordinator).get("state") or "wachten")
+
+    @property
+    def icon(self) -> str:
+        return str(_control_verdict(self.coordinator).get("icon") or "mdi:help-circle")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_control_verdict",
+            **_control_verdict(self.coordinator),
         }
 
 
@@ -1626,19 +1900,9 @@ class FlowActionStateSensor(BaseSensor):
     @property
     def native_value(self) -> str:
         action = _next_dashboard_action(self.coordinator)
-        if action.get("action_type") == "test_mode":
-            return "testmodus"
-        if action.get("action_type") == "needs_data":
-            return "data nodig"
-        if action.get("action_type") == "idle":
-            return "scenario uit"
-        if action.get("can_execute"):
-            return "kan sturen"
-        if action.get("action_type") in {"wait", "none"}:
-            return "wacht"
         if action.get("action_type") == "error":
             return "fout"
-        return "stand-by"
+        return scenario_execution_hint(action)
 
     @property
     def icon(self) -> str:
@@ -1658,6 +1922,7 @@ class FlowActionStateSensor(BaseSensor):
         return {
             "eec_device_type": "dashboard",
             "eec_sensor_role": "dashboard_action_state",
+            "execution_hint": scenario_execution_hint(action),
             **action,
         }
 
@@ -1736,6 +2001,37 @@ class DashboardOverviewSensor(BaseSensor):
         }
 
 
+class DashboardEnergyFlowSensor(BaseSensor):
+    """One-tile summary of input, output and battery state."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "dashboard_energy_flow", "energiestroom")
+
+    @property
+    def native_value(self) -> str:
+        flow = _energy_flow_summary(self.coordinator)
+        return str(flow.get("summary"))
+
+    @property
+    def icon(self) -> str:
+        return {
+            "verbruik van net": "mdi:transmission-tower-import",
+            "levering aan net": "mdi:transmission-tower-export",
+            "accu laadt": "mdi:battery-arrow-up",
+            "accu levert": "mdi:battery-arrow-down",
+            "in balans": "mdi:scale-balance",
+            "wacht op data": "mdi:progress-question",
+        }.get(str(_energy_flow_summary(self.coordinator).get("state")), "mdi:home-lightning-bolt")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_energy_flow",
+            **_energy_flow_summary(self.coordinator),
+        }
+
+
 class DashboardSetupSensor(BaseSensor):
     """Compact status showing whether the minimal local setup is complete."""
 
@@ -1744,15 +2040,18 @@ class DashboardSetupSensor(BaseSensor):
 
     @property
     def native_value(self) -> str:
-        return str(_setup_state(self.coordinator).get("state"))
+        setup = _setup_state(self.coordinator)
+        return str(setup.get("current_capability") or setup.get("state"))
 
     @property
     def icon(self) -> str:
+        setup = _setup_state(self.coordinator)
+        state = str(setup.get("state"))
         return {
             "compleet": "mdi:check-circle",
-            "beperkt": "mdi:progress-wrench",
+            "basis klaar": "mdi:lightbulb-on",
             "actie nodig": "mdi:alert-circle",
-        }.get(self.native_value, "mdi:cog")
+        }.get(state, "mdi:cog")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1760,6 +2059,65 @@ class DashboardSetupSensor(BaseSensor):
             "eec_device_type": "dashboard",
             "eec_sensor_role": "dashboard_setup",
             **_setup_state(self.coordinator),
+        }
+
+
+class DashboardSetupProgressSensor(BaseSensor):
+    """Numeric progress for minimal setup completion."""
+
+    _attr_native_unit_of_measurement = "%"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "dashboard_setup_progress", "setup voortgang")
+
+    @property
+    def native_value(self) -> int:
+        return int(_setup_state(self.coordinator).get("progress", 0))
+
+    @property
+    def icon(self) -> str:
+        progress = self.native_value
+        if progress >= 100:
+            return "mdi:check-circle"
+        if progress >= 60:
+            return "mdi:progress-check"
+        return "mdi:progress-alert"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_setup_progress",
+            **_setup_state(self.coordinator),
+        }
+
+
+class DashboardSetupAdviceSensor(BaseSensor):
+    """Readable setup advice for the one-dashboard flow."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "dashboard_setup_advice", "setup advies")
+
+    @property
+    def native_value(self) -> str:
+        return str(_setup_advice(self.coordinator).get("summary"))
+
+    @property
+    def icon(self) -> str:
+        state = str(_setup_advice(self.coordinator).get("state"))
+        return {
+            "basis nodig": "mdi:cog-alert",
+            "basis klaar": "mdi:lightbulb-on",
+            "sturen klaar": "mdi:play-circle",
+            "optimaal": "mdi:check-decagram",
+        }.get(state, "mdi:cog")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_setup_advice",
+            **_setup_advice(self.coordinator),
         }
 
 
@@ -1834,7 +2192,7 @@ class DashboardProblemSensor(BaseSensor):
     """First problem or warning that needs attention in the main flow."""
 
     def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
-        super().__init__(coordinator, "dashboard_problem", "probleem")
+        super().__init__(coordinator, "dashboard_problem", "aandacht")
 
     @property
     def native_value(self) -> str:
@@ -1926,19 +2284,29 @@ class DashboardReadinessScoreSensor(BaseSensor):
         }
 
 
-class DashboardNextStepSensor(BaseSensor):
-    """Most useful next action for the simple dashboard flow."""
+class DashboardInsightStateSensor(BaseSensor):
+    """Visible status for minimal price and battery insight."""
 
     def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
-        super().__init__(coordinator, "dashboard_next_step", "volgende stap")
+        super().__init__(coordinator, "dashboard_insight_state", "basisinzicht")
 
     @property
     def native_value(self) -> str:
-        return str(
-            dashboard_readiness(
-                self.coordinator.data or {}, _dashboard_settings(self.coordinator)
-            )["next_step"]
-        )
+        return str(_simple_flow_stage(self.coordinator).get("state"))
+
+    @property
+    def icon(self) -> str:
+        return {
+            "basis nodig": "mdi:cog-alert",
+            "data nodig": "mdi:database-alert",
+            "inzicht klaar": "mdi:lightbulb-on",
+            "sturing beperkt": "mdi:progress-wrench",
+            "testmodus": "mdi:test-tube",
+            "startbaar": "mdi:play-circle",
+            "optimaliseren": "mdi:tune",
+            "sturing klaar": "mdi:check-decagram",
+            "actie nodig": "mdi:lightbulb-alert",
+        }.get(self.native_value, "mdi:lightbulb-question")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1947,11 +2315,51 @@ class DashboardNextStepSensor(BaseSensor):
         )
         return {
             "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_insight_state",
+            **_simple_flow_stage(self.coordinator),
+            "insight_ready": readiness.get("insight_ready"),
+            "insight_status": readiness.get("insight_status"),
+            "insight_next_step": readiness.get("insight_next_step"),
+            "insight_checks": readiness.get("insight_checks"),
+            "control_ready": readiness.get("control_ready"),
+            "dashboard_status": readiness.get("status"),
+            "dashboard_score": readiness.get("score"),
+            "basis": "basisinzicht vereist alleen prijsdata en batterij-SoC",
+        }
+
+
+class DashboardNextStepSensor(BaseSensor):
+    """Most useful next action for the simple dashboard flow."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "dashboard_next_step", "volgende stap")
+
+    @property
+    def native_value(self) -> str:
+        return str(_dashboard_next_user_step(self.coordinator).get("summary"))
+
+    @property
+    def icon(self) -> str:
+        state = str(_dashboard_next_user_step(self.coordinator).get("state"))
+        return {
+            "basis nodig": "mdi:cog-alert",
+            "data nodig": "mdi:database-alert",
+            "basis klaar": "mdi:lightbulb-on",
+            "actie nodig": "mdi:alert-circle",
+            "testmodus": "mdi:flask",
+            "keuze aanpassen": "mdi:swap-horizontal",
+            "startbaar": "mdi:play-circle",
+            "wachten": "mdi:timer-sand",
+            "optimaliseren": "mdi:tune",
+            "klaar": "mdi:check-circle",
+        }.get(state, "mdi:help-circle")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "dashboard",
             "eec_sensor_role": "dashboard_next_step",
-            "status": readiness["status"],
-            "score": readiness["score"],
-            "blocking": readiness["blocking"],
-            "warnings": readiness["warnings"],
+            **_dashboard_next_user_step(self.coordinator),
         }
 
 
@@ -2114,6 +2522,41 @@ class ScenarioReasonSensor(BaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return _scenario_attrs(self.coordinator, self._scenario_key, "reason")
+
+
+class ScenarioExecutionSensor(BaseSensor):
+    """Readable execution verdict for a simulated scenario."""
+
+    def __init__(
+        self, coordinator: EcoFlowEnergyCoordinator, scenario_key: str, label: str
+    ) -> None:
+        super().__init__(
+            coordinator, f"scenario_{scenario_key}_executable", f"{label} uitvoerbaar"
+        )
+        self._scenario_key = scenario_key
+
+    @property
+    def native_value(self) -> str:
+        state = scenario_execution_state(
+            _scenario_data(self.coordinator, self._scenario_key)
+        )
+        return str(state.get("state"))
+
+    @property
+    def icon(self) -> str:
+        return {
+            "uitvoerbaar": "mdi:play-circle",
+            "data nodig": "mdi:database-alert",
+            "wacht": "mdi:timer-sand",
+        }.get(self.native_value, "mdi:help-circle")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        scenario = _scenario_data(self.coordinator, self._scenario_key)
+        return {
+            **_scenario_attrs(self.coordinator, self._scenario_key, "executable"),
+            **scenario_execution_state(scenario),
+        }
 
 
 class ScenarioMoneyRateSensor(BaseSensor):
@@ -2946,6 +3389,68 @@ class HomeWizardMeterPhasePowerSensor(BaseSensor):
         return data.get(self._name, {}) or data.get(self._host, {})
 
 
+class HomeWizardP1HistorySensor(BaseSensor):
+    """P1 net import/export history from Home Assistant statistics."""
+
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_device_class = "energy"
+
+    def __init__(
+        self,
+        coordinator: EcoFlowEnergyCoordinator,
+        host: str,
+        name: str,
+        period: str,
+        label: str,
+    ) -> None:
+        super().__init__(
+            coordinator,
+            f"homewizard_{host}_p1_net_{period}",
+            f"P1 netto {label}",
+        )
+        self._host = host
+        self._name = name
+        self._period = period
+        self._label = label
+        _apply_device_entity_label(
+            self, name, f"P1 netto {label}", f"p1_net_{period}"
+        )
+        self._attr_device_info = _homewizard_device_info(host, name)
+
+    @property
+    def native_value(self) -> float | None:
+        return _as_float(self._period_data().get("net_import_kwh"))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        item = self._meter_data()
+        history = item.get("history") or {}
+        period = self._period_data()
+        return {
+            "eec_device_type": "homewizard",
+            "eec_sensor_role": "p1_history",
+            "host": self._host,
+            "period": self._period,
+            "source": history.get("source"),
+            "available": history.get("available"),
+            "reason": history.get("reason"),
+            "import_kwh": period.get("import_kwh"),
+            "export_kwh": period.get("export_kwh"),
+            "net_import_kwh": period.get("net_import_kwh"),
+            "import_entities": history.get("import_entities", []),
+            "export_entities": history.get("export_entities", []),
+            "errors": history.get("errors", {}),
+        }
+
+    def _period_data(self) -> dict[str, Any]:
+        history = self._meter_data().get("history") or {}
+        return (history.get("periods") or {}).get(self._period, {})
+
+    def _meter_data(self) -> dict[str, Any]:
+        data = (self.coordinator.data or {}).get("homewizard_meters", {})
+        return data.get(self._name, {}) or data.get(self._host, {})
+
+
 class StatusSensor(BaseSensor):
     """Integration source status."""
 
@@ -3395,6 +3900,103 @@ def _scenario_choice_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str,
     )
 
 
+def _scenario_overview(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    best = _best_scenario(coordinator)
+    choice = _scenario_choice_summary(coordinator)
+    selected_key = _selected_scenario_key(coordinator.strategy)
+    selected = _scenario_data(coordinator, selected_key) if selected_key else {}
+    action_state = _next_dashboard_action(coordinator)
+    executable = scenario_execution_state(best)
+    label = best.get("label") or "wachten"
+    action = best.get("action") or "wachten"
+    power = _as_float(best.get("power_w")) or 0
+    eur_per_hour = _as_float(best.get("eur_per_hour")) or 0
+    day = _as_float(best.get("day_eur")) or 0
+    best_plan = _scenario_plan_summary(label, best)
+    selected_plan = (
+        _scenario_plan_summary(str(selected.get("label") or "Uit"), selected)
+        if selected_key
+        else "Uit: geen automatische sturing"
+    )
+    if selected_key is None:
+        state = "uit"
+        summary = f"uit; advies {label}: {action}"
+    elif not best.get("key"):
+        state = "data nodig"
+        summary = "wacht op scenario-data"
+    elif executable.get("actionable") is False and best.get("input_ready") is False:
+        state = "data nodig"
+        summary = str(executable.get("summary") or "data nodig")
+    elif choice.get("state") == "wijkt af":
+        state = "wijkt af"
+        summary = (
+            f"{choice.get('selected_label')}: {selected.get('action') or 'wachten'}; "
+            f"advies {label}: {action} ({eur_per_hour:+.2f} EUR/u)"
+        )
+    elif executable.get("actionable"):
+        state = "volgt advies" if selected_key == best.get("key") else "wacht"
+        summary = f"{label}: {action} {power:.0f} W, {eur_per_hour:+.2f} EUR/u"
+    else:
+        state = "wacht"
+        summary = f"{label}: {action}; {best.get('reason') or 'geen actie'}"
+    return {
+        "state": state,
+        "summary": summary,
+        "best_scenario_key": best.get("key"),
+        "best_label": label,
+        "best_action": action,
+        "best_reason": best.get("reason"),
+        "best_power_w": best.get("power_w"),
+        "best_eur_per_hour": best.get("eur_per_hour"),
+        "best_day_eur": best.get("day_eur"),
+        "best_week_eur": best.get("week_eur"),
+        "best_month_eur": best.get("month_eur"),
+        "best_actionable": scenario_is_actionable(best),
+        "execution_state": executable.get("state"),
+        "execution_summary": executable.get("summary"),
+        "execution_blocker": executable.get("blocker"),
+        "selected_strategy": coordinator.strategy,
+        "selected_scenario_key": selected_key,
+        "selected_label": selected.get("label") if selected_key else "Uit",
+        "selected_action": selected.get("action"),
+        "selected_reason": selected.get("reason"),
+        "selected_eur_per_hour": selected.get("eur_per_hour"),
+        "selected_plan": selected_plan,
+        "choice_state": choice.get("state"),
+        "choice_summary": choice.get("summary"),
+        "delta_eur_per_hour": choice.get("delta_eur_per_hour"),
+        "best_plan": best_plan,
+        "plan_summary": selected_plan if choice.get("state") == "wijkt af" else best_plan,
+        "next_command": action_state.get("summary"),
+        "can_execute": action_state.get("can_execute"),
+        "command_required": action_state.get("command_required"),
+        "blocked_by": action_state.get("blocked_by"),
+        "execution_hint": scenario_execution_hint(action_state),
+        "test_mode": coordinator.dry_run,
+        "price_now": (coordinator.data or {}).get("price_now"),
+        "corrected_solar_power": (coordinator.data or {}).get("corrected_solar_power"),
+        "basis": "beste scenario, gekozen scenario en uitvoerbaarheid in een regel",
+        "day_eur_label": f"{day:+.2f} EUR vandaag",
+    }
+
+
+def _scenario_plan_summary(label: str, scenario: dict[str, Any]) -> str:
+    action = scenario.get("action") or "wachten"
+    reason = scenario.get("reason") or "geen reden"
+    power = _as_float(scenario.get("power_w")) or 0
+    eur_per_hour = _as_float(scenario.get("eur_per_hour")) or 0
+    if abs(power) >= 1:
+        return f"{label}: {action} {power:.0f} W; {reason}; {eur_per_hour:+.2f} EUR/u"
+    return f"{label}: {action}; {reason}; {eur_per_hour:+.2f} EUR/u"
+
+
+def _state_text(value: Any, limit: int = 250) -> str:
+    text = str(value or "wachten")
+    if len(text) <= limit:
+        return text
+    return f"{text[: max(0, limit - 3)]}..."
+
+
 def _selected_scenario_key(strategy: str) -> str | None:
     return {
         STRATEGY_SELF_USE: "self_use",
@@ -3484,6 +4086,96 @@ def _battery_mode_from_net(net: float) -> str:
     if net < -20:
         return "laden"
     return "stand-by"
+
+
+def _energy_flow_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    data = coordinator.data or {}
+    fleet = _battery_fleet_summary(coordinator)
+    grid_power = _to_float(data.get("corrected_grid_power"))
+    solar_power = _to_float(data.get("corrected_solar_power"))
+    powerstream_export = _to_float(data.get("powerstream_export_w")) or 0.0
+    battery_net = _to_float(fleet.get("net_w")) or 0.0
+    battery_soc = fleet.get("soc")
+    if grid_power is None and solar_power is None and not fleet.get("battery_count"):
+        state = "wacht op data"
+    elif grid_power is not None and grid_power > 20:
+        state = "verbruik van net"
+    elif grid_power is not None and grid_power < -20:
+        state = "levering aan net"
+    elif battery_net < -20:
+        state = "accu laadt"
+    elif battery_net > 20:
+        state = "accu levert"
+    else:
+        state = "in balans"
+    grid_label = _grid_flow_label(grid_power)
+    summary = (
+        f"{grid_label}, accu {round(float(battery_soc or 0), 0):.0f}%, "
+        f"PS {_format_w(powerstream_export)}"
+    )
+    return {
+        "state": state,
+        "summary": summary,
+        "grid_label": grid_label,
+        "grid_power_w": grid_power,
+        "solar_net_w": solar_power,
+        "powerstream_export_w": powerstream_export,
+        "battery_soc": battery_soc,
+        "battery_available_kwh": fleet.get("available_kwh"),
+        "battery_free_kwh": fleet.get("free_kwh"),
+        "battery_charge_w": fleet.get("charge_w"),
+        "battery_discharge_w": fleet.get("discharge_w"),
+        "battery_net_w": battery_net,
+        "battery_count": fleet.get("battery_count"),
+        "price_now": data.get("price_now"),
+        "strategy": coordinator.strategy,
+        "test_mode": coordinator.dry_run,
+        "meaning": "positieve netwaarde is verbruik van net; negatieve netwaarde is levering aan net",
+        "batteries": fleet.get("batteries"),
+    }
+
+
+def _grid_flow_label(grid_power: float | None) -> str:
+    if grid_power is None:
+        return "net onbekend"
+    if grid_power > 20:
+        return f"net {_format_w(grid_power)} verbruik"
+    if grid_power < -20:
+        return f"net {_format_w(abs(grid_power))} levering"
+    return "net neutraal"
+
+
+def _format_w(value: float | int | None) -> str:
+    return f"{round(float(value or 0), 0):.0f} W"
+
+
+def _homewizard_grid_status(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    settings = _dashboard_settings(coordinator)
+    grid_sources = [
+        item
+        for item in settings.get("homewizard_meters", [])
+        if item.get("role") == HOMEWIZARD_ROLE_GRID_METER
+    ]
+    data = coordinator.data or {}
+    grid_power = data.get("corrected_grid_power")
+    if not grid_sources:
+        state = "P1 ontbreekt"
+        message = "HomeWizard P1/netmeter niet ingesteld"
+    elif grid_power is None:
+        state = "P1 wacht"
+        message = "wacht op P1/netmeter data"
+    else:
+        state = "P1 ok"
+        message = "P1/netmeter data beschikbaar"
+    return {
+        "state": state,
+        "message": message,
+        "configured_grid_meters": len(grid_sources),
+        "grid_power_w": data.get("homewizard_grid_power"),
+        "corrected_grid_power_w": grid_power,
+        "corrected_grid_phase_power": data.get("corrected_grid_phase_power"),
+        "meaning": "positief is verbruik van net; negatief is levering aan net",
+    }
 
 
 def _fleet_attrs(sensor_role: str) -> dict[str, Any]:
@@ -3620,6 +4312,150 @@ def _auto_mode_state(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     }
 
 
+def _control_verdict(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    auto_mode = _auto_mode_state(coordinator)
+    start = _start_context(coordinator)
+    ready = _flow_ready_state(coordinator)
+    action = _next_dashboard_action(coordinator)
+    choice = _scenario_choice_summary(coordinator)
+    confidence = _scenario_confidence(coordinator)
+    guard = _powerstream_issue_summary(_powerstream_execution_plan(coordinator))
+    command = str(action.get("summary") or "stand-by")
+    state = str(auto_mode.get("state") or ready.get("state") or "wachten")
+    reason = str(auto_mode.get("reason") or ready.get("reason") or command)
+    if action.get("can_execute"):
+        summary = f"mag sturen: {command}"
+        state = "mag sturen"
+    elif coordinator.dry_run:
+        summary = f"testmodus: {command}"
+        state = "testmodus"
+    elif auto_mode.get("state") == "geblokkeerd":
+        summary = f"blokkeert: {reason}"
+        state = "blokkeert"
+    elif auto_mode.get("state") == "uit":
+        summary = "uit: automatische sturing staat stil"
+        state = "uit"
+    elif choice.get("state") == "wijkt af":
+        summary = str(choice.get("summary") or "gekozen scenario wijkt af")
+        state = "wijkt af"
+    else:
+        summary = f"wacht: {command}"
+        state = "wacht"
+    return {
+        "state": state,
+        "summary": summary,
+        "reason": reason,
+        "icon": {
+            "mag sturen": "mdi:check-circle",
+            "testmodus": "mdi:flask",
+            "blokkeert": "mdi:alert-circle",
+            "uit": "mdi:pause-circle",
+            "wijkt af": "mdi:swap-horizontal",
+            "wacht": "mdi:timer-sand",
+        }.get(state, "mdi:help-circle"),
+        "can_execute": action.get("can_execute"),
+        "command_required": action.get("command_required"),
+        "next_command": command,
+        "blocked_by": action.get("blocked_by"),
+        "readiness_status": auto_mode.get("readiness_status"),
+        "readiness_score": auto_mode.get("readiness_score"),
+        "test_mode": coordinator.dry_run,
+        "selected_strategy": coordinator.strategy,
+        "choice_state": choice.get("state"),
+        "choice_summary": choice.get("summary"),
+        "start_state": start.get("state"),
+        "start_reason": start.get("reason"),
+        "confidence_score": confidence.get("score"),
+        "confidence_state": confidence.get("state"),
+        "command_guard": _command_guard_summary(guard),
+        "command_min_interval_seconds": POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS,
+        "command_error_count": guard.get("error_count"),
+        "command_first_error_name": guard.get("first_error_name"),
+        "command_first_error_message": guard.get("first_error_message"),
+        "command_throttled_count": guard.get("throttled_count"),
+        "command_first_throttled_name": guard.get("first_throttled_name"),
+        "command_first_throttled_seconds": guard.get("first_throttled_seconds"),
+        "best_scenario_key": auto_mode.get("best_scenario_key"),
+        "best_label": auto_mode.get("best_label"),
+        "best_action": auto_mode.get("best_action"),
+        "best_actionable": auto_mode.get("best_actionable"),
+    }
+
+
+def _main_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    step = _dashboard_next_user_step(coordinator)
+    snapshot = _flow_snapshot(coordinator)
+    live = _live_validation(coordinator)
+    action = _next_dashboard_action(coordinator)
+    fleet = _battery_fleet_summary(coordinator)
+    setup = _setup_state(coordinator)
+    data = coordinator.data or {}
+    battery_soc = _as_float(fleet.get("soc"))
+    available_kwh = _as_float(fleet.get("available_kwh"))
+    charge_w = _as_float(fleet.get("charge_w")) or 0
+    discharge_w = _as_float(fleet.get("discharge_w")) or 0
+    export_w = _as_float(data.get("powerstream_export_w")) or 0
+    corrected_solar = _as_float(data.get("corrected_solar_power")) or 0
+    price_now = _as_float(data.get("price_now"))
+    battery_label = (
+        f"{battery_soc:.0f}% / {available_kwh:.1f} kWh"
+        if battery_soc is not None and available_kwh is not None
+        else "accu onbekend"
+    )
+    energy_line = (
+        f"accu {battery_label}; in {charge_w:.0f} W; uit {discharge_w:.0f} W; "
+        f"terug {export_w:.0f} W; netto zon {corrected_solar:.0f} W"
+    )
+    price_line = (
+        f"{price_now:.3f} EUR/kWh"
+        if price_now is not None
+        else str(snapshot.get("price_context") or "prijs onbekend")
+    )
+    scenario_line = str(
+        action.get("summary") or snapshot.get("best_action") or "wachten"
+    )
+    proof_line = str(
+        live.get("summary") or snapshot.get("source_summary") or "geen bewijs"
+    )
+    state = str(step.get("state") or live.get("state") or snapshot.get("snapshot_state"))
+    return {
+        "state": state,
+        "summary": f"{state}: {step.get('summary') or proof_line}",
+        "icon": str(snapshot.get("snapshot_icon") or "mdi:view-dashboard"),
+        "step": step.get("summary"),
+        "step_state": step.get("state"),
+        "energy": energy_line,
+        "battery": battery_label,
+        "battery_soc": battery_soc,
+        "available_kwh": available_kwh,
+        "charge_w": charge_w,
+        "discharge_w": discharge_w,
+        "powerstream_export_w": export_w,
+        "corrected_solar_power": corrected_solar,
+        "price": price_line,
+        "price_now": price_now,
+        "setup_price_source": setup.get("price_source"),
+        "setup_price_source_defaulted": setup.get("price_source_defaulted"),
+        "setup_price_note": (
+            "EnergyZero standaard"
+            if setup.get("price_source_defaulted")
+            else str(setup.get("price_source") or "prijsbron ingesteld")
+        ),
+        "scenario": scenario_line,
+        "best_label": snapshot.get("best_label"),
+        "best_action": snapshot.get("best_action"),
+        "best_eur_per_hour": snapshot.get("best_eur_per_hour"),
+        "proof": proof_line,
+        "live_state": live.get("state"),
+        "readiness_status": snapshot.get("readiness_status"),
+        "readiness_score": snapshot.get("readiness_score"),
+        "control_ready": snapshot.get("control_ready"),
+        "can_execute": action.get("can_execute"),
+        "test_mode": coordinator.dry_run,
+        "basis": "status, stap, energie, scenario en bewijs in een compacte hoofdregel",
+    }
+
+
 def _flow_ready_state(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     data = coordinator.data or {}
     readiness = dashboard_readiness(data, _dashboard_settings(coordinator))
@@ -3657,6 +4493,7 @@ def _flow_ready_state(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
 def _flow_snapshot(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     data = coordinator.data or {}
     readiness = dashboard_readiness(data, _dashboard_settings(coordinator))
+    sources = source_summary(readiness)
     best = _best_scenario(coordinator)
     fleet = _battery_fleet_summary(coordinator)
     plan = _powerstream_execution_plan(coordinator)
@@ -3671,8 +4508,19 @@ def _flow_snapshot(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     best_action = best.get("action") or "wachten"
     available = _as_float(fleet.get("available_kwh")) or 0
     delta = _as_float(totals.get("delta_abs_w")) or 0
-    if readiness.get("status") != "klaar":
-        summary = f"{readiness.get('status')}: {readiness.get('next_step')}"
+    if readiness.get("status") == "actie nodig":
+        summary = f"actie nodig: {sources.get('summary') or readiness.get('next_step')}"
+    elif readiness.get("control_ready"):
+        summary = (
+            f"sturing klaar: {best_label}: {best_action}; {available:.1f} kWh; "
+            f"{price_context}; {solar_context}; nog {delta:.0f} W"
+        )
+    elif readiness.get("insight_ready"):
+        source_hint = sources.get("summary") or readiness.get("next_step")
+        summary = (
+            f"basis klaar: {best_label}: {best_action}; {available:.1f} kWh; "
+            f"{price_context}; aandacht: {source_hint}"
+        )
     else:
         summary = (
             f"{best_label}: {best_action}; {available:.1f} kWh; "
@@ -3682,7 +4530,16 @@ def _flow_snapshot(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
         "summary": summary,
         "readiness_status": readiness.get("status"),
         "readiness_score": readiness.get("score"),
+        "insight_ready": readiness.get("insight_ready"),
+        "insight_status": readiness.get("insight_status"),
+        "insight_next_step": readiness.get("insight_next_step"),
+        "control_ready": readiness.get("control_ready"),
         "next_step": readiness.get("next_step"),
+        "source_summary": sources.get("summary"),
+        "first_issue_key": sources.get("first_issue_key"),
+        "first_issue_label": sources.get("first_issue_label"),
+        "first_issue_status": sources.get("first_issue_status"),
+        "first_issue_message": sources.get("first_issue_message"),
         "price_context": price_context,
         "solar_context": solar_context,
         "price_now": data.get("price_now"),
@@ -3997,6 +4854,7 @@ def _live_proof(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     data_checks = [item for item in checks if item.get("key") != "execution"]
     ready_data = [item for item in data_checks if item.get("status") == "klaar"]
     execution = next((item for item in checks if item.get("key") == "execution"), {})
+    first_missing = (blocking or warnings or [{}])[0]
     return {
         "status": readiness.get("status"),
         "score": readiness.get("score"),
@@ -4016,12 +4874,89 @@ def _live_proof(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
         "proved_keys": [item.get("key") for item in ready],
         "warning_keys": [item.get("key") for item in warnings],
         "blocking_keys": [item.get("key") for item in blocking],
+        "first_missing_key": first_missing.get("key"),
+        "first_missing_status": first_missing.get("status"),
+        "first_missing_message": first_missing.get("message"),
+        "first_missing_label": _dashboard_check_label(str(first_missing.get("key") or "")),
         "source_statuses": {
             str(item.get("key")): item.get("status") for item in checks
         },
         "source_messages": {
             str(item.get("key")): item.get("message") for item in checks
         },
+    }
+
+
+def _live_validation(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    proof = _live_proof(coordinator)
+    readiness = dashboard_readiness(
+        coordinator.data or {}, _dashboard_settings(coordinator)
+    )
+    measurement = _measurement_state(coordinator)
+    action = _next_dashboard_action(coordinator)
+    total_sources = int(proof.get("total_sources") or 0)
+    data_ready = bool(proof.get("data_ready"))
+    execution_ready = bool(proof.get("execution_ready"))
+    blocking_sources = int(proof.get("blocking_sources") or 0)
+    warning_sources = int(proof.get("warning_sources") or 0)
+    measurement_state = str(measurement.get("state") or "onbekend")
+    insight_ready = bool(readiness.get("insight_ready"))
+    control_ready = bool(readiness.get("control_ready"))
+
+    if not total_sources:
+        state = "geen bewijs"
+        summary = "geen live bronchecks beschikbaar"
+    elif blocking_sources:
+        state = "actie nodig"
+        summary = live_missing_summary(proof, readiness.get("next_step"))
+    elif insight_ready and not control_ready:
+        state = "basis live"
+        summary = live_missing_summary(proof, readiness.get("next_step"))
+    elif not data_ready:
+        state = "data nodig"
+        summary = live_missing_summary(
+            proof,
+            f"{proof.get('data_ready_sources')}/{proof.get('data_total_sources')} "
+            "databronnen klaar",
+        )
+    elif coordinator.dry_run and execution_ready:
+        state = "testmodus"
+        summary = "data klaar; echte sturing staat nog uit"
+    elif execution_ready and measurement_state in {"gemeten", "beperkt"}:
+        state = "live klaar"
+        summary = "data en sturing bewezen"
+    elif execution_ready:
+        state = "optimalisatie beperkt"
+        summary = str(measurement.get("reason") or "wacht op PowerStream-meting")
+    else:
+        state = "sturing beperkt"
+        summary = str(proof.get("execution_message") or "sturing nog niet bewezen")
+
+    return {
+        "state": state,
+        "summary": summary,
+        "score": readiness.get("score"),
+        "insight_ready": insight_ready,
+        "control_ready": control_ready,
+        "data_ready": data_ready,
+        "data_ready_sources": proof.get("data_ready_sources"),
+        "data_total_sources": proof.get("data_total_sources"),
+        "execution_ready": execution_ready,
+        "execution_status": proof.get("execution_status"),
+        "execution_message": proof.get("execution_message"),
+        "measurement_state": measurement_state,
+        "measurement_reason": measurement.get("reason"),
+        "blocking_sources": blocking_sources,
+        "warning_sources": warning_sources,
+        "first_missing_key": proof.get("first_missing_key"),
+        "first_missing_label": proof.get("first_missing_label"),
+        "first_missing_status": proof.get("first_missing_status"),
+        "first_missing_message": proof.get("first_missing_message"),
+        "next_step": readiness.get("next_step"),
+        "next_action": action.get("summary"),
+        "can_execute": action.get("can_execute"),
+        "test_mode": coordinator.dry_run,
+        "source_statuses": proof.get("source_statuses"),
     }
 
 
@@ -4039,7 +4974,7 @@ def _dashboard_problem(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     problem = blocking or warning
     if not problem:
         return {
-            "summary": "geen probleem",
+            "summary": "alles ok",
             "status": "klaar",
             "check_key": None,
             "message": "alle checks klaar",
@@ -4050,7 +4985,12 @@ def _dashboard_problem(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     message = str(problem.get("message") or readiness.get("next_step") or "controleer")
     key = str(problem.get("key") or "check")
     label = _dashboard_check_label(key)
-    severity = "blokkeert" if status == "actie nodig" else "let op"
+    if status == "actie nodig":
+        severity = "blokkeert"
+    elif readiness.get("insight_ready"):
+        severity = "optimalisatie"
+    else:
+        severity = "let op"
     return {
         "summary": f"{severity}: {label} - {message}",
         "status": status,
@@ -4070,6 +5010,7 @@ def _dashboard_check_label(key: str) -> str:
         "batteries": "batterijen",
         "powerstreams": "PowerStreams",
         "solar": "netto opwek",
+        "p1_history": "P1 historie",
         "weather": "weer",
         "scenarios": "scenario's",
         "execution": "sturing",
@@ -4095,6 +5036,18 @@ def _powerstream_issue_summary(plan: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _command_guard_summary(issues: dict[str, Any]) -> str:
+    if issues.get("error_count"):
+        name = issues.get("first_error_name") or "PowerStream"
+        return f"fout bij {name}"
+    if issues.get("throttled_count"):
+        name = issues.get("first_throttled_name") or "PowerStream"
+        seconds = issues.get("first_throttled_seconds")
+        suffix = f" ({seconds}s)" if seconds is not None else ""
+        return f"wacht op {name}{suffix}"
+    return "vrij"
+
+
 def _next_dashboard_action(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     return next_dashboard_action(
         _powerstream_execution_plan(coordinator),
@@ -4106,48 +5059,79 @@ def _next_dashboard_action(coordinator: EcoFlowEnergyCoordinator) -> dict[str, A
 
 def _setup_state(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     settings = _dashboard_settings(coordinator)
-    batteries = _configured_items(settings, "batteries")
-    powerstreams = _configured_items(settings, "powerstreams")
-    homewizard = _configured_items(settings, "homewizard_meters")
-    sma = _configured_items(settings, "sma_inverters")
-    solar_sources = homewizard + sma
-    missing: list[str] = []
-    optional: list[str] = []
-    if not batteries:
-        missing.append("batterij toevoegen")
-    if not powerstreams:
-        optional.append("PowerStream toevoegen")
-    if not solar_sources:
-        optional.append("zonmeter toevoegen")
-    if not settings.get("price_source") and not settings.get("price_url"):
-        missing.append("prijsbron instellen")
-    if not settings.get("weather_city"):
-        optional.append("weerstad instellen")
-    if missing:
-        state = "actie nodig"
-        next_step = missing[0]
-    elif optional:
-        state = "beperkt"
-        next_step = optional[0]
+    return setup_state(settings, dry_run=coordinator.dry_run)
+
+
+def _simple_flow_stage(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    return simple_flow_stage(
+        dashboard_readiness(coordinator.data or {}, _dashboard_settings(coordinator)),
+        _setup_state(coordinator),
+        _next_dashboard_action(coordinator),
+        dry_run=coordinator.dry_run,
+    )
+
+
+def _setup_advice(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    setup = _setup_state(coordinator)
+    readiness = dashboard_readiness(
+        coordinator.data or {}, _dashboard_settings(coordinator)
+    )
+    if not setup.get("ready_for_basic_insight"):
+        state = "basis nodig"
+        summary = f"eerst: {setup.get('next_step')}"
+    elif not setup.get("ready_for_powerstream_control"):
+        state = "basis klaar"
+        summary = "basisinzicht werkt; PowerStream is alleen nodig voor sturing"
+    elif not setup.get("ready_for_full_optimization"):
+        state = "sturen klaar"
+        summary = f"sturen kan; optimalisatie beter met {setup.get('next_step')}"
     else:
-        state = "compleet"
-        next_step = "basisconfiguratie compleet"
+        state = "optimaal"
+        summary = "basis en optimalisatie compleet"
     return {
         "state": state,
-        "next_step": next_step,
-        "missing_required": missing,
-        "missing_optional": optional,
-        "configured_batteries": len(batteries),
-        "configured_powerstreams": len(powerstreams),
-        "configured_solar_sources": len(solar_sources),
-        "configured_homewizard_meters": len(homewizard),
-        "configured_sma_inverters": len(sma),
-        "price_source": settings.get("price_source"),
-        "custom_price_url": bool(settings.get("price_url")),
-        "weather_city": settings.get("weather_city"),
-        "dry_run": coordinator.dry_run,
-        "basis": "minimaal: batterij en prijsbron; optimaal: PowerStream, zonmeter en weerstad",
+        "summary": summary,
+        "current_capability": setup.get("current_capability"),
+        "setup_state": setup.get("state"),
+        "setup_progress": setup.get("progress"),
+        "next_setup_step": setup.get("next_step"),
+        "next_step_kind": setup.get("next_step_kind"),
+        "ready_for_basic_insight": setup.get("ready_for_basic_insight"),
+        "ready_for_powerstream_control": setup.get("ready_for_powerstream_control"),
+        "ready_for_full_optimization": setup.get("ready_for_full_optimization"),
+        "dashboard_readiness": readiness.get("status"),
+        "dashboard_score": readiness.get("score"),
+        "live_next_step": readiness.get("next_step"),
+        "missing_required": setup.get("missing_required"),
+        "missing_optional": setup.get("missing_optional"),
+        "basic_requirements": setup.get("basic_requirements"),
+        "control_requirements": setup.get("control_requirements"),
+        "optimization_requirements": setup.get("optimization_requirements"),
+        "configured_batteries": setup.get("configured_batteries"),
+        "configured_powerstreams": setup.get("configured_powerstreams"),
+        "configured_solar_sources": setup.get("configured_solar_sources"),
+        "price_source": setup.get("price_source"),
+        "price_source_defaulted": setup.get("price_source_defaulted"),
+        "price_source_note": (
+            "EnergyZero standaard"
+            if setup.get("price_source_defaulted")
+            else str(setup.get("price_source") or "prijsbron ingesteld")
+        ),
+        "weather_city": setup.get("weather_city"),
+        "dry_run": setup.get("dry_run"),
+        "basis": "eerst basisinzicht, daarna PowerStream-sturing, daarna optimalisatie",
     }
+
+
+def _dashboard_next_user_step(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    return next_user_step(
+        dashboard_readiness(coordinator.data or {}, _dashboard_settings(coordinator)),
+        _setup_state(coordinator),
+        _next_dashboard_action(coordinator),
+        dry_run=coordinator.dry_run,
+        choice=_scenario_choice_summary(coordinator),
+        live_proof=_live_proof(coordinator),
+    )
 
 
 def _powerstream_plan_item(
@@ -4409,6 +5393,62 @@ def _status_label(device_type: str) -> str:
         "powerstream": "PowerStream",
         "smart_plug": "Smart Plug",
     }.get(device_type, "EcoFlow")
+
+
+def _strategy_guide(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    selected = coordinator.strategy
+    selected_key = _selected_scenario_key(selected)
+    best = _best_scenario(coordinator)
+    guides = {
+        STRATEGY_SELF_USE: {
+            "label": "Eigen gebruik",
+            "summary": "gebruik accu om dure netstroom te vermijden",
+            "when": "standaardkeuze voor lagere energiekosten met weinig risico",
+            "does": "laadt bij netto zon of lage prijs en ontlaadt bij dure stroom",
+            "risk": "minder agressieve winst dan handelen",
+        },
+        STRATEGY_EXPORT: {
+            "label": "Handelen",
+            "summary": "stuur op prijsverschil en teruglevering",
+            "when": "als opbrengst belangrijker is dan rustige accucycli",
+            "does": "laadt bij goedkoop/zon en levert meer terug bij dure uren",
+            "risk": "meer accugebruik en afhankelijker van prijsdata",
+        },
+        STRATEGY_BUFFER_50: {
+            "label": "Buffer 50%",
+            "summary": "houd altijd ongeveer halve accu over",
+            "when": "als back-upreserve belangrijk is",
+            "does": "levert alleen terug boven de reserve en bewaakt de ondergrens",
+            "risk": "laat soms besparing of handel liggen",
+        },
+        STRATEGY_IDLE: {
+            "label": "Uit",
+            "summary": "geen automatische sturing",
+            "when": "voor testen, onderhoud of handmatige bediening",
+            "does": "zet automatische strategie uit en stuurt PowerStreams naar 0 W",
+            "risk": "geen automatische optimalisatie",
+        },
+    }
+    selected_guide = guides.get(selected, guides[STRATEGY_IDLE])
+    return {
+        "selected_strategy": selected,
+        "selected_scenario_key": selected_key,
+        "selected_label": selected_guide["label"],
+        "selected_summary": selected_guide["summary"],
+        "selected_when": selected_guide["when"],
+        "selected_does": selected_guide["does"],
+        "selected_risk": selected_guide["risk"],
+        "best_scenario_key": best.get("key"),
+        "best_label": best.get("label"),
+        "best_action": best.get("action"),
+        "best_reason": best.get("reason"),
+        "best_actionable": scenario_is_actionable(best),
+        "guides": [
+            {"strategy": key, **value}
+            for key, value in guides.items()
+        ],
+        "docs": "docs/ontwikkeling.md",
+    }
 
 
 def _device_attrs(device_type: str, serial: str, sensor_role: str) -> dict[str, Any]:

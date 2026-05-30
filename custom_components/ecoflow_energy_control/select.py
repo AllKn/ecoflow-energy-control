@@ -29,11 +29,12 @@ from .coordinator import EcoFlowEnergyCoordinator
 
 STRATEGY_LABELS = {
     STRATEGY_SELF_USE: "Eigen gebruik",
-    STRATEGY_EXPORT: "Terugleveren",
+    STRATEGY_EXPORT: "Handelen",
     STRATEGY_BUFFER_50: "Buffer 50%",
     STRATEGY_IDLE: "Uit",
 }
 STRATEGY_VALUES = {label: value for value, label in STRATEGY_LABELS.items()}
+STRATEGY_VALUES["Terugleveren"] = STRATEGY_EXPORT
 
 POWERSTREAM_STRATEGY_LABELS = {
     POWERSTREAM_STRATEGY_SELF_USE: "Eigen gebruik",

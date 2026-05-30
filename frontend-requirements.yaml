@@ -1,0 +1,9 @@
+required_cards:
+  - card: auto-entities
+    hacs_repository: thomasloven/lovelace-auto-entities
+    used_for: Dynamische lijsten op basis van EEC discovery-attributen.
+    missing_effect: Dynamische dashboarddelen tonen "Custom element doesn't exist".
+  - card: apexcharts-card
+    hacs_repository: RomRider/apexcharts-card
+    used_for: Prijs-, weer- en scenario-grafieken.
+    missing_effect: Grafieken blijven leeg of tonen "Custom element doesn't exist".

@@ -20,10 +20,12 @@ class ConfigFlowStaticTest(unittest.TestCase):
             )
         ]
 
-    def test_first_setup_only_requires_identity_and_ecoflow_keys(self) -> None:
-        self.assertIn("vol.Required(\n                    CONF_NAME", self.user_step)
+    def test_first_setup_only_requires_ecoflow_keys(self) -> None:
+        self.assertIn("data[CONF_NAME] = APP_NAME", self.user_step)
         self.assertIn("vol.Required(CONF_ACCESS_KEY)", self.user_step)
         self.assertIn("vol.Required(CONF_SECRET_KEY)", self.user_step)
+        self.assertNotIn("vol.Required(\n                    CONF_NAME", self.user_step)
+        self.assertNotIn("vol.Required(CONF_NAME", self.user_step)
 
         for hidden_field in (
             "CONF_PRICE_SOURCE",
@@ -37,6 +39,29 @@ class ConfigFlowStaticTest(unittest.TestCase):
             with self.subTest(hidden_field=hidden_field):
                 self.assertNotIn(f"vol.Required({hidden_field}", self.user_step)
                 self.assertNotIn(f"vol.Optional({hidden_field}", self.user_step)
+
+    def test_first_setup_copy_points_to_later_configure_flow(self) -> None:
+        readme = README.read_text(encoding="utf-8")
+        nl = (
+            ROOT
+            / "custom_components"
+            / "ecoflow_energy_control"
+            / "translations"
+            / "nl.json"
+        ).read_text(encoding="utf-8")
+        en = (
+            ROOT
+            / "custom_components"
+            / "ecoflow_energy_control"
+            / "translations"
+            / "en.json"
+        ).read_text(encoding="utf-8")
+        self.assertIn("De eerste installatie vraagt alleen", readme)
+        self.assertIn("apparaten importeer je daarna via **Configureren**", readme)
+        self.assertIn("Vul alleen je EcoFlow Cloud API keys in", nl)
+        self.assertIn("apparaten stel je daarna via Configureren in", nl)
+        self.assertIn("Enter only your EcoFlow Cloud API keys", en)
+        self.assertIn("devices later via Configure", en)
 
     def test_initial_defaults_cover_hidden_basic_settings(self) -> None:
         defaults = self.text[
@@ -74,7 +99,7 @@ class ConfigFlowStaticTest(unittest.TestCase):
     def test_readme_documents_device_first_configuration_order(self) -> None:
         readme = README.read_text(encoding="utf-8")
         devices_pos = readme.index("**EcoFlow apparaten importeren**")
-        homewizard_pos = readme.index("**HomeWizard importeren**")
+        homewizard_pos = readme.index("**HomeWizard uit Home Assistant importeren**")
         add_pos = readme.index("**Handmatig toevoegen**")
         general_pos = readme.index("**Basisinstellingen**")
         advanced_pos = readme.index("**Technische instellingen**")
@@ -143,15 +168,19 @@ class ConfigFlowStaticTest(unittest.TestCase):
         }
         expected = {
             "nl": (
+                "EEC app configureren - begin met apparaten",
                 "Basisinstellingen",
                 "Technische instellingen",
                 "verbinding wordt gecontroleerd",
+                "bestaande Home Assistant HomeWizard-apparaten",
                 "Handmatig toevoegen",
             ),
             "en": (
+                "Configure EEC app - start with devices",
                 "Basic settings",
                 "Technical settings",
                 "connection is checked",
+                "existing Home Assistant HomeWizard devices",
                 "Add manually",
             ),
         }
@@ -170,6 +199,22 @@ class ConfigFlowStaticTest(unittest.TestCase):
         self.assertIn('"sma": "SMA cloud omvormer"', add_device)
         self.assertNotIn("homewizard_ha", add_device)
         self.assertIn('"import_homewizard"', self.text)
+        self.assertIn("HOMEWIZARD_ROLE_CHOICES", self.text)
+        self.assertIn("HOMEWIZARD_ROLE_GRID_METER", self.text)
+        self.assertIn("def _suggest_homewizard_role", self.text)
+
+    def test_homewizard_import_labels_show_role_and_discovered_entities(self) -> None:
+        helper = self.text[
+            self.text.index("def _homewizard_import_label") : self.text.index(
+                "def _ecoflow_serial"
+            )
+        ]
+        self.assertIn("HOMEWIZARD_ROLE_CHOICES", helper)
+        self.assertIn("_homewizard_entity_summary", helper)
+        for marker in ("totaal W", "fase W", "kWh historie"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, helper)
+        self.assertIn('item["label"] = _homewizard_import_label(item)', self.text)
 
     def test_advanced_settings_hold_technical_controls(self) -> None:
         advanced = self.text[

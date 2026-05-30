@@ -1,0 +1,31 @@
+import { background, bulletList, colors } from "./theme.mjs";
+
+export async function slide07(presentation, ctx) {
+  const slide = presentation.slides.add();
+  background(slide, ctx, "Waar de gebruiker nu naar kijkt");
+  bulletList(
+    slide,
+    ctx,
+    [
+      { text: "Bovenaan: Main, Inzicht, Live, Stroom, Nu, Stap, Scenario en Test.", color: colors.blue },
+      { text: "Main combineert status, stap, energie, scenario en bewijs.", color: colors.blue },
+      { text: "Flow gebruikt tile-kaarten voor een rustiger bedienpaneel.", color: colors.green },
+      { text: "Basissetup vraagt alleen batterij; EnergyZero is standaard.", color: colors.green },
+      { text: "Main en Setup advies tonen wanneer EnergyZero default is.", color: colors.green },
+      { text: "Live benoemt getest welke bron bewijs of sturing nog beperkt.", color: colors.green },
+      { text: "Setup toont zichtbaar wat al kan: basisinzicht, sturing of optimalisatie.", color: colors.green },
+      { text: "Stap en Live wijzen naar dezelfde ontbrekende live-bron.", color: colors.blue },
+      { text: "Flow, Basis en Scenario - nu vormen de directe dagelijkse route.", color: colors.blue },
+      { text: "P1 historie staat apart onder het actuele scenario.", color: colors.green },
+      { text: "Scenario - nu is compact: overzicht, plan, uitvoerbaarheid en waarde.", color: colors.amber },
+      { text: "Scenario-details bundelen actie, reden, vermogen en EUR-effect.", color: colors.amber },
+      { text: "Controle komt voor Scenario hulp: eerst bewijs, daarna uitleg.", color: colors.blue },
+      { text: "Waarom verklaart start, automodus, context en uitvoerplan.", color: colors.blue },
+      { text: "README en checklist benoemen Flow als route; setup vraagt eerst alleen keys.", color: colors.red },
+    ],
+    96,
+    226,
+    930,
+  );
+  return slide;
+}

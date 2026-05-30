@@ -48,6 +48,9 @@ from .const import (
     DEFAULT_SMART_PLUG_ON_COMMAND,
     DEFAULT_WEATHER_CITY,
     DOMAIN,
+    HOMEWIZARD_ROLE_CHOICES,
+    HOMEWIZARD_ROLE_GRID_METER,
+    HOMEWIZARD_ROLE_SOLAR_TOTAL,
     APP_NAME,
     WEATHER_CITIES,
 )
@@ -90,6 +93,7 @@ class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             data = _initial_setup_defaults()
+            data[CONF_NAME] = APP_NAME
             data.update(user_input)
             try:
                 await self._validate_ecoflow_credentials(data)
@@ -100,9 +104,6 @@ class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_NAME, default=APP_NAME
-                ): str,
                 vol.Required(CONF_ACCESS_KEY): str,
                 vol.Required(CONF_SECRET_KEY): str,
             }
@@ -195,9 +196,12 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("device_id"): vol.In(
                         choices or {"": "Geen nieuwe HomeWizard apparaten gevonden"}
                     ),
-                    vol.Required("role", default=DEFAULT_HOMEWIZARD_ROLE): vol.In(
-                        {"solar_total": "Totale opwekking"}
-                    ),
+                    vol.Required(
+                        "role",
+                        default=devices.get(next(iter(choices), ""), {}).get(
+                            "suggested_role", DEFAULT_HOMEWIZARD_ROLE
+                        ),
+                    ): vol.In(HOMEWIZARD_ROLE_CHOICES),
                 }
             ),
             errors=errors,
@@ -589,7 +593,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("name", default="HomeWizard zonmeter"): str,
                     vol.Required("host"): str,
                     vol.Required("role", default=DEFAULT_HOMEWIZARD_ROLE): vol.In(
-                        {"solar_total": "Totale opwekking"}
+                        HOMEWIZARD_ROLE_CHOICES
                     ),
                 }
             ),
@@ -793,7 +797,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                         ): str,
                         vol.Required(
                             "role", default=current.get("role", DEFAULT_HOMEWIZARD_ROLE)
-                        ): vol.In({"solar_total": "Totale opwekking"}),
+                        ): vol.In(HOMEWIZARD_ROLE_CHOICES),
                     }
                 ),
             )
@@ -819,7 +823,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("host", default=current.get("host", "")): str,
                     vol.Required(
                         "role", default=current.get("role", DEFAULT_HOMEWIZARD_ROLE)
-                    ): vol.In({"solar_total": "Totale opwekking"}),
+                    ): vol.In(HOMEWIZARD_ROLE_CHOICES),
                 }
             ),
             errors=errors,
@@ -1042,15 +1046,16 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 {
                     "name": name,
                     "model": device.model if device else None,
-                    "label": f"{name} ({device.model or 'HomeWizard'})"
-                    if device
-                    else name,
+                    "suggested_role": _suggest_homewizard_role(device, name),
+                    "label": "",
                     "entities": {},
                 },
             )
             role = _homewizard_entity_role(entity)
             if role:
                 item["entities"].setdefault(role, entity.entity_id)
+        for item in devices.values():
+            item["label"] = _homewizard_import_label(item)
         return {
             device_id: item
             for device_id, item in devices.items()
@@ -1155,6 +1160,53 @@ def _homewizard_entity_role(entity: Any) -> str | None:
         if "export" in compact:
             return "energy_export"
     return None
+
+
+def _suggest_homewizard_role(device: Any, name: str) -> str:
+    text = " ".join(
+        str(value or "").lower()
+        for value in (
+            getattr(device, "model", None),
+            getattr(device, "manufacturer", None),
+            name,
+        )
+    )
+    if "p1" in text or "meter" in text or "energy socket" in text:
+        return HOMEWIZARD_ROLE_GRID_METER
+    return HOMEWIZARD_ROLE_SOLAR_TOTAL
+
+
+def _homewizard_import_label(item: dict[str, Any]) -> str:
+    """Build a choice label that shows what will be imported."""
+    name = item.get("name") or "HomeWizard"
+    model = item.get("model") or "HomeWizard"
+    role = HOMEWIZARD_ROLE_CHOICES.get(
+        item.get("suggested_role", DEFAULT_HOMEWIZARD_ROLE),
+        HOMEWIZARD_ROLE_CHOICES[DEFAULT_HOMEWIZARD_ROLE],
+    )
+    return f"{name} ({model}) - {role}, {_homewizard_entity_summary(item.get('entities', {}))}"
+
+
+def _homewizard_entity_summary(entities: dict[str, str]) -> str:
+    """Summarize discovered Home Assistant entities for the import list."""
+    parts: list[str] = []
+    if entities.get("power"):
+        parts.append("totaal W")
+    if any(entities.get(key) for key in ("power_l1", "power_l2", "power_l3")):
+        parts.append("fase W")
+    if any(
+        entities.get(key)
+        for key in (
+            "energy_import",
+            "energy_import_t1",
+            "energy_import_t2",
+            "energy_export",
+            "energy_export_t1",
+            "energy_export_t2",
+        )
+    ):
+        parts.append("kWh historie")
+    return ", ".join(parts) if parts else "geen bruikbare meetentiteiten"
 
 
 def _ecoflow_serial(device: dict[str, Any]) -> str:

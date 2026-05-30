@@ -15,13 +15,14 @@ class SelectStaticTest(unittest.TestCase):
         self.text = SELECT.read_text(encoding="utf-8")
 
     def test_strategy_selects_use_human_labels(self) -> None:
-        for label in ("Eigen gebruik", "Terugleveren", "Handelen", "Buffer 50%", "Uit"):
+        for label in ("Eigen gebruik", "Handelen", "Buffer 50%", "Uit"):
             with self.subTest(label=label):
                 self.assertIn(label, self.text)
 
     def test_strategy_selects_still_accept_internal_values(self) -> None:
         self.assertIn("STRATEGY_VALUES.get(option, option)", self.text)
         self.assertIn("POWERSTREAM_STRATEGY_VALUES.get(option, option)", self.text)
+        self.assertIn('STRATEGY_VALUES["Terugleveren"] = STRATEGY_EXPORT', self.text)
 
     def test_global_strategy_has_dashboard_role(self) -> None:
         self.assertIn('"eec_device_type": "control"', self.text)

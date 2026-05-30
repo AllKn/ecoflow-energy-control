@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+DEFAULT_SETUP_PRICE_SOURCE = "energyzero"
+
 
 def dashboard_readiness(data: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
     """Summarize whether the dashboard has enough data for useful decisions."""
@@ -12,6 +14,7 @@ def dashboard_readiness(data: dict[str, Any], settings: dict[str, Any]) -> dict[
         _check_batteries(data, settings),
         _check_powerstreams(data, settings),
         _check_solar(data, settings),
+        _check_p1_history(data, settings),
         _check_weather(data),
         _check_scenarios(data),
         _check_execution(data, settings),
@@ -24,9 +27,16 @@ def dashboard_readiness(data: dict[str, Any], settings: dict[str, Any]) -> dict[
         status = "gedeeltelijk"
     else:
         status = "klaar"
+    check_map = {item["key"]: item for item in checks}
+    insight = _insight_state(check_map)
     return {
         "status": status,
         "ready": status == "klaar",
+        "insight_ready": insight["ready"],
+        "insight_status": insight["status"],
+        "insight_next_step": insight["next_step"],
+        "insight_checks": insight["checks"],
+        "control_ready": status == "klaar",
         "next_step": _next_step(blocking or warnings),
         "score": round(
             sum(1 for item in checks if item["status"] == "klaar") / len(checks) * 100,
@@ -35,6 +45,29 @@ def dashboard_readiness(data: dict[str, Any], settings: dict[str, Any]) -> dict[
         "blocking": [item["key"] for item in blocking],
         "warnings": [item["key"] for item in warnings],
         "checks": checks,
+    }
+
+
+def _insight_state(checks: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    required = ("prices", "batteries")
+    missing = [
+        key
+        for key in required
+        if (checks.get(key) or {}).get("status") != "klaar"
+    ]
+    if missing:
+        first = checks.get(missing[0]) or {}
+        return {
+            "ready": False,
+            "status": "actie nodig",
+            "next_step": _next_step([first]),
+            "checks": list(required),
+        }
+    return {
+        "ready": True,
+        "status": "basis klaar",
+        "next_step": "basisinzicht klaar",
+        "checks": list(required),
     }
 
 
@@ -51,7 +84,8 @@ def source_summary(readiness: dict[str, Any]) -> dict[str, Any]:
     ok_count = len([item for item in checks if item.get("status") == "klaar"])
     total_count = len(checks)
     if first_check:
-        summary = f"{first_check.get('key')}: {first_check.get('message')}"
+        label = _source_label(str(first_check.get("key") or "bron"))
+        summary = f"{label}: {first_check.get('message')}"
     elif total_count:
         summary = f"alle bronnen ok ({ok_count}/{total_count})"
     else:
@@ -62,11 +96,417 @@ def source_summary(readiness: dict[str, Any]) -> dict[str, Any]:
         "score": readiness.get("score"),
         "next_step": readiness.get("next_step"),
         "first_issue_key": first_key,
+        "first_issue_label": _source_label(str(first_key)) if first_key else None,
+        "first_issue_status": first_check.get("status") if first_check else None,
         "first_issue_message": first_check.get("message") if first_check else None,
         "ready_sources": ok_count,
         "total_sources": total_count,
         "blocking": readiness.get("blocking"),
         "warnings": readiness.get("warnings"),
+    }
+
+
+def live_missing_summary(proof: dict[str, Any], fallback: Any) -> str:
+    """Return the most useful missing live proof message."""
+    label = proof.get("first_missing_label")
+    message = proof.get("first_missing_message")
+    if label and message:
+        return f"{label}: {message}"
+    return str(fallback or "controleer Datacheck")
+
+
+def _source_label(key: str) -> str:
+    return {
+        "prices": "prijzen",
+        "batteries": "batterijen",
+        "powerstreams": "PowerStreams",
+        "solar": "netto opwek",
+        "p1_history": "P1 historie",
+        "weather": "weer",
+        "scenarios": "scenario's",
+        "execution": "sturing",
+    }.get(key, key)
+
+
+def next_user_step(
+    readiness: dict[str, Any],
+    setup: dict[str, Any],
+    action: dict[str, Any],
+    *,
+    dry_run: bool,
+    choice: dict[str, Any] | None = None,
+    live_proof: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return the single most useful user-facing next step."""
+    choice = choice or {}
+    live_proof = live_proof or {}
+    if not setup.get("ready_for_basic_insight"):
+        step = str(setup.get("next_step") or "basis instellen")
+        return _user_step(
+            "basis nodig",
+            step,
+            "setup",
+            "basisinzicht vereist minimaal een batterij; EnergyZero is de standaard prijsbron",
+            setup,
+            readiness,
+            action,
+            choice,
+        )
+    if not readiness.get("insight_ready"):
+        step = str(readiness.get("insight_next_step") or readiness.get("next_step"))
+        return _user_step(
+            "data nodig",
+            step,
+            "data",
+            "prijsdata en batterij-SoC zijn nodig voor basisinzicht",
+            setup,
+            readiness,
+            action,
+            choice,
+        )
+    if not setup.get("ready_for_powerstream_control"):
+        return _user_step(
+            "basis klaar",
+            "PowerStream toevoegen voor automatische sturing",
+            "setup",
+            "basisinzicht werkt al; PowerStream maakt sturen mogelijk",
+            setup,
+            readiness,
+            action,
+            choice,
+        )
+    if readiness.get("status") == "actie nodig":
+        step = live_missing_summary(
+            live_proof, readiness.get("next_step") or "controleer datacheck"
+        )
+        return _user_step(
+            "actie nodig",
+            step,
+            "data",
+            "een live databron of commandofout blokkeert sturing",
+            setup,
+            readiness,
+            action,
+            choice,
+        )
+    if dry_run and readiness.get("control_ready"):
+        return _user_step(
+            "testmodus",
+            "zet testmodus uit om echt te sturen",
+            "control",
+            "de app simuleert nog en stuurt geen PowerStreams aan",
+            setup,
+            readiness,
+            action,
+            choice,
+        )
+    if choice.get("state") == "wijkt af":
+        return _user_step(
+            "keuze aanpassen",
+            str(choice.get("summary") or "laat Scenario het beste advies volgen"),
+            "scenario",
+            "de gekozen strategie wijkt af van het berekende beste scenario",
+            setup,
+            readiness,
+            action,
+            choice,
+        )
+    if action.get("can_execute"):
+        return _user_step(
+            "startbaar",
+            f"druk Advies: {action.get('summary') or 'pas beste scenario toe'}",
+            "control",
+            "er is een uitvoerbaar PowerStream-commando beschikbaar",
+            setup,
+            readiness,
+            action,
+            choice,
+        )
+    if action.get("action_type") in {"wait", "error"}:
+        return _user_step(
+            "wachten",
+            str(action.get("summary") or readiness.get("next_step") or "wacht"),
+            "control",
+            str(action.get("blocked_by") or "de app wacht tot sturen veilig is"),
+            setup,
+            readiness,
+            action,
+            choice,
+        )
+    if not setup.get("ready_for_full_optimization"):
+        return _user_step(
+            "optimaliseren",
+            str(setup.get("next_step") or readiness.get("next_step")),
+            "setup",
+            "sturing kan al; deze stap verbetert de optimalisatie",
+            setup,
+            readiness,
+            action,
+            choice,
+        )
+    if readiness.get("status") == "gedeeltelijk":
+        return _user_step(
+            "optimaliseren",
+            str(readiness.get("next_step") or "controleer waarschuwingen"),
+            "data",
+            "de basis werkt; een waarschuwing kan de kwaliteit verbeteren",
+            setup,
+            readiness,
+            action,
+            choice,
+        )
+    return _user_step(
+        "klaar",
+        "geen actie nodig",
+        "none",
+        "basisinzicht en sturing zijn klaar",
+        setup,
+        readiness,
+        action,
+        choice,
+    )
+
+
+def simple_flow_stage(
+    readiness: dict[str, Any],
+    setup: dict[str, Any],
+    action: dict[str, Any],
+    *,
+    dry_run: bool,
+) -> dict[str, Any]:
+    """Return the simplest user-facing stage for the main dashboard."""
+    if not setup.get("ready_for_basic_insight"):
+        return _flow_stage(
+            "basis nodig",
+            str(setup.get("next_step") or "batterij instellen"),
+            "setup",
+            "basisinzicht vereist minimaal een batterij; EnergyZero is de standaard prijsbron",
+            readiness,
+            setup,
+            action,
+            dry_run,
+        )
+    if not readiness.get("insight_ready"):
+        return _flow_stage(
+            "data nodig",
+            str(readiness.get("insight_next_step") or readiness.get("next_step")),
+            "data",
+            "prijsdata en batterij-SoC zijn nog niet live bewezen",
+            readiness,
+            setup,
+            action,
+            dry_run,
+        )
+    if not setup.get("ready_for_powerstream_control"):
+        return _flow_stage(
+            "inzicht klaar",
+            "basisinzichten werken; PowerStream toevoegen voor sturing",
+            "insight",
+            "met batterij en standaard prijsdata kan de app al inzicht geven",
+            readiness,
+            setup,
+            action,
+            dry_run,
+        )
+    if not readiness.get("control_ready"):
+        return _flow_stage(
+            "sturing beperkt",
+            str(readiness.get("next_step") or "controleer Datacheck"),
+            "data",
+            "een live bron of sturing is nog niet volledig bewezen",
+            readiness,
+            setup,
+            action,
+            dry_run,
+        )
+    if dry_run:
+        return _flow_stage(
+            "testmodus",
+            "data en sturing klaar; testmodus staat nog aan",
+            "control",
+            "de app simuleert nog en stuurt geen PowerStreams aan",
+            readiness,
+            setup,
+            action,
+            dry_run,
+        )
+    if action.get("can_execute"):
+        return _flow_stage(
+            "startbaar",
+            f"Advies: {action.get('summary') or 'pas beste scenario toe'}",
+            "control",
+            "er is een uitvoerbaar PowerStream-commando beschikbaar",
+            readiness,
+            setup,
+            action,
+            dry_run,
+        )
+    if not setup.get("ready_for_full_optimization"):
+        return _flow_stage(
+            "optimaliseren",
+            str(setup.get("next_step") or "optionele bron toevoegen"),
+            "setup",
+            "basis en sturing kunnen werken; deze stap verbetert de optimalisatie",
+            readiness,
+            setup,
+            action,
+            dry_run,
+        )
+    return _flow_stage(
+        "sturing klaar",
+        str(action.get("summary") or "geen actie nodig"),
+        "ready",
+        "basisinzicht en PowerStream-sturing zijn live klaar",
+        readiness,
+        setup,
+        action,
+        dry_run,
+    )
+
+
+def _flow_stage(
+    state: str,
+    summary: str,
+    category: str,
+    reason: str,
+    readiness: dict[str, Any],
+    setup: dict[str, Any],
+    action: dict[str, Any],
+    dry_run: bool,
+) -> dict[str, Any]:
+    return {
+        "state": state,
+        "summary": summary,
+        "category": category,
+        "reason": reason,
+        "dry_run": dry_run,
+        "setup_state": setup.get("state"),
+        "setup_progress": setup.get("progress"),
+        "ready_for_basic_insight": setup.get("ready_for_basic_insight"),
+        "ready_for_powerstream_control": setup.get("ready_for_powerstream_control"),
+        "ready_for_full_optimization": setup.get("ready_for_full_optimization"),
+        "readiness_status": readiness.get("status"),
+        "readiness_score": readiness.get("score"),
+        "insight_ready": readiness.get("insight_ready"),
+        "control_ready": readiness.get("control_ready"),
+        "next_step": readiness.get("next_step"),
+        "action_summary": action.get("summary"),
+        "can_execute": action.get("can_execute"),
+        "command_required": action.get("command_required"),
+        "blocked_by": action.get("blocked_by"),
+    }
+
+
+def _user_step(
+    state: str,
+    summary: str,
+    category: str,
+    reason: str,
+    setup: dict[str, Any],
+    readiness: dict[str, Any],
+    action: dict[str, Any],
+    choice: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "state": state,
+        "summary": summary,
+        "category": category,
+        "reason": reason,
+        "setup_state": setup.get("state"),
+        "setup_progress": setup.get("progress"),
+        "next_setup_step": setup.get("next_step"),
+        "ready_for_basic_insight": setup.get("ready_for_basic_insight"),
+        "ready_for_powerstream_control": setup.get("ready_for_powerstream_control"),
+        "ready_for_full_optimization": setup.get("ready_for_full_optimization"),
+        "readiness_status": readiness.get("status"),
+        "readiness_score": readiness.get("score"),
+        "readiness_next_step": readiness.get("next_step"),
+        "insight_ready": readiness.get("insight_ready"),
+        "control_ready": readiness.get("control_ready"),
+        "action_type": action.get("action_type"),
+        "action_summary": action.get("summary"),
+        "can_execute": action.get("can_execute"),
+        "command_required": action.get("command_required"),
+        "blocked_by": action.get("blocked_by"),
+        "choice_state": choice.get("state"),
+        "choice_summary": choice.get("summary"),
+    }
+
+
+def setup_state(settings: dict[str, Any], *, dry_run: bool = True) -> dict[str, Any]:
+    """Return minimal setup progress for the main dashboard."""
+    batteries = _configured_setup_items(settings, "batteries")
+    powerstreams = _configured_setup_items(settings, "powerstreams")
+    homewizard = _configured_setup_items(settings, "homewizard_meters")
+    sma = _configured_setup_items(settings, "sma_inverters")
+    solar_sources = homewizard + sma
+    price_source = settings.get("price_source") or DEFAULT_SETUP_PRICE_SOURCE
+    missing: list[str] = []
+    optional: list[str] = []
+    if not batteries:
+        missing.append("batterij toevoegen")
+    if not powerstreams:
+        optional.append("PowerStream toevoegen")
+    if not solar_sources:
+        optional.append("zonmeter toevoegen")
+    if not settings.get("weather_city"):
+        optional.append("weerstad instellen")
+    if missing:
+        state = "actie nodig"
+        next_step = missing[0]
+        next_step_kind = "verplicht"
+    elif optional:
+        state = "basis klaar"
+        next_step = optional[0]
+        next_step_kind = "aanbevolen"
+    else:
+        state = "compleet"
+        next_step = "basisconfiguratie compleet"
+        next_step_kind = "klaar"
+    required_done = 1 - len(missing)
+    optional_done = 3 - len(optional)
+    progress = round((required_done * 60 + optional_done * 13.33), 0)
+    ready_for_basic_insight = not missing
+    ready_for_powerstream_control = ready_for_basic_insight and bool(powerstreams)
+    ready_for_full_optimization = ready_for_basic_insight and not optional
+    if not ready_for_basic_insight:
+        current_capability = "nog geen basisinzicht"
+    elif not ready_for_powerstream_control:
+        current_capability = "basisinzicht beschikbaar"
+    elif not ready_for_full_optimization:
+        current_capability = "sturing beschikbaar"
+    else:
+        current_capability = "volledige optimalisatie beschikbaar"
+    return {
+        "state": state,
+        "next_step": next_step,
+        "next_step_kind": next_step_kind,
+        "summary": f"{state}: {next_step}",
+        "current_capability": current_capability,
+        "progress": max(0, min(100, int(progress))),
+        "ready_for_basic_insight": ready_for_basic_insight,
+        "ready_for_powerstream_control": ready_for_powerstream_control,
+        "ready_for_full_optimization": ready_for_full_optimization,
+        "basic_requirements": ["batterij"],
+        "control_requirements": ["PowerStream"],
+        "optimization_requirements": ["zonmeter", "weerstad"],
+        "required_done": required_done,
+        "required_total": 1,
+        "optional_done": optional_done,
+        "optional_total": 3,
+        "missing_required": missing,
+        "missing_optional": optional,
+        "configured_batteries": len(batteries),
+        "configured_powerstreams": len(powerstreams),
+        "configured_solar_sources": len(solar_sources),
+        "configured_homewizard_meters": len(homewizard),
+        "configured_sma_inverters": len(sma),
+        "price_source": price_source,
+        "price_source_defaulted": not bool(settings.get("price_source") or settings.get("price_url")),
+        "custom_price_url": bool(settings.get("price_url")),
+        "weather_city": settings.get("weather_city"),
+        "dry_run": dry_run,
+        "basis": "minimaal: batterij; prijsdata gebruikt standaard EnergyZero; optimaal: PowerStream, zonmeter en weerstad",
     }
 
 
@@ -229,6 +669,67 @@ def _check_solar(data: dict[str, Any], settings: dict[str, Any]) -> dict[str, An
     return _check("solar", "klaar", "netto opwek beschikbaar", details)
 
 
+def _check_p1_history(data: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
+    configured = [
+        item
+        for item in settings.get("homewizard_meters", [])
+        if item.get("role") == "grid_meter"
+    ]
+    details = {
+        "configured": len(configured),
+        "homeassistant_sources": len(
+            [item for item in configured if item.get("source") == "homeassistant"]
+        ),
+        "with_history": 0,
+        "missing_history": len(configured),
+        "periods_required": ["today", "week", "month"],
+    }
+    if not configured:
+        return _check("p1_history", "klaar", "geen P1/netmeter ingesteld", details)
+
+    if not any(item.get("source") == "homeassistant" for item in configured):
+        return _check(
+            "p1_history",
+            "gedeeltelijk",
+            "P1-historie vereist HomeWizard import via HA",
+            details,
+        )
+
+    meters = data.get("homewizard_meters") or {}
+    with_history = 0
+    missing: list[str] = []
+    incomplete: list[str] = []
+    for item in configured:
+        reading = _homewizard_reading(meters, item)
+        history = reading.get("history") if isinstance(reading, dict) else None
+        periods = (history or {}).get("periods") or {}
+        if not history or not history.get("available"):
+            missing.append(str(item.get("name") or item.get("host") or item.get("device_id")))
+            continue
+        missing_periods = [
+            period
+            for period in ("today", "week", "month")
+            if (periods.get(period) or {}).get("net_import_kwh") is None
+        ]
+        if missing_periods:
+            incomplete.append(
+                f"{item.get('name') or item.get('host') or item.get('device_id')}:"
+                f"{','.join(missing_periods)}"
+            )
+            continue
+        with_history += 1
+
+    details["with_history"] = with_history
+    details["missing_history"] = max(0, len(configured) - with_history)
+    details["missing"] = missing
+    details["incomplete"] = incomplete
+    if with_history == len(configured):
+        return _check("p1_history", "klaar", "P1-historie beschikbaar", details)
+    if missing:
+        return _check("p1_history", "gedeeltelijk", "P1-historie ontbreekt", details)
+    return _check("p1_history", "gedeeltelijk", "P1-historie onvolledig", details)
+
+
 def _check_weather(data: dict[str, Any]) -> dict[str, Any]:
     weather = data.get("weather") or {}
     details = {
@@ -305,6 +806,32 @@ def _configured_powerstream_data(
         for serial in configured_serials
         if isinstance((item := powerstreams.get(serial)), dict)
     }
+
+
+def _configured_setup_items(settings: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in settings.get(key, [])
+        if isinstance(item, dict)
+        and any(
+            item.get(field)
+            for field in ("serial", "host", "device_id", "device", "name")
+        )
+        and "VUL_HIER" not in str(item)
+    ]
+
+
+def _homewizard_reading(
+    readings: dict[str, Any], configured: dict[str, Any]
+) -> dict[str, Any]:
+    for key in (
+        configured.get("name"),
+        configured.get("host"),
+        configured.get("device_id"),
+    ):
+        if key and isinstance(readings.get(key), dict):
+            return readings[key]
+    return {}
 
 
 def _check(
@@ -385,6 +912,7 @@ def _next_step(items: list[dict[str, Any]]) -> str:
         "batteries": "controleer EcoFlow batterijdata",
         "powerstreams": "controleer PowerStream koppeling",
         "solar": "controleer netto opwekbron",
+        "p1_history": "controleer P1 historie",
         "weather": "controleer weerdata",
         "scenarios": "wacht op scenario-berekening",
     }

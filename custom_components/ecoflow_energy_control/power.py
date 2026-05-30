@@ -18,12 +18,12 @@ def normalize_powerstream_watts(value: float | None, max_watts: float) -> float:
     return round(normalized, 1)
 
 
-def normalize_homewizard_power_w(value: Any) -> float:
+def normalize_homewizard_power_w(value: Any, *, allow_deciwatts: bool = True) -> float:
     """Normalize HomeWizard values that arrive as deciwatts in some setups."""
     numeric = _to_float(value)
     if numeric is None:
         return 0.0
-    if abs(numeric) >= 2500 and abs(numeric / 10) <= 1500:
+    if allow_deciwatts and abs(numeric) >= 2500 and abs(numeric / 10) <= 1500:
         numeric = numeric / 10
     return round(numeric, 1)
 

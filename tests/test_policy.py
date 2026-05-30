@@ -148,6 +148,39 @@ class BestScenarioPolicyTest(unittest.TestCase):
             )
         )
 
+    def test_scenario_execution_state_explains_actionability(self) -> None:
+        executable = policy.scenario_execution_state(
+            {
+                "key": "trading",
+                "action": "terugleveren",
+                "eur_per_hour": 0.31,
+                "power_w": 600,
+                "input_warnings": [],
+            }
+        )
+        self.assertEqual(executable["state"], "uitvoerbaar")
+        self.assertEqual(executable["summary"], "terugleveren (600 W)")
+        self.assertTrue(executable["actionable"])
+
+        waiting = policy.scenario_execution_state(
+            {
+                "key": "self_use",
+                "action": "stand-by",
+                "eur_per_hour": 0,
+                "power_w": 0,
+                "reason": "geen bruikbare zonopwek",
+                "input_warnings": [],
+            }
+        )
+        self.assertEqual(waiting["state"], "wacht")
+        self.assertEqual(waiting["blocker"], "geen uitvoerbare actie")
+
+        missing_data = policy.scenario_execution_state(
+            {"input_warnings": ["accu-SoC onbekend"]}
+        )
+        self.assertEqual(missing_data["state"], "data nodig")
+        self.assertEqual(missing_data["blocker"], "accu-SoC onbekend")
+
 
 class ScenarioChoiceSummaryPolicyTest(unittest.TestCase):
     def test_choice_summary_shows_idle_strategy(self) -> None:
@@ -439,6 +472,20 @@ class NextDashboardActionPolicyTest(unittest.TestCase):
         self.assertEqual(standby["action_type"], "standby")
         self.assertFalse(standby["can_execute"])
         self.assertFalse(standby["command_required"])
+
+    def test_scenario_execution_hint_covers_visible_plan_prefixes(self) -> None:
+        cases = (
+            ({"can_execute": True, "action_type": "set_power"}, "kan sturen"),
+            ({"can_execute": False, "action_type": "test_mode"}, "testmodus"),
+            ({"can_execute": False, "action_type": "needs_data"}, "data nodig"),
+            ({"can_execute": False, "action_type": "idle"}, "scenario uit"),
+            ({"can_execute": False, "action_type": "wait"}, "wacht"),
+            ({"can_execute": False, "blocked_by": "gedeeltelijk"}, "blokkeert: gedeeltelijk"),
+            ({"can_execute": False, "action_type": "hold"}, "stand-by"),
+        )
+        for action, expected in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(policy.scenario_execution_hint(action), expected)
 
 
 class FlowSnapshotPolicyTest(unittest.TestCase):

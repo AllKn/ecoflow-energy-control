@@ -8,11 +8,15 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SENSORS = ROOT / "custom_components" / "ecoflow_energy_control" / "sensor.py"
+HEALTH = ROOT / "custom_components" / "ecoflow_energy_control" / "health.py"
+POLICY = ROOT / "custom_components" / "ecoflow_energy_control" / "policy.py"
 
 
 class SensorStaticTest(unittest.TestCase):
     def setUp(self) -> None:
         self.text = SENSORS.read_text(encoding="utf-8")
+        self.health_text = HEALTH.read_text(encoding="utf-8")
+        self.policy_text = POLICY.read_text(encoding="utf-8")
 
     def test_core_dashboard_sensors_have_discovery_roles(self) -> None:
         for role in (
@@ -21,6 +25,8 @@ class SensorStaticTest(unittest.TestCase):
             "price_expensive_band",
             "corrected_power",
             "grid_flow_state",
+            "grid_status",
+            "grid_power",
             "expected_savings",
             "weather_now",
             "weather_icon_summary",
@@ -31,14 +37,23 @@ class SensorStaticTest(unittest.TestCase):
             "execution_status",
             "last_action",
             "dashboard_overview",
+            "dashboard_energy_flow",
             "dashboard_setup",
+            "dashboard_setup_progress",
+            "dashboard_setup_advice",
             "dashboard_source_summary",
+            "dashboard_main_summary",
+            "dashboard_insight_state",
             "dashboard_ready_state",
             "dashboard_flow_snapshot",
             "dashboard_flow_phase",
             "dashboard_flow_summary",
+            "dashboard_control_verdict",
             "dashboard_value_rate",
+            "dashboard_scenario_overview",
+            "dashboard_scenario_plan",
             "dashboard_choice_state",
+            "dashboard_strategy_guide",
             "dashboard_start_state",
             "dashboard_auto_mode",
             "dashboard_execution_plan",
@@ -58,6 +73,22 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn("LEGACY_DASHBOARD_OBJECT_PREFIX", self.text)
         self.assertIn("_attr_suggested_object_id", self.text)
         self.assertIn("slugify(", self.text)
+
+    def test_homewizard_p1_grid_power_is_separate_from_solar_power(self) -> None:
+        self.assertIn("HomeWizardGridPowerSensor(coordinator)", self.text)
+        self.assertIn("HomeWizardGridStatusSensor(coordinator)", self.text)
+        self.assertIn("class HomeWizardGridPowerSensor", self.text)
+        self.assertIn("class HomeWizardGridStatusSensor", self.text)
+        self.assertIn('"eec_sensor_role": "grid_power"', self.text)
+        self.assertIn('"eec_sensor_role": "grid_status"', self.text)
+        self.assertIn("HOMEWIZARD_ROLE_GRID_METER", self.text)
+        self.assertIn("def _homewizard_grid_status", self.text)
+        self.assertIn('"P1 ok"', self.text)
+        self.assertIn('"P1 ontbreekt"', self.text)
+        self.assertIn('"corrected_grid_power"', self.text)
+        self.assertIn('"grid_power_w"', self.text)
+        self.assertIn('"verbruik van net"', self.text)
+        self.assertIn('"levering aan net"', self.text)
 
     def test_battery_fleet_exposes_storage_and_power_flow(self) -> None:
         self.assertIn("BatteryFleetFreeEnergySensor(coordinator)", self.text)
@@ -114,10 +145,15 @@ class SensorStaticTest(unittest.TestCase):
             "managed_battery_free_wh",
         ):
             with self.subTest(field=field):
-                self.assertIn(f'"{field}"', self.text)
+                self.assertIn(f'"{field}"', self.text + self.health_text)
 
     def test_scenario_reason_sensor_is_registered(self) -> None:
         self.assertIn("ScenarioReasonSensor(coordinator, scenario_key, label)", self.text)
+        self.assertIn("ScenarioExecutionSensor(coordinator, scenario_key, label)", self.text)
+        self.assertIn("class ScenarioExecutionSensor", self.text)
+        self.assertIn("scenario_execution_state(", self.text)
+        self.assertIn('_scenario_attrs(self.coordinator, self._scenario_key, "executable")', self.text)
+        self.assertIn('"blocker"', self.text + self.policy_text)
         self.assertIn('f"scenario_{sensor_role}"', self.text)
 
     def test_price_and_scenario_sensors_explain_decision_inputs(self) -> None:
@@ -132,7 +168,7 @@ class SensorStaticTest(unittest.TestCase):
             "input_warnings",
         ):
             with self.subTest(field=field):
-                self.assertIn(f'"{field}"', self.text)
+                self.assertIn(f'"{field}"', self.text + self.health_text)
 
     def test_weather_forecast_sensors_explain_horizon_context(self) -> None:
         self.assertIn("class WeatherSolarForecastSensor", self.text)
@@ -154,8 +190,12 @@ class SensorStaticTest(unittest.TestCase):
     def test_scenario_alignment_sensor_is_registered(self) -> None:
         self.assertIn("ScenarioAlignmentSensor(coordinator)", self.text)
         self.assertIn("ScenarioChoiceSummarySensor(coordinator)", self.text)
+        self.assertIn("StrategyGuideSensor(coordinator)", self.text)
         self.assertIn("class ScenarioChoiceSummarySensor", self.text)
+        self.assertIn("class StrategyGuideSensor", self.text)
         self.assertIn('"eec_sensor_role": "scenario_choice_summary"', self.text)
+        self.assertIn('"eec_sensor_role": "dashboard_strategy_guide"', self.text)
+        self.assertIn("def _strategy_guide", self.text)
         self.assertIn("def _scenario_choice_summary", self.text)
         self.assertIn("return scenario_choice_summary(", self.text)
         self.assertIn("def _selected_scenario_key", self.text)
@@ -164,12 +204,49 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn("selected_data,", self.text)
         self.assertIn("best,", self.text)
 
+    def test_control_verdict_combines_run_state_into_one_visible_sensor(self) -> None:
+        self.assertIn("FlowControlVerdictSensor(coordinator)", self.text)
+        self.assertIn("class FlowControlVerdictSensor", self.text)
+        self.assertIn('"eec_sensor_role": "dashboard_control_verdict"', self.text)
+        self.assertIn("def _control_verdict", self.text)
+        for field in (
+            "can_execute",
+            "command_required",
+            "next_command",
+            "blocked_by",
+            "test_mode",
+            "choice_summary",
+            "start_reason",
+            "confidence_score",
+            "command_guard",
+            "command_min_interval_seconds",
+            "command_throttled_count",
+            "command_first_throttled_seconds",
+            "command_error_count",
+            "command_first_error_message",
+        ):
+            with self.subTest(field=field):
+                self.assertIn(f'"{field}"', self.text)
+        self.assertIn("def _command_guard_summary", self.text)
+        self.assertIn("POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS", self.text)
+        self.assertIn("wacht op {name}", self.text)
+        self.assertIn("return \"vrij\"", self.text)
+        for state in (
+            "mag sturen",
+            "testmodus",
+            "blokkeert",
+            "wijkt af",
+        ):
+            with self.subTest(state=state):
+                self.assertIn(f'"{state}"', self.text)
+
     def test_dashboard_check_sensors_are_registered(self) -> None:
         for key in (
             "prices",
             "batteries",
             "powerstreams",
             "solar",
+            "p1_history",
             "weather",
             "scenarios",
             "execution",
@@ -193,13 +270,36 @@ class SensorStaticTest(unittest.TestCase):
     def test_dashboard_overview_summarizes_core_counts(self) -> None:
         self.assertIn("class DashboardOverviewSensor", self.text)
         self.assertIn("DashboardSetupSensor(coordinator)", self.text)
+        self.assertIn("DashboardSetupProgressSensor(coordinator)", self.text)
+        self.assertIn("DashboardSetupAdviceSensor(coordinator)", self.text)
+        self.assertIn("DashboardInsightStateSensor(coordinator)", self.text)
         self.assertIn("class DashboardSetupSensor", self.text)
+        self.assertIn('setup.get("current_capability") or setup.get("state")', self.text)
+        self.assertIn("class DashboardSetupProgressSensor", self.text)
+        self.assertIn("class DashboardSetupAdviceSensor", self.text)
+        self.assertIn("class DashboardInsightStateSensor", self.text)
         self.assertIn('"eec_sensor_role": "dashboard_setup"', self.text)
+        self.assertIn('"eec_sensor_role": "dashboard_setup_progress"', self.text)
+        self.assertIn('"eec_sensor_role": "dashboard_setup_advice"', self.text)
+        self.assertIn('"eec_sensor_role": "dashboard_insight_state"', self.text)
         self.assertIn("def _setup_state", self.text)
+        self.assertIn("def _simple_flow_stage", self.text)
+        self.assertIn("simple_flow_stage(", self.text + self.health_text)
+        self.assertIn("def _setup_advice", self.text)
+        self.assertIn('"basis klaar": "mdi:lightbulb-on"', self.text)
+        self.assertIn("return setup_state(settings, dry_run=coordinator.dry_run)", self.text)
         self.assertIn("DashboardSourceSummarySensor(coordinator)", self.text)
         self.assertIn("class DashboardSourceSummarySensor", self.text)
         self.assertIn('"eec_sensor_role": "dashboard_source_summary"', self.text)
         self.assertIn("source_summary(readiness)", self.text)
+        self.assertIn("def _source_label", self.health_text)
+        self.assertIn('"prices": "prijzen"', self.health_text)
+        self.assertIn('"weather": "weer"', self.health_text)
+        self.assertIn("next_user_step(", self.text + self.health_text)
+        self.assertIn("def _dashboard_next_user_step", self.text)
+        self.assertIn("_dashboard_next_user_step(self.coordinator)", self.text)
+        self.assertIn("live_proof=_live_proof(coordinator)", self.text)
+        self.assertIn("live_proof: dict[str, Any] | None = None", self.health_text)
         for field in (
             "configured_batteries",
             "batteries_with_data",
@@ -214,12 +314,54 @@ class SensorStaticTest(unittest.TestCase):
             "missing_optional",
             "configured_solar_sources",
             "price_source",
+            "price_source_defaulted",
+            "price_source_note",
+            "setup_price_source",
+            "setup_price_source_defaulted",
+            "setup_price_note",
             "custom_price_url",
+            "progress",
+            "required_done",
+            "optional_done",
+            "next_step_kind",
+            "current_capability",
+            "ready_for_basic_insight",
+            "ready_for_powerstream_control",
+            "ready_for_full_optimization",
+            "basic_requirements",
+            "control_requirements",
+            "optimization_requirements",
+            "insight_ready",
+            "insight_status",
+            "insight_next_step",
+            "insight_checks",
+            "control_ready",
+            "category",
+            "reason",
+            "can_execute",
+            "choice_state",
+            "action_summary",
+            "command_required",
+            "blocked_by",
         ):
             with self.subTest(field=field):
-                self.assertIn(f'"{field}"', self.text)
+                self.assertIn(f'"{field}"', self.text + self.health_text)
         self.assertIn("accu SoC", self.text)
-        self.assertIn("minimaal: batterij en prijsbron", self.text)
+        self.assertIn("basisinzicht vereist alleen prijsdata en batterij-SoC", self.text)
+        self.assertIn("minimaal: batterij; prijsdata gebruikt standaard EnergyZero", self.text + self.health_text)
+        self.assertIn("EnergyZero standaard", self.text)
+        self.assertIn("basisinzicht werkt; PowerStream is alleen nodig voor sturing", self.text)
+        self.assertIn("eerst basisinzicht, daarna PowerStream-sturing", self.text)
+        for state in (
+            "basis nodig",
+            "inzicht klaar",
+            "sturing beperkt",
+            "testmodus",
+            "startbaar",
+            "sturing klaar",
+        ):
+            with self.subTest(state=state):
+                self.assertIn(f'"{state}"', self.text + self.health_text)
 
     def test_overview_and_fleet_only_count_configured_devices(self) -> None:
         self.assertIn("for serial, name in configured.items():", self.text)
@@ -237,6 +379,15 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn("FlowPhaseSensor(coordinator)", self.text)
         self.assertIn("class FlowSnapshotSensor", self.text)
         self.assertIn("class FlowPhaseSensor", self.text)
+        self.assertIn('readiness.get("insight_ready")', self.text)
+        self.assertIn('readiness.get("control_ready")', self.text)
+        self.assertIn("sources = source_summary(readiness)", self.text)
+        self.assertIn('f"sturing klaar: {best_label}: {best_action};', self.text)
+        self.assertIn('f"basis klaar: {best_label}: {best_action};', self.text)
+        self.assertIn('f"{price_context}; aandacht: {source_hint}"', self.text)
+        self.assertIn('"first_issue_label": sources.get("first_issue_label")', self.text)
+        self.assertIn('"insight_ready": readiness.get("insight_ready")', self.text)
+        self.assertIn('"control_ready": readiness.get("control_ready")', self.text)
         self.assertIn("FlowReadySensor(coordinator)", self.text)
         self.assertIn("class FlowReadySensor", self.text)
         self.assertIn('"eec_sensor_role": "dashboard_ready_state"', self.text)
@@ -248,6 +399,8 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn('"eec_sensor_role": "dashboard_best_power"', self.text)
         self.assertIn('"eec_sensor_role": "dashboard_best_day_value"', self.text)
         self.assertIn('"eec_sensor_role": "dashboard_best_period_value"', self.text)
+        self.assertIn('"eec_sensor_role": "dashboard_scenario_overview"', self.text)
+        self.assertIn('"eec_sensor_role": "dashboard_scenario_plan"', self.text)
         self.assertIn('"eec_sensor_role": "dashboard_scenario_input"', self.text)
         self.assertIn('"eec_sensor_role": "dashboard_confidence_score"', self.text)
         self.assertIn('"eec_sensor_role": "dashboard_confidence_reason"', self.text)
@@ -257,6 +410,8 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn("FlowBestPowerSensor(coordinator)", self.text)
         self.assertIn("FlowBestDayValueSensor(coordinator)", self.text)
         self.assertIn("FlowBestPeriodValueSensor(coordinator)", self.text)
+        self.assertIn("FlowScenarioOverviewSensor(coordinator)", self.text)
+        self.assertIn("FlowScenarioPlanSensor(coordinator)", self.text)
         self.assertIn("FlowScenarioInputSensor(coordinator)", self.text)
         self.assertIn("FlowConfidenceScoreSensor(coordinator)", self.text)
         self.assertIn("FlowConfidenceReasonSensor(coordinator)", self.text)
@@ -266,7 +421,29 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn("class FlowBestPowerSensor", self.text)
         self.assertIn("class FlowBestDayValueSensor", self.text)
         self.assertIn("class FlowBestPeriodValueSensor", self.text)
+        self.assertIn("class FlowScenarioOverviewSensor", self.text)
+        self.assertIn("class FlowScenarioPlanSensor", self.text)
         self.assertIn("class FlowScenarioInputSensor", self.text)
+        self.assertIn("def _scenario_overview", self.text)
+        self.assertIn("def _scenario_plan_summary", self.text)
+        self.assertIn("scenario_execution_hint(action_state)", self.text)
+        self.assertIn("def _state_text", self.text)
+        self.assertIn("scenario_execution_state(best)", self.text)
+        self.assertIn('"selected_plan"', self.text)
+        self.assertIn('"best_plan"', self.text)
+        self.assertIn('"plan_summary"', self.text)
+        self.assertIn('"execution_blocker"', self.text)
+        self.assertIn('"execution_hint": overview.get("execution_hint")', self.text)
+        self.assertIn('"blocked_by": overview.get("blocked_by")', self.text)
+        self.assertIn('return "kan sturen"', self.policy_text)
+        self.assertIn('return "testmodus"', self.policy_text)
+        self.assertIn('return "data nodig"', self.policy_text)
+        self.assertIn('"execution_summary"', self.text)
+        self.assertIn('"choice_summary"', self.text)
+        self.assertIn('"delta_eur_per_hour"', self.text)
+        self.assertIn("overview.get(\"execution_state\") != \"uitvoerbaar\"", self.text)
+        self.assertIn('"selected_reason"', self.text)
+        self.assertIn("beste scenario, gekozen scenario en uitvoerbaarheid", self.text)
         self.assertIn("class FlowConfidenceScoreSensor", self.text)
         self.assertIn("class FlowConfidenceReasonSensor", self.text)
         self.assertIn("class FlowChoiceDeltaSensor", self.text)
@@ -274,6 +451,25 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn('"delta_eur_per_hour"', self.text)
         self.assertIn("positief betekent gemiste waarde", self.text)
         self.assertIn('"best_week_eur"', self.text)
+
+    def test_dashboard_energy_flow_summarizes_input_output_and_storage(self) -> None:
+        self.assertIn("DashboardEnergyFlowSensor(coordinator)", self.text)
+        self.assertIn("class DashboardEnergyFlowSensor", self.text)
+        self.assertIn('"eec_sensor_role": "dashboard_energy_flow"', self.text)
+        self.assertIn("def _energy_flow_summary", self.text)
+        for field in (
+            "grid_power_w",
+            "solar_net_w",
+            "powerstream_export_w",
+            "battery_soc",
+            "battery_available_kwh",
+            "battery_charge_w",
+            "battery_discharge_w",
+            "battery_net_w",
+            "batteries",
+        ):
+            with self.subTest(field=field):
+                self.assertIn(f'"{field}"', self.text)
         self.assertIn('"best_month_eur"', self.text)
         self.assertIn("geschat effect van het huidige beste scenario", self.text)
         self.assertIn("def _flow_snapshot", self.text)
@@ -332,14 +528,21 @@ class SensorStaticTest(unittest.TestCase):
     def test_live_proof_sensor_summarizes_runtime_evidence(self) -> None:
         self.assertIn("DashboardLiveProofSensor(coordinator)", self.text)
         self.assertIn("class DashboardLiveProofSensor", self.text)
+        self.assertIn("DashboardLiveValidationSensor(coordinator)", self.text)
+        self.assertIn("class DashboardLiveValidationSensor", self.text)
         self.assertIn("DashboardProblemSensor(coordinator)", self.text)
         self.assertIn("class DashboardProblemSensor", self.text)
+        self.assertIn('super().__init__(coordinator, "dashboard_problem", "aandacht")', self.text)
         self.assertIn('"eec_sensor_role": "dashboard_problem"', self.text)
         self.assertIn("def _dashboard_problem", self.text)
+        self.assertIn('"summary": "alles ok"', self.text)
+        self.assertNotIn('"summary": "geen probleem"', self.text)
         self.assertIn("def _dashboard_check_label", self.text)
         self.assertIn('"severity"', self.text)
         self.assertIn('"blokkeert"', self.text)
+        self.assertIn('"optimalisatie"', self.text)
         self.assertIn('"let op"', self.text)
+        self.assertIn('readiness.get("insight_ready")', self.text)
         for label in (
             "prijzen",
             "batterijen",
@@ -351,12 +554,16 @@ class SensorStaticTest(unittest.TestCase):
             with self.subTest(label=label):
                 self.assertIn(label, self.text)
         self.assertIn('"eec_sensor_role": "dashboard_live_proof"', self.text)
+        self.assertIn('"eec_sensor_role": "dashboard_live_validation"', self.text)
         self.assertIn("def _live_proof", self.text)
+        self.assertIn("def _live_validation", self.text)
         for field in (
             "ready_sources",
             "warning_sources",
             "blocking_sources",
             "total_sources",
+            "insight_ready",
+            "control_ready",
             "data_ready",
             "data_ready_sources",
             "data_total_sources",
@@ -367,12 +574,30 @@ class SensorStaticTest(unittest.TestCase):
             "proved_keys",
             "warning_keys",
             "blocking_keys",
+            "first_missing_key",
+            "first_missing_status",
+            "first_missing_message",
+            "first_missing_label",
             "source_statuses",
             "source_messages",
         ):
             with self.subTest(field=field):
                 self.assertIn(f'"{field}"', self.text)
+        self.assertIn("live_missing_summary(proof, readiness.get(\"next_step\"))", self.text)
+        self.assertIn("def live_missing_summary", self.health_text)
         self.assertIn("sturing {proof['execution_status']}", self.text)
+        for state in (
+            "live klaar",
+            "basis live",
+            "testmodus",
+            "sturing beperkt",
+            "optimalisatie beperkt",
+            "data nodig",
+            "actie nodig",
+            "geen bewijs",
+        ):
+            with self.subTest(state=state):
+                self.assertIn(f'"{state}"', self.text)
 
     def test_decision_context_explains_why_advice_was_chosen(self) -> None:
         self.assertIn("DecisionContextSensor(coordinator)", self.text)
@@ -389,6 +614,30 @@ class SensorStaticTest(unittest.TestCase):
             "free_kwh",
             "best_action",
             "best_actionable",
+        ):
+            with self.subTest(field=field):
+                self.assertIn(f'"{field}"', self.text)
+
+    def test_main_summary_combines_core_dashboard_context(self) -> None:
+        self.assertIn("DashboardMainSummarySensor(coordinator)", self.text)
+        self.assertIn("class DashboardMainSummarySensor", self.text)
+        self.assertIn('super().__init__(coordinator, "dashboard_main_summary", "main")', self.text)
+        self.assertIn('"eec_sensor_role": "dashboard_main_summary"', self.text)
+        self.assertIn("def _main_summary", self.text)
+        self.assertIn("_dashboard_next_user_step(coordinator)", self.text)
+        self.assertIn("_flow_snapshot(coordinator)", self.text)
+        self.assertIn("_live_validation(coordinator)", self.text)
+        self.assertIn("_next_dashboard_action(coordinator)", self.text)
+        for field in (
+            "step",
+            "energy",
+            "battery",
+            "price",
+            "scenario",
+            "proof",
+            "powerstream_export_w",
+            "corrected_solar_power",
+            "can_execute",
         ):
             with self.subTest(field=field):
                 self.assertIn(f'"{field}"', self.text)
@@ -459,6 +708,8 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn("next_dashboard_action(", self.text)
         self.assertIn("def _next_dashboard_action", self.text)
         self.assertIn("dashboard_readiness(coordinator.data or {}", self.text)
+        self.assertIn("return scenario_execution_hint(action)", self.text)
+        self.assertIn('"execution_hint": scenario_execution_hint(action)', self.text)
         for state in (
             "kan sturen",
             "data nodig",

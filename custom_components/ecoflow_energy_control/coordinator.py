@@ -13,7 +13,11 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .api.ecoflow import EcoFlowApiError, EcoFlowCloudClient, render_template_dict
-from .api.homewizard import read_homewizard_ha_meter, read_homewizard_meter
+from .api.homewizard import (
+    read_homewizard_ha_history,
+    read_homewizard_ha_meter,
+    read_homewizard_meter,
+)
 from .api.prices import (
     current_price,
     energyzero_url,
@@ -58,6 +62,8 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_WEATHER_CITY,
     DOMAIN,
+    HOMEWIZARD_ROLE_GRID_METER,
+    HOMEWIZARD_ROLE_SOLAR_TOTAL,
     POWERSTREAM_STRATEGY_BUFFER_50,
     POWERSTREAM_STRATEGY_MIN_INTERVAL_SECONDS,
     POWERSTREAM_STRATEGY_SELF_USE,
@@ -297,6 +303,8 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         homewizard_meters = {}
         homewizard_solar_power = 0.0
         homewizard_phase_power = {"l1": 0.0, "l2": 0.0, "l3": 0.0}
+        homewizard_grid_power: float | None = None
+        homewizard_grid_phase_power = {"l1": 0.0, "l2": 0.0, "l3": 0.0}
         for item in settings.get(CONF_HOMEWIZARD_METERS, []):
             source_id = item.get("host") or item.get("device_id")
             if not source_id:
@@ -304,11 +312,15 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             try:
                 if item.get("source") == "homeassistant":
                     reading = read_homewizard_ha_meter(self.hass, item)
+                    if reading.get("role") == HOMEWIZARD_ROLE_GRID_METER:
+                        reading["history"] = await read_homewizard_ha_history(
+                            self.hass, item
+                        )
                 else:
                     reading = await read_homewizard_meter(self.session, item)
                 name = item.get("name", source_id)
                 homewizard_meters[name] = reading
-                if reading.get("role") == "solar_total":
+                if reading.get("role") == HOMEWIZARD_ROLE_SOLAR_TOTAL:
                     active_power = normalize_homewizard_power_w(
                         reading.get("active_power_w")
                     )
@@ -317,6 +329,20 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         homewizard_phase_power[phase] += abs(
                             normalize_homewizard_power_w(watts)
                         )
+                elif reading.get("role") == HOMEWIZARD_ROLE_GRID_METER:
+                    active_power = normalize_homewizard_power_w(
+                        reading.get("active_power_w"), allow_deciwatts=False
+                    )
+                    if active_power is not None:
+                        homewizard_grid_power = (
+                            (homewizard_grid_power or 0.0) + active_power
+                        )
+                    for phase, watts in reading.get("phase_power_w", {}).items():
+                        normalized = normalize_homewizard_power_w(
+                            watts, allow_deciwatts=False
+                        )
+                        if normalized is not None:
+                            homewizard_grid_phase_power[phase] += normalized
             except Exception as err:  # noqa: BLE001
                 errors[f"homewizard_{source_id}"] = str(err)
                 homewizard_meters[item.get("name", source_id)] = {
@@ -333,6 +359,8 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             - self._tracked_powerstream_export(phase, powerstreams=powerstreams)
             for phase, watts in homewizard_phase_power.items()
         }
+        corrected_grid_power = homewizard_grid_power
+        corrected_grid_phase_power = dict(homewizard_grid_phase_power)
         effective_solar_power = corrected_homewizard_solar if homewizard_meters else solar_power
         for serial, item in powerstreams.items():
             strategy = self.powerstream_strategies.get(serial, POWERSTREAM_STRATEGY_SELF_USE)
@@ -362,6 +390,8 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             - self._tracked_powerstream_export(phase, powerstreams=powerstreams)
             for phase, watts in homewizard_phase_power.items()
         }
+        corrected_grid_power = homewizard_grid_power
+        corrected_grid_phase_power = dict(homewizard_grid_phase_power)
         effective_solar_power = corrected_homewizard_solar if homewizard_meters else solar_power
         scenarios = self._simulate_scenarios(
             settings,
@@ -386,6 +416,9 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "powerstream_export_w": powerstream_export,
             "corrected_solar_power": effective_solar_power,
             "corrected_phase_power": corrected_phase_power,
+            "homewizard_grid_power": homewizard_grid_power,
+            "corrected_grid_power": corrected_grid_power,
+            "corrected_grid_phase_power": corrected_grid_phase_power,
             "weather": weather,
             "expected_savings_eur": _expected_savings(price_now, weather),
             "scenarios": scenarios,

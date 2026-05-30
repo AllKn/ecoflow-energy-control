@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "EEC app",
-        "description": "Verbind EcoFlow Cloud. Prijzen, weer en testmodus worden automatisch ingesteld en kun je later aanpassen.",
+        "description": "Vul alleen je EcoFlow Cloud API keys in. Prijzen, weer, testmodus en apparaten stel je daarna via Configureren in.",
         "data": {
           "name": "Vriendelijke naam",
           "access_key": "EcoFlow access key",
@@ -28,16 +28,16 @@
       "invalid_json": "Een van de JSON-velden is ongeldig.",
       "cannot_connect": "De verbinding kon niet worden gecontroleerd. Controleer de API-gegevens, het serienummer, device id of IP-adres.",
       "ecoflow_auth_failed": "De EcoFlow API-sleutels konden niet worden gevalideerd. Controleer access key, secret key en de regio-host.",
-      "no_importable_devices": "Er zijn geen nieuwe EcoFlow apparaten gevonden om te importeren."
+      "no_importable_devices": "Er zijn geen nieuwe apparaten gevonden om te importeren."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "EEC app opties",
+        "title": "EEC app configureren - begin met apparaten",
         "menu_options": {
           "import_ecoflow": "EcoFlow apparaten importeren",
-          "import_homewizard": "HomeWizard importeren",
+          "import_homewizard": "HomeWizard uit Home Assistant importeren",
           "add_device": "Handmatig toevoegen",
           "edit_device": "Apparaat wijzigen",
           "remove_device": "Apparaat verwijderen",
@@ -60,6 +60,10 @@
       "import_ecoflow": {
         "title": "EcoFlow apparaten importeren",
         "description": "De app haalt apparaten uit de EcoFlow Cloud op. Kies daarna per apparaat het juiste type."
+      },
+      "import_homewizard": {
+        "title": "HomeWizard uit Home Assistant importeren",
+        "description": "Gebruik bestaande Home Assistant HomeWizard-apparaten als P1/netmeter of opwekbron. Er is geen extra lokale meterconfiguratie nodig."
       },
       "import_ecoflow_configure": {
         "title": "EcoFlow apparaat instellen",
@@ -106,7 +110,12 @@
         "title": "SMA omvormer toevoegen"
       },
       "device_homewizard": {
-        "title": "HomeWizard meter toevoegen"
+        "title": "HomeWizard meter toevoegen",
+        "data": {
+          "name": "Vriendelijke naam",
+          "host": "IP-adres of hostnaam",
+          "role": "Gebruik als"
+        }
       },
       "device_smart_plug": {
         "title": "Smart Plug toevoegen"
@@ -128,7 +137,12 @@
         "title": "SMA omvormer wijzigen"
       },
       "edit_homewizard_meters": {
-        "title": "HomeWizard meter wijzigen"
+        "title": "HomeWizard meter wijzigen",
+        "data": {
+          "name": "Vriendelijke naam",
+          "host": "IP-adres of hostnaam",
+          "role": "Gebruik als"
+        }
       },
       "edit_smart_plugs": {
         "title": "Smart Plug wijzigen"

@@ -29,6 +29,16 @@ class PowerNormalizationTest(unittest.TestCase):
         self.assertEqual(power.normalize_homewizard_power_w(-6000), -600.0)
         self.assertEqual(power.normalize_homewizard_power_w(600), 600.0)
 
+    def test_homewizard_p1_values_are_not_divided_by_ten(self) -> None:
+        self.assertEqual(
+            power.normalize_homewizard_power_w(8500, allow_deciwatts=False),
+            8500.0,
+        )
+        self.assertEqual(
+            power.normalize_homewizard_power_w(-3200, allow_deciwatts=False),
+            -3200.0,
+        )
+
     def test_battery_live_deciwatts_are_normalized(self) -> None:
         self.assertEqual(power.normalize_live_power_w(5900), 590.0)
         self.assertEqual(power.normalize_live_power_w("5900"), 590.0)

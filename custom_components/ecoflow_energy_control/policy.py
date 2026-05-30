@@ -181,6 +181,40 @@ def scenario_is_actionable(scenario: dict[str, Any]) -> bool:
     return True
 
 
+def scenario_execution_state(scenario: dict[str, Any]) -> dict[str, Any]:
+    """Return a readable execution verdict for a scenario."""
+    if not scenario:
+        return {
+            "state": "wacht",
+            "summary": "wacht op scenario-data",
+            "blocker": "scenario-data ontbreekt",
+            "actionable": False,
+        }
+    warnings = scenario.get("input_warnings") or []
+    if warnings:
+        return {
+            "state": "data nodig",
+            "summary": f"data nodig: {warnings[0]}",
+            "blocker": warnings[0],
+            "actionable": False,
+        }
+    if scenario_is_actionable(scenario):
+        action = scenario.get("action") or "actie"
+        power = _as_float(scenario.get("power_w")) or 0
+        return {
+            "state": "uitvoerbaar",
+            "summary": f"{action} ({power:.0f} W)",
+            "blocker": None,
+            "actionable": True,
+        }
+    return {
+        "state": "wacht",
+        "summary": scenario.get("reason") or "geen actie nodig",
+        "blocker": "geen uitvoerbare actie",
+        "actionable": False,
+    }
+
+
 def scenario_choice_summary(
     selected_strategy: str,
     selected_key: str | None,
@@ -441,6 +475,24 @@ def flow_ready_state(
         "icon": icon,
         "best_actionable": actionable,
     }
+
+
+def scenario_execution_hint(action: dict[str, Any]) -> str:
+    """Summarize whether a visible scenario plan can be executed now."""
+    if action.get("can_execute"):
+        return "kan sturen"
+    action_type = action.get("action_type")
+    if action_type == "test_mode":
+        return "testmodus"
+    if action_type == "needs_data":
+        return "data nodig"
+    if action_type == "idle":
+        return "scenario uit"
+    if action_type in {"wait", "none", "standby"}:
+        return "wacht"
+    if action.get("blocked_by"):
+        return f"blokkeert: {action.get('blocked_by')}"
+    return "stand-by"
 
 
 def _next_action_attrs(

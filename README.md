@@ -2,6 +2,8 @@
 
 Lokale Home Assistant-integratie voor EcoFlow opslag, PowerStream-sturing, EnergyZero/spotprijzen, HomeWizard-opwekmeting en eenvoudige diagnose per toegevoegd apparaat.
 
+De eerste installatie vraagt alleen om je EcoFlow access key en secret key. De app gebruikt daarna veilige defaults voor prijsbron, Quatt-opslag, weerstad en testmodus; apparaten importeer je daarna via **Configureren**.
+
 ## Kernfuncties
 
 - EcoFlow apparaten ophalen via de EcoFlow Cloud API device-list.
@@ -38,7 +40,7 @@ Instellingen > Apparaten & diensten > EEC app > Configureren
 Beschikbare acties:
 
 - **EcoFlow apparaten importeren**: haalt apparaten op uit de EcoFlow API en laat je het type kiezen.
-- **HomeWizard importeren**: gebruikt bestaande HomeWizard-apparaten uit Home Assistant als opwekbron.
+- **HomeWizard uit Home Assistant importeren**: gebruikt bestaande HomeWizard-apparaten uit Home Assistant als P1/netmeter of opwekbron, zonder extra lokale meterconfiguratie.
 - **Handmatig toevoegen**: alleen nodig als importeren niet lukt.
 - **Apparaat wijzigen**: bestaande configuratie aanpassen.
 - **Apparaat verwijderen**: apparaat uit deze integratie verwijderen.
@@ -105,14 +107,23 @@ dashboards/ecoflow-energy-control.yaml
 
 Gebruik dit dashboard als hoofdscherm. Het combineert de volledige flow: actuele status, accu-inhoud, PowerStream-sturing, strategieadvies, prijzen, netto opwek, weer en diagnose. De kaarten zoeken apparaten dynamisch op via EEC-attributen, zodat hardcoded device-namen zoals `Delta Pro` of `PowerStream 1` niet meer nodig zijn.
 
+Voor normaal gebruik heb je alleen dit dashboard nodig. De andere dashboards zijn bewust detail- en testweergaven voor diagnose, ontwikkeling of vergelijking.
+
 Voor live validatie na een update kijk je bovenaan naar:
 
-- **Flow**: laat zien of de app klaar is, wat de volgende stap is en of het advies gestart kan worden.
+- **Flow**: laat zien of je alleen basisinzicht hebt, of sturing klaar is, of live bewijs voldoende is, wat de volgende stap is en of het advies gestart kan worden.
 - **Basis**: toont de kernmetingen waarop de keuze rust: netto W, prijs, accu, kWh, teruglevering en zonwaarde.
-- **Scenario - nu**: toont het actuele beste scenario, de match met je keuze en de verwachte EUR/uur.
-- **Gereedheid > Probleem**: toont de eerste blokkade of waarschuwing die aandacht nodig heeft.
-- **Gereedheid > Bewijs**: scheidt databewijs van stuur-bewijs, bijvoorbeeld `6/6 data, sturing gedeeltelijk`.
-- **Datacheck**: toont de details per bron als `Probleem` of `Bewijs` niet volledig klaar is.
+- **Scenario - nu**: toont het actuele beste scenario, wat jouw gekozen scenario doet, de match met je keuze en de verwachte EUR/uur.
+- **Controle > Aandacht**: toont de eerste blokkade, optimalisatie of waarschuwing die aandacht nodig heeft.
+- **Controle > Bewijs**: scheidt databewijs van stuur-bewijs, bijvoorbeeld `6/6 data, sturing gedeeltelijk`.
+- **Datacheck**: toont de details per bron als `Aandacht` of `Bewijs` niet volledig klaar is.
+- **Flow > Advies** is de normale bediening; **Scenario hulp** is naslag en **Handmatig - tools** is alleen voor diagnose of bewust testen.
+
+De volledige checklist staat in:
+
+```text
+docs/live-validatie.md
+```
 
 Optionele detail- en testdashboards staan in:
 
@@ -120,18 +131,30 @@ Optionele detail- en testdashboards staan in:
 dashboards/ecoflow-energy-powerstreams.yaml
 dashboards/ecoflow-energy-app-style.yaml
 dashboards/ecoflow-energy-scenarios.yaml
+dashboards/frontend-requirements.yaml
 ```
+
+Aanvullende documentatie:
+
+```text
+docs/ontwikkeling.md
+docs/live-validatie.md
+docs/eec-app-ontwikkeling.pptx
+docs/presentation-src/
+```
+
+`docs/ontwikkeling.md` beschrijft de belangrijkste iteraties als gebruikersnaslag. De presentatie vat dezelfde ontwikkeling kort samen en wordt bij functionele iteraties mee bijgewerkt.
 
 Benodigde frontend-kaarten via HACS:
 
 - `auto-entities`
 - `apexcharts-card`
 
-Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijsten of prijsgrafiek niet weergegeven.
+Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief HACS-repository en effect als de kaart ontbreekt. Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijsten of prijsgrafiek niet weergegeven.
 
 ## Huidige Versie
 
-`0.5.169`
+`0.5.249`
 
 ## EcoFlow Signing
 
@@ -213,7 +236,7 @@ Versie `0.5.39` corrigeert de gereedheidskaart naar een echte grid met losse kaa
 
 Versie `0.5.40` voegt packaging-tests toe voor HACS/Home Assistant updates. De tests bewaken dat `manifest.json`, `APP_VERSION` en de README-versie gelijk blijven en dat de HACS-domainstructuur naar de juiste integratiemap wijst.
 
-Versie `0.5.41` vereenvoudigt de eerste installatiestap. Bij toevoegen van de integratie hoef je alleen naam, EcoFlow access key en secret key in te vullen; prijsbron, Quatt-opslag, weerstad, testmodus en andere defaults worden automatisch gezet en blijven later aanpasbaar via Configureren.
+Versie `0.5.41` vereenvoudigt de eerste installatiestap. Bij toevoegen van de integratie hoef je alleen EcoFlow access key en secret key in te vullen; prijsbron, Quatt-opslag, weerstad, testmodus en andere defaults worden automatisch gezet en blijven later aanpasbaar via Configureren.
 
 Versie `0.5.42` maakt strategie-keuzes leesbaar in het dashboard. Selecties tonen nu labels zoals `Eigen gebruik`, `Terugleveren`, `Handelen` en `Uit`, terwijl bestaande interne strategiecodes nog steeds worden geaccepteerd.
 
@@ -470,3 +493,163 @@ Versie `0.5.167` zet de automatische stuurstatus direct in de bovenste `Flow`-ka
 Versie `0.5.168` ruimt het detailblok `Advies` op. `Flow` en `Auto` staan alleen nog bovenaan in de primaire flow, waardoor het adviesdetail minder dubbele regels bevat en sneller te scannen is.
 
 Versie `0.5.169` maakt apparaatnamen en stroomflow rustiger. EcoFlow, PowerStream en HomeWizard entiteiten gebruiken nu de ingestelde vriendelijke apparaatnaam als device-label en korte rolteksten als entiteit. Automatische PowerStream-strategiecommando's worden maximaal eens per 10 minuten verstuurd. Het hoofd-dashboard toont daarnaast totale accu-in/uit/netto waarden en een leesbare netrichting: `verbruik van net` of `levering aan net`.
+
+Versie `0.5.170` splitst HomeWizard-opwek en HomeWizard P1/netmeter. Bij toevoegen of importeren kun je nu kiezen tussen `Totale opwekking` en `P1/netmeter`. P1-waarden worden niet meer door de factor-10 bescherming gedeeld, zodat verbruik zoals 8 kW ook als 8 kW zichtbaar blijft. Het dashboard toont hiervoor `P1 W` en gebruikt die waarde voor `verbruik van net` of `levering aan net`.
+
+Versie `0.5.171` maakt de P1-status expliciet zichtbaar. Het hoofd-dashboard toont nu naast `Net` en `P1 W` ook een korte `P1` tegel met `P1 ok`, `P1 wacht` of `P1 ontbreekt`, zodat direct duidelijk is of de netmeter goed is gekoppeld.
+
+Versie `0.5.172` voegt P1-historie toe via Home Assistant statistics voor geimporteerde HomeWizard P1/netmeters. Omdat de officiele HomeWizard lokale API geen historie biedt en er geen openbare Energy+ Cloud API is gedocumenteerd, gebruikt EEC app de lokaal bewaarde HA-historie voor dag-, week- en maandnetto's. Ook betaalde HomeWizard-geschiedenis wordt niet via een ondersteunde cloud API opgehaald, omdat HomeWizard die route niet openbaar documenteert. De ontwikkelgeschiedenis is vastgelegd in `docs/ontwikkeling.md` en de korte presentatie `docs/eec-app-ontwikkeling.pptx`.
+
+Versie `0.5.173` voegt een compacte `Strategie hulp` toe aan het hoofd-dashboard. Bij `Keuze wijzigen` staat nu direct wat `Eigen gebruik`, `Handelen`, `Buffer 50%` en `Uit` doen, wanneer je ze kiest en welk risico erbij hoort, zonder extra instellingen of zoeken in attributen.
+
+Versie `0.5.174` maakt de scenarionaamgeving consistenter. De globale strategie voor actief prijsverschil heet nu ook `Handelen`, gelijk aan PowerStream-groepen en de strategiehulp. De oude labelkeuze `Terugleveren` blijft als alias geaccepteerd, zodat bestaande selecties niet stuklopen.
+
+Versie `0.5.175` maakt dashboard-frontendvereisten controleerbaar. `dashboards/frontend-requirements.yaml` bevat nu de benodigde custom Lovelace-kaarten, hun HACS-repository en het zichtbare effect als ze ontbreken; de dashboardtest vergelijkt deze lijst met alle gebruikte `custom:*` kaarten.
+
+Versie `0.5.176` maakt P1-historie onderdeel van de zichtbare Datacheck. Als een HomeWizard P1/netmeter via Home Assistant is geimporteerd maar dag-, week- of maandhistorie niet beschikbaar is, toont het hoofd-dashboard nu `P1 historie` als waarschuwing met een concrete volgende stap.
+
+Versie `0.5.177` maakt de minimale basissetup grafischer. De Gereedheid-kaart toont nu naast `Setup` ook `Setup %`, een voortgangsgauge voor batterij, prijsbron, PowerStream, zonmeter en weerstad.
+
+Versie `0.5.178` maakt de setup-score lokaal testbaar. De berekening achter `Setup %` staat nu in de pure dashboard-helper en heeft unit tests voor ontbrekende basisdata, minimale setup en complete setup.
+
+Versie `0.5.179` voegt bovenaan het hoofd-dashboard een compacte `Stroom`-tegel toe. Die vat netverbruik of levering, accupercentage en actuele PowerStream-teruglevering in één regel samen, met attributen voor netto zon, accu in/uit/netto en beschikbare opslag.
+
+Versie `0.5.180` maakt scenario's expliciet uitvoerbaar. In `Scenario's - advies` staat nu per scenario of het `uitvoerbaar`, `wacht` of `data nodig` is, inclusief blokkade zoals ontbrekende accu-SoC of geen concrete actie.
+
+Versie `0.5.181` maakt de bovenste Flow-strip actiegerichter. De eerdere `Probleem`-tegel is daar vervangen door `Start`, zodat bovenaan direct zichtbaar is of het advies startbaar, wachtend, testmodus of actie nodig is. Problemen blijven zichtbaar in `Gereedheid` en `Datacheck`.
+
+Versie `0.5.182` bewaakt de documentatie- en presentatie-artifacts beter. Tests controleren nu dat `docs/ontwikkeling.md` de actuele versie noemt, de korte presentatie bestaat, de slidebronnen aanwezig zijn en tijdelijke presentatie-buildbestanden niet worden meegeleverd.
+
+Versie `0.5.183` maakt het hoofd-dashboard-contract testbaar. `dashboards/ecoflow-energy-control.yaml` is de enige primaire route met `path: ecoflow-energy`; optionele dashboards mogen die hoofdroute niet overnemen.
+
+Versie `0.5.184` voegt bovenin de Flow-strip een compacte `Nu`-tegel toe. Die vat samen of de app echt mag sturen, alleen simuleert, geblokkeerd is, afwijkt van het beste advies of wacht op data. De tegel bundelt de startstatus, testmodus, gekozen strategie, zekerheid en volgende PowerStream-actie.
+
+Versie `0.5.185` maakt de setupflow begrijpelijker in het hoofd-dashboard. De Gereedheid-kaart toont nu een `Advies`-tegel die onderscheid maakt tussen basisinzicht, PowerStream-sturing en volledige optimalisatie. Zo is zichtbaar of alleen nog een aanbevolen bron ontbreekt, of dat eerst een verplichte basisstap nodig is.
+
+Versie `0.5.186` vereenvoudigt de scenarioflow. De kaart `Scenario - nu` krijgt een compact `Overzicht` dat beste scenario, gekozen scenario, uitvoerbaarheid, vermogen en euro-effect samenbrengt in een enkele statusregel.
+
+Versie `0.5.187` scherpt de eerste Flow-strip aan. Bovenin staat nu `Kort` als volledige samenvatting van data, scenario, opslag, prijs en volgende actie; `Auto` blijft beschikbaar in het adviesdetail. Daardoor geeft de eerste rij meer context zonder extra instellingen of extra tegels.
+
+Versie `0.5.188` verlaagt de eerste installatiedrempel verder. De initiële config flow vraagt nu alleen nog om EcoFlow access key en secret key; de integratienaam wordt automatisch `EEC app` en alle basisdefaults blijven later wijzigbaar via Configureren.
+
+Versie `0.5.189` maakt het stuur-oordeel controleerbaarder. De `Nu`-tegel bevat nu ook commandobeveiliging als attributen: minimuminterval, eerste wachtende PowerStream, resterende wachttijd en eventuele commandofout. De tegel blijft compact, maar verklaart beter waarom de app wel of niet stuurt.
+
+Versie `0.5.190` scheidt basisinzicht van volledige sturing. De readiness-logica en Gereedheid-kaart tonen nu `Inzicht`: prijsdata plus batterij-SoC kunnen al klaar zijn, ook als PowerStream, zonmeter, weer of testmodus nog aandacht vragen. Zo geeft het hoofd-dashboard eerder bruikbare basisinformatie zonder te doen alsof alles stuurklaar is.
+
+Versie `0.5.191` zet basisinzicht ook bovenaan in de Flow-strip. De eerste tegel is nu `Inzicht` in plaats van de volledige datascore; de score blijft in `Gereedheid`. Daardoor sluit de eerste blik beter aan op minimale instellingen: eerst weten of de kerninformatie klopt, daarna pas of alle stuurvoorwaarden klaar zijn.
+
+Versie `0.5.192` maakt de eerste Flow-strip meer procesgericht. `Start` is bovenin vervangen door `Fase`, zodat de gebruiker direct ziet of de app in setup, simuleren, sturen, wachten, uit of fout zit. De startstatus en startreden blijven in het adviesdetail beschikbaar.
+
+Versie `0.5.193` borgt de eerste Flow-strip strenger met tests. De dashboardtest controleert nu ook de volgorde van de tien bovenste flow-elementen: Inzicht, Kort, Zeker, Stroom, Nu, EUR/u, Fase, Scenario, Test en Advies. Zo blijft de simpele hoofdflow bewaakt bij latere iteraties.
+
+Versie `0.5.194` maakt `Kort` vriendelijker voor minimale setups. Als prijsdata en batterij-SoC klaar zijn, maar optionele bronnen of stuurvoorwaarden ontbreken, toont de samenvatting nu `basis klaar` met de volgende optimalisatiestap in plaats van alleen `gedeeltelijk`.
+
+Versie `0.5.195` maakt `Kort` preciezer bij een complete setup. Een minimale setup blijft `basis klaar`, maar zodra ook de stuurvoorwaarden klaar zijn toont de samenvatting `sturing klaar` met prijs, zon/netto-context en het resterende stuurverschil. Zo ziet de gebruiker meteen het verschil tussen alleen inzicht en echt kunnen sturen.
+
+Versie `0.5.196` maakt `Volgende stap` gebruikersgerichter. Deze tegel kijkt nu tegelijk naar setup, live data, testmodus, scenariokeuze en uitvoerbaarheid. Daardoor staat er niet alleen een datacheck-waarschuwing, maar de ene meest logische actie: bijvoorbeeld batterij toevoegen, PowerStream toevoegen, testmodus uitzetten of `Advies` drukken.
+
+Versie `0.5.197` zet die gebruikersactie ook bovenaan in de Flow-strip. De oude `Fase`-tegel blijft als diagnose beschikbaar via attributen en details, maar de primaire rij toont nu `Stap`, zodat de eerste blik niet alleen vertelt waar de app staat maar wat je nu kunt doen.
+
+Versie `0.5.198` haalt de dubbele `Volgende stap` uit `Gereedheid`. Bovenaan blijft `Stap` de primaire actie; `Gereedheid` toont nu weer `Fase` als diagnose. Zo is het hoofd-dashboard minder dubbel en blijft de lagere kaart gericht op bewijs, status en oorzaak.
+
+Versie `0.5.199` haalt ook de dubbele `Inzicht`-tegel uit `Gereedheid`. `Inzicht` blijft het eerste signaal bovenaan in de Flow-strip; de gereedheidskaart blijft daardoor rustiger en gericht op setup, bronnen, probleem, bewijs, score en fase.
+
+Versie `0.5.200` maakt de naamgeving rond advies eenduidiger. De primaire knop bovenaan blijft `Advies`; de setuptegel heet nu `Setup advies` en de detailkaart heet `Uitleg`. Daardoor is duidelijker wat een actie is, wat setupadvies is en waar de toelichting staat.
+
+Versie `0.5.201` maakt `Gereedheid` compacter door de ruwe dashboardstatus uit die kaart te halen. `Score`, `Klaar`, `Bronnen`, `Probleem`, `Bewijs` en `Fase` blijven zichtbaar; de onderliggende sensor blijft beschikbaar voor diagnose en tests.
+
+Versie `0.5.202` maakt `Uitleg` minder dubbel met `Scenario - nu`. Scenario-keuze, meting, zekerheid, volgende actie en uitvoerbaarheid blijven in de scenariokaart; `Uitleg` richt zich op startreden, auto-status, waarom, uitvoerplan, dagwaarde en laatste sturing.
+
+Versie `0.5.203` zet de detailvolgorde logischer neer. Na `Gereedheid` komt eerst `Uitleg`, met de menselijke verklaring van start en uitvoering; daarna pas `Datacheck` met de ruwe bronchecks. Zo blijft de hoofdroute beter leesbaar.
+
+Versie `0.5.204` haalt herhaling uit de lagere detailblokken. `Basis` blijft de plek voor actuele netto waarden, prijs en accu; de oude `Nu`-kaart heet nu `Prijsgrenzen` en toont alleen goedkoop/duur. `Opslag totaal` heet nu `Opslag waarde` en toont vooral vrije ruimte en euro-waarde.
+
+Versie `0.5.205` voegt een volledige live-validatiechecklist toe in `docs/live-validatie.md`. Daarmee kun je na een update per hoofdkaart controleren of Flow, Basis, Scenario - nu, Gereedheid, Datacheck, EcoFlow, HomeWizard en echte PowerStream-sturing live bewijs leveren.
+
+Versie `0.5.206` zet live-validatie ook in de bovenste Flow-strip. De nieuwe `Live`-tegel vat direct samen of data en sturing bewezen zijn, of de app nog in testmodus staat, of dat `Datacheck` aandacht nodig heeft.
+
+Versie `0.5.207` maakt de eerste `Inzicht`-tegel gebruikersgerichter. Die toont nu de simpele fase van de app: `basis nodig`, `data nodig`, `inzicht klaar`, `sturing beperkt`, `testmodus`, `startbaar`, `optimaliseren` of `sturing klaar`.
+
+Versie `0.5.208` maakt `Scenario - nu > Overzicht` concreter. Bij een afwijkende keuze toont de regel nu wat jouw scenario doet tegenover het beste advies, en de attributen bevatten zowel `selected_plan` als `best_plan`.
+
+Versie `0.5.209` maakt de `Live`-tegel minder streng voor minimale setups. Als prijsdata en batterij-SoC live zijn, maar optionele bronnen of PowerStream-sturing nog ontbreken, toont de app `basis live` in plaats van meteen `data nodig`.
+
+Versie `0.5.210` maakt de `Bronnen`-tegel menselijker. De eerste ontbrekende of beperkte databron gebruikt nu Nederlandse labels zoals `prijzen`, `weer`, `batterijen` en `sturing`, terwijl de technische key als attribuut beschikbaar blijft.
+
+Versie `0.5.211` maakt de `Probleem`-tegel vriendelijker voor minimale setups. Als basisinzicht al live is en alleen optionele bronnen ontbreken, begint de melding met `optimalisatie` in plaats van `let op`.
+
+Versie `0.5.212` hernoemt de zichtbare `Probleem`-tegel naar `Aandacht`. De technische discovery-rol blijft gelijk, maar de gebruiker ziet een neutralere titel die past bij blokkades én optimalisatiepunten.
+
+Versie `0.5.213` maakt de groene `Aandacht`-status positiever. Als er geen blokkade, waarschuwing of optimalisatiepunt is, toont de tegel nu `alles ok` in plaats van `geen probleem`.
+
+Versie `0.5.214` hernoemt de zichtbare kaart `Gereedheid` naar `Controle`. De kaart gaat niet alleen over klaar/niet klaar, maar over setup, bronnen, aandacht, bewijs, score en fase; `Controle` sluit beter aan op die functie.
+
+Versie `0.5.215` maakt de keuze-kaart op het hoofd-dashboard korter. De zichtbare titel is nu `Keuze`, met alleen scenario, testmodus en strategiehulp; dat houdt de primaire flow rustiger zonder bestaande entiteiten of instellingen te wijzigen.
+
+Versie `0.5.216` maakt de batterijflow leesbaarder. De batterijkaart heet nu `Accu's - in/uit` en toont per batterij ook `Bron`, zodat AC-, zon- of onbekende laadinput direct naast in/uit/netto vermogen en status staat.
+
+Versie `0.5.217` maakt het actuele scenario concreter zichtbaar. `Scenario - nu` heeft nu een `Plan`-tegel met het gekozen of beste plan in gewone taal, inclusief actie, reden en EUR/u, zonder dat je attributen hoeft te openen.
+
+Versie `0.5.218` maakt het plan beter verifieerbaar. Als een scenario niet uitvoerbaar is, toont `Plan` nu ook de reden of blokkade in de zichtbare tekst, en de oude `Sturen`-status heet in de scenariokaart nu `Uitvoerbaar`.
+
+Versie `0.5.219` maakt `Scenario - nu` rustiger. De losse tegels `Beste`, `Match`, `Keuze` en `Mis EUR/u` zijn uit de primaire scenariokaart gehaald; dezelfde vergelijking blijft beschikbaar in `Overzicht` en `Plan` plus attributen, zodat de eerste blik korter wordt.
+
+Versie `0.5.220` maakt de detailuitleg korter. De kaart `Uitleg` heet nu `Waarom` en bevat alleen nog startreden, automodus, context, uitvoerplan en laatste sturing; dubbele regels zoals flow-overzicht, kort advies en dagwaarde staan al bovenin of in `Scenario - nu`.
+
+Versie `0.5.221` maakt minimale instellingen vriendelijker. Als batterij en prijsbron klaar zijn maar optionele bronnen ontbreken, toont de setupstatus nu `basis klaar` in plaats van `beperkt`; zo is duidelijk dat basisinzichten werken en PowerStream/zon/weerstad vooral optimalisatie toevoegen.
+
+Versie `0.5.222` haalt dubbele setupadviezen uit `Controle`. De bovenste `Stap`-tegel blijft de ene primaire actie; `Controle` toont setupstatus en setuppercentage, maar niet nog een apart `Setup advies`.
+
+Versie `0.5.223` bundelt de twee scenariodetailkaarten. `Scenario's - advies` en `Scenario's - effect` zijn samengevoegd tot `Scenario's - details`, zodat actie, uitvoerbaarheid, reden, vermogen, EUR/u en dagwaarde op een plek staan.
+
+Versie `0.5.224` maakt de handmatige acties duidelijk secundair. De kaart heet nu `Handmatig - tools`, zodat strategie-start, EcoFlow API-check en prijzen ophalen herkenbaar hulpgereedschap zijn naast de normale hoofdflow.
+
+Versie `0.5.225` maakt `Basis` weer meer livegericht. P1-dag-, week- en maandtotalen staan nu in een aparte kaart `P1 historie`, zodat netto W, prijs, accu en actuele netstroom bovenin rustiger blijven.
+
+Versie `0.5.226` zet de primaire route weer aaneengesloten: `Flow`, `Basis` en `Scenario - nu` staan direct onder elkaar. `P1 historie` blijft beschikbaar, maar staat nu na het actuele scenario als secundaire context.
+
+Versie `0.5.227` haalt dubbele bediening uit de lagere `Keuze`-kaart. Scenario en testmodus blijven bovenin `Flow`; de lagere kaart heet nu `Scenario hulp` en toont alleen nog strategie-uitleg.
+
+Versie `0.5.228` plaatst `Scenario hulp` onder `Controle`. Zo blijft de route eerst operationeel: live waarden, scenario, historie en statusbewijs; strategie-uitleg volgt pas daarna als naslag.
+
+Versie `0.5.229` verplaatst `Handmatig - tools` naar het einde van het hoofd-dashboard. Handmatige start, EcoFlow API-check en prijzen ophalen blijven beschikbaar, maar onderbreken de normale informatieflow niet meer.
+
+Versie `0.5.230` borgt de dagelijkse dashboardroute met een expliciete test. De volgorde `Flow`, `Basis`, `Scenario - nu`, status, uitleg, detailkaarten, diagnose en als laatste `Handmatig - tools` wordt nu als contract bewaakt.
+
+Versie `0.5.231` scherpt de live-validatiechecklist aan. De checklist benoemt nu expliciet dat `Scenario hulp` alleen naslag is en dat `Handmatig - tools` alleen voor diagnose of bewust testen onderaan staat.
+
+Versie `0.5.232` maakt dezelfde validatieroute ook zichtbaar in de README. Na een update staat daar nu expliciet dat normale bediening via `Flow > Advies` loopt en dat `Scenario hulp` en `Handmatig - tools` geen dagelijkse bedieningsroute zijn.
+
+Versie `0.5.233` maakt het eerste configuratiescherm duidelijker. De tekst zegt nu expliciet dat je alleen EcoFlow Cloud API keys invult en prijzen, weer, testmodus en apparaten daarna via Configureren instelt.
+
+Versie `0.5.234` maakt ook het Configureren-menu richtinggevender. De titel zegt nu dat je met apparaten begint, terwijl importeren bovenaan blijft staan en basis/technische instellingen later komen.
+
+Versie `0.5.235` maakt de HomeWizard-import explicieter. De configuratie noemt nu dat bestaande Home Assistant HomeWizard-apparaten worden gebruikt als P1/netmeter of opwekbron, zodat de simpele flow geen tweede lokale meterconfiguratie suggereert.
+
+Versie `0.5.236` maakt de HomeWizard-import beter verifieerbaar voordat je opslaat. In de importkeuze staat nu per gevonden Home Assistant HomeWizard-apparaat de voorgestelde rol en welke meetsoorten beschikbaar zijn, zoals totaal W, fase W en kWh-historie.
+
+Versie `0.5.237` brengt de eerste zwakke databron direct naar de bovenste `Kort`-tegel. Als basisinzicht werkt maar optimalisatie nog beperkt is, toont de hoofdflow nu niet alleen een algemene volgende stap maar ook de concrete bron, zoals weer, PowerStreams, P1 historie of netto opwek.
+
+Versie `0.5.238` maakt de minimale setup explicieter. De setupstatus bevat nu wat de app op dit moment kan: nog geen basisinzicht, basisinzicht beschikbaar, sturing beschikbaar of volledige optimalisatie beschikbaar. Ook staan basis-, stuur- en optimalisatie-eisen apart in de attributen.
+
+Versie `0.5.239` maakt die setupstatus ook direct zichtbaar. De `Controle > Setup` tegel toont nu de actuele capability zelf, bijvoorbeeld `basisinzicht beschikbaar` of `sturing beschikbaar`, terwijl de technische setupfase als attribuut beschikbaar blijft.
+
+Versie `0.5.240` maakt het actuele scenario uitvoerbaarder in de zichtbare `Plan`-tegel. Het plan begint nu met de echte stuurtoestand, zoals `kan sturen`, `testmodus`, `data nodig`, `scenario uit` of `wacht`, en bewaart de blokkade als attribuut.
+
+Versie `0.5.241` verplaatst die uitvoerbaarheidstekst naar een geteste policy-helper. De unit tests bewaken nu de zichtbare prefixes voor scenarioplannen, zodat `kan sturen`, `testmodus`, `data nodig`, `scenario uit`, `wacht` en blokkades logisch blijven.
+
+Versie `0.5.242` gebruikt dezelfde geteste uitvoerbaarheidstaal nu ook voor de zichtbare `Uitvoerbaar`-tegel. Daardoor spreken `Plan` en `Uitvoerbaar` dezelfde taal en blijven blokkades als attribuut beschikbaar.
+
+Versie `0.5.243` maakt live bewijs concreter. De `Live`- en `Bewijs`-attributen bevatten nu de eerste ontbrekende bron met label, status en melding, en de Live-samenvatting benoemt die bron direct wanneer data of sturing nog niet volledig bewezen is.
+
+Versie `0.5.244` maakt die live-bewijs samenvatting lokaal testbaar in de health-laag. De tests bewaken nu dat de eerste ontbrekende bron zichtbaar wordt en dat de Live-tegel terugvalt op een bruikbare algemene melding wanneer broninformatie ontbreekt.
+
+Versie `0.5.245` laat de bovenste `Stap`-tegel dezelfde live-bewijscontext gebruiken. Als live data of sturing blokkeert, toont `Stap` nu dezelfde concrete bronmelding als `Live`, bijvoorbeeld `PowerStreams: geen live vermogen`.
+
+Versie `0.5.246` vervangt de losse `Kort`-tegel bovenaan door `Main`: een compacte hoofdregel met status, volgende stap, energiebeeld, scenario en live-bewijs. Daarmee blijft de Flow-strip even klein, maar hoef je minder losse tegels te combineren om te zien wat de app nu denkt.
+
+Versie `0.5.247` maakt de bovenste Flow-strip visueler met ingebouwde Home Assistant `tile`-kaarten voor status, scenario en testmodus. Er komt geen extra HACS-frontend bij; de EUR/u-gauge en Advies-knop blijven gericht op waarde en actie.
+
+Versie `0.5.248` maakt de minimale setup opnieuw kleiner: de setupstatus gebruikt EnergyZero als impliciete standaard prijsbron. Daardoor vraagt de basisroute niet meer om een prijsbron-instelling als die ontbreekt; een batterij toevoegen is genoeg om de basisinrichting klaar te zetten, waarna live prijsdata apart wordt gevalideerd.
+
+Versie `0.5.249` maakt die impliciete EnergyZero-keuze ook zichtbaar in het dashboard. `Main` en `Setup advies` tonen nu of de prijsbron standaard is ingevuld, zodat de basisroute minder instellingen vraagt zonder onverklaarbaar te worden.
