@@ -7,9 +7,11 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_change
 
 from .const import (
+    APP_NAME,
     ATTR_SERIAL,
     ATTR_ON,
     ATTR_WATTS,
@@ -59,6 +61,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    _shorten_legacy_entity_registry_names(hass, entry)
 
     async def set_powerstream_watts(call: ServiceCall) -> None:
         await coordinator.async_set_powerstream_watts(
@@ -122,3 +125,35 @@ def _normalize_entry_storage(hass: HomeAssistant, entry: ConfigEntry) -> None:
     merged.setdefault(CONF_PRICE_SOURCE, DEFAULT_PRICE_SOURCE)
     if merged != entry.data or entry.options:
         hass.config_entries.async_update_entry(entry, data=merged, options={})
+
+
+def _shorten_legacy_entity_registry_names(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> None:
+    """Remove old long app labels from stored entity registry names."""
+    registry = er.async_get(hass)
+    for entity in list(registry.entities.values()):
+        if entity.platform != DOMAIN or entity.config_entry_id != entry.entry_id:
+            continue
+        name = getattr(entity, "name", None)
+        short_name = _short_legacy_entity_name(name)
+        if short_name:
+            registry.async_update_entity(entity.entity_id, name=short_name)
+
+
+def _short_legacy_entity_name(name: str | None) -> str | None:
+    """Return a short replacement for old default entity names."""
+    if not name:
+        return None
+    prefixes = (
+        "EcoFlow Energy Control applicatie",
+        "Ecoflow Energy Control applicatie",
+        "ecoflow energy control applicatie",
+    )
+    for prefix in prefixes:
+        if name.startswith(prefix):
+            suffix = name[len(prefix) :].strip()
+            if not suffix:
+                return APP_NAME
+            return suffix[:1].upper() + suffix[1:]
+    return None

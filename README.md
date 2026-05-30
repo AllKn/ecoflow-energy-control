@@ -160,7 +160,7 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.268`
+`0.5.269`
 
 ## Updatecontrole
 
@@ -715,3 +715,5 @@ Versie `0.5.266` borgt de simpele hoofdflow extra met dashboardtests. Oude live-
 Versie `0.5.267` zet dashboard-updatehints ook op de bestaande `Versie`-sensor. Daardoor kun je zelfs met een nog oude dashboardimport zien welke dashboard-YAML versie hoort te draaien en dat het hoofd-dashboard opnieuw geïmporteerd of vervangen moet worden.
 
 Versie `0.5.268` geeft de eerste tegel in `Controle` expliciet de korte naam `Overzicht`. Daardoor gebruikt Home Assistant geen oude, lange entiteitnaam meer wanneer het dashboard al eerder geimporteerd was.
+
+Versie `0.5.269` ruimt oude lange entiteitnamen in de Home Assistant registry op wanneer ze nog met `EcoFlow Energy Control applicatie` beginnen. Ook gebruikt `Scenario's - details` korte tegels zoals `Actie`, `Kan`, `Reden`, `W`, `EUR/u` en `Dag`.

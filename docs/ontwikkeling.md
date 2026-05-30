@@ -255,6 +255,8 @@ Vanaf versie `0.5.267` staan dashboard-updatehints ook op de bestaande `Versie`-
 
 Vanaf versie `0.5.268` krijgt de eerste tegel in `Controle` expliciet de korte naam `Overzicht`. Daardoor blijft het hoofd-dashboard compact, ook wanneer Home Assistant nog een oude lange entiteitnaam in de registry bewaart.
 
+Vanaf versie `0.5.269` ruimt de integratie bij het laden oude lange Home Assistant registry-namen op wanneer ze nog met `EcoFlow Energy Control applicatie` beginnen. Het scenario-detailblok gebruikt daarnaast korte tegels, zodat oude registry-namen de simpele dashboardflow niet meer overheersen.
+
 ## Huidige stand
 
 EEC app werkt nu als lokale energieregisseur binnen Home Assistant. De app combineert EcoFlow Cloud API, EnergyZero/EPEX-prijzen, HomeWizard live-data, Home Assistant P1-historie, weerverwachting en scenarioadvies. Waar data ontbreekt, toont de app diagnose in plaats van stil te falen.

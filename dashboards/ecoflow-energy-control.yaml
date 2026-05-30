@@ -1,4 +1,4 @@
-# EEC app dashboard yaml version: 0.5.268
+# EEC app dashboard yaml version: 0.5.269
 title: EEC app
 views:
   - title: Main
@@ -238,7 +238,7 @@ views:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_scenario_overview
               options:
-                type: entity
+                type: tile
                 name: Overzicht
             - attributes:
                 eec_device_type: dashboard
@@ -825,22 +825,26 @@ views:
                 eec_device_type: scenario
                 eec_sensor_role: scenario_action
               options:
-                type: entity
+                type: tile
+                name: Actie
             - attributes:
                 eec_device_type: scenario
                 eec_sensor_role: scenario_executable
               options:
-                type: entity
+                type: tile
+                name: Kan
             - attributes:
                 eec_device_type: scenario
                 eec_sensor_role: scenario_reason
               options:
-                type: entity
+                type: tile
+                name: Reden
             - attributes:
                 eec_device_type: scenario
                 eec_sensor_role: scenario_power
               options:
                 type: gauge
+                name: W
                 min: -1600
                 max: 1600
                 severity:
@@ -852,6 +856,7 @@ views:
                 eec_sensor_role: scenario_eur_per_hour
               options:
                 type: gauge
+                name: EUR/u
                 min: -1
                 max: 1
                 severity:
@@ -862,7 +867,8 @@ views:
                 eec_device_type: scenario
                 eec_sensor_role: scenario_day_eur
               options:
-                type: entity
+                type: tile
+                name: Dag
         sort:
           method: name
 
