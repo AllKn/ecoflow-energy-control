@@ -8,5 +8,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/AllKn/ecoflow-energy-control/issues",
   "requirements": [],
-  "version": "0.5.269"
+  "version": "0.5.271"
 }

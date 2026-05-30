@@ -37,3 +37,8 @@ class InitStaticTest(unittest.TestCase):
         self.assertIn("return APP_NAME", block)
         self.assertIn("return suffix[:1].upper() + suffix[1:]", block)
         self.assertIn("return None", block)
+
+    def test_homewizard_pruning_is_applied_on_load(self) -> None:
+        self.assertIn("_prune_homewizard_manual_duplicates", self.text)
+        self.assertIn("merged[CONF_HOMEWIZARD_METERS] = _prune_homewizard_manual_duplicates", self.text)
+        self.assertIn("if merged != entry.data or entry.options:", self.text)

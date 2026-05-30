@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
@@ -2840,6 +2841,21 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
             )
         if self._device_type == "smart_plug":
             attrs["charges"] = item.get("charges") if item else None
+            attrs["forecast_solar_power"] = item.get("forecast_solar_power") if item else None
+            attrs["schedule_enabled"] = item.get("schedule_enabled") if item else None
+            attrs["schedule_on"] = item.get("schedule_on") if item else None
+            attrs["schedule_off"] = item.get("schedule_off") if item else None
+            attrs["smart_plug_scheduled_state"] = item.get("scheduled_state") if item else None
+            attrs["on_command"] = item.get("on_command") if item else None
+            attrs["off_command"] = item.get("off_command") if item else None
+            attrs["smart_plug_last_command"] = item.get("last_command") if item else None
+            attrs["smart_plug_last_command_at"] = item.get("last_command_at") if item else None
+            attrs["smart_plug_on_command_preview"] = _pretty_command_preview(
+                item.get("on_command") if item else None
+            )
+            attrs["smart_plug_off_command_preview"] = _pretty_command_preview(
+                item.get("off_command") if item else None
+            )
         return attrs
 
     def _device_data(self) -> dict[str, Any]:
@@ -5499,6 +5515,12 @@ def _device_attrs(device_type: str, serial: str, sensor_role: str) -> dict[str, 
         "eec_sensor_role": sensor_role,
         "serial": serial,
     }
+
+
+def _pretty_command_preview(value: Any) -> str:
+    if not isinstance(value, dict):
+        return "{}"
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
 def _apply_device_entity_label(

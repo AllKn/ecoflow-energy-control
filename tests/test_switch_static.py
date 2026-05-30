@@ -26,6 +26,13 @@ class SwitchStaticTest(unittest.TestCase):
         self.assertIn("self.coordinator.settings[CONF_DRY_RUN] = True", self.text)
         self.assertIn("self.coordinator.settings[CONF_DRY_RUN] = False", self.text)
 
+    def test_smart_plug_switch_entities_are_discovered_on_dashboard(self) -> None:
+        self.assertIn("SmartPlugSwitch(coordinator, str(serial), str(device.get(\"name\", serial)))", self.text)
+        self.assertIn('"eec_device_type": "smart_plug"', self.text)
+        self.assertIn('"eec_sensor_role": "smart_plug_control"', self.text)
+        self.assertIn('"schedule_enabled"', self.text)
+        self.assertIn('"last_command"', self.text)
+
 
 if __name__ == "__main__":
     unittest.main()

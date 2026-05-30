@@ -27,7 +27,7 @@ De eerste installatie vraagt alleen om je EcoFlow access key en secret key. De a
 - EnergyZero prijzen als standaard prijsbron, inclusief instelbare Quatt-opslag van standaard `0.015 EUR/kWh`.
 - Alternatieve prijsbronnen via epexprijzen.nl of epexspot.com blijven beschikbaar.
 - Dagelijkse prijs-refresh om 15:00 voor planning tot en met einde volgende dag.
-- HomeWizard lokale API voor ruwe opwek, met correctie voor PowerStream-teruglevering.
+- HomeWizard via de bestaande Home Assistant-integratie voor ruwe opwek, met correctie voor PowerStream-teruglevering.
 
 ## Apparaten Beheren
 
@@ -126,7 +126,7 @@ Voor live validatie na een update kijk je bovenaan naar:
 - **Controle > Bewijs**: scheidt databewijs van stuur-bewijs, bijvoorbeeld `6/6 data, sturing gedeeltelijk`.
 - **Controle > YAML**: toont de geimporteerde dashboard-YAML versie. Ontbreekt deze tegel, dan kijkt Home Assistant nog naar een oude geimporteerde dashboardconfig.
 - **Datacheck**: toont de details per bron als `Aandacht` of `Bewijs` niet volledig klaar is.
-- **Flow > Advies** is de normale bediening; **Scenario hulp** is naslag en **Handmatig - tools** is alleen voor diagnose of bewust testen.
+- Flow > Advies is de normale bediening. Scenario hulp is naslag en Handmatig - tools is alleen voor diagnose of bewust testen.
 
 De volledige checklist staat in:
 
@@ -154,13 +154,12 @@ docs/presentation-src/
 Benodigde frontend-kaarten via HACS:
 
 - `auto-entities`
-- `apexcharts-card`
 
-Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief HACS-repository en effect als de kaart ontbreekt. Zonder deze kaarten blijven de entiteiten werken, maar worden de dynamische lijsten of prijsgrafiek niet weergegeven.
+Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief HACS-repository en effect als de kaart ontbreekt. Zonder `auto-entities` blijven de dynamische kaarten in het hoofd-dashboard leeg.
 
 ## Huidige Versie
 
-`0.5.269`
+`0.5.271`
 
 ## Updatecontrole
 
@@ -717,3 +716,4 @@ Versie `0.5.267` zet dashboard-updatehints ook op de bestaande `Versie`-sensor. 
 Versie `0.5.268` geeft de eerste tegel in `Controle` expliciet de korte naam `Overzicht`. Daardoor gebruikt Home Assistant geen oude, lange entiteitnaam meer wanneer het dashboard al eerder geimporteerd was.
 
 Versie `0.5.269` ruimt oude lange entiteitnamen in de Home Assistant registry op wanneer ze nog met `EcoFlow Energy Control applicatie` beginnen. Ook gebruikt `Scenario's - details` korte tegels zoals `Actie`, `Kan`, `Reden`, `W`, `EUR/u` en `Dag`.
+Versie `0.5.271` voegt Smart Plug-automatisering op vaste tijdvensters toe: met `schema_on` / `schema_off` worden aan/uit-vensters automatisch doorgezet bij elke update, naast de bestaande zon-gedreven fallback. In de device-status zie je nu schema-velden en de berekende `smart_plug_scheduled_state`.

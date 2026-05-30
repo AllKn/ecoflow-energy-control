@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime as dt_datetime, timedelta
 import logging
 from typing import Any
 
@@ -52,6 +52,9 @@ from .const import (
     CONF_WEATHER_CITY,
     DEFAULT_ECOFLOW_HOST,
     DEFAULT_POWERSTREAM_QUOTAS,
+    DEFAULT_SMART_PLUG_SCHEDULE_ENABLED,
+    DEFAULT_SMART_PLUG_SCHEDULE_OFF,
+    DEFAULT_SMART_PLUG_SCHEDULE_ON,
     DEFAULT_PRICE_INTERVAL,
     DEFAULT_PRICE_INCL_VAT,
     DEFAULT_PRICE_PROVIDER,
@@ -100,7 +103,10 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.solar_plug_threshold_watts = 1200
         self.powerstream_targets: dict[str, int] = {}
         self.powerstream_strategies: dict[str, str] = {}
+        self.smart_plug_last_state: dict[str, bool] = {}
+        self.smart_plug_last_state_at: dict[str, str] = {}
         self._powerstream_last_strategy_set: dict[str, Any] = {}
+        self._solar_scale_hint_w_per_m2: float = 0.0
         self.dry_run = bool(self.settings.get(CONF_DRY_RUN, True))
         self._scenario_last_update = dt_util.now()
         self._scenario_totals: dict[str, dict[str, float]] = {}
@@ -250,6 +256,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 }
 
         smart_plugs = {}
+        forecast_solar_power = 0.0
         for device in settings.get(CONF_SMART_PLUGS, []):
             serial = device.get("serial")
             if not serial or "VUL_HIER" in serial:
@@ -260,6 +267,21 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
                 smart_plugs[serial] = {
                     "name": device.get("name", serial),
+                    "forecast_solar_power": forecast_solar_power,
+                    "schedule_enabled": device.get(
+                        "schedule_enabled", DEFAULT_SMART_PLUG_SCHEDULE_ENABLED
+                    ),
+                    "schedule_on": device.get("schedule_on", DEFAULT_SMART_PLUG_SCHEDULE_ON),
+                    "schedule_off": device.get(
+                        "schedule_off", DEFAULT_SMART_PLUG_SCHEDULE_OFF
+                    ),
+                    "on_command": device.get("on_command", {}),
+                    "off_command": device.get("off_command", {}),
+                    "last_command": self.smart_plug_last_state.get(serial),
+                    "last_command_at": self.smart_plug_last_state_at.get(serial),
+                    "scheduled_state": self._smart_plug_scheduled_state(
+                        device, dt_util.now()
+                    ),
                     "response": response,
                     "values": _extract_values(response),
                     "charges": device.get("charges"),
@@ -268,6 +290,21 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 errors[f"smart_plug_{serial}"] = str(err)
                 smart_plugs[serial] = {
                     "name": device.get("name", serial),
+                    "forecast_solar_power": forecast_solar_power,
+                    "schedule_enabled": device.get(
+                        "schedule_enabled", DEFAULT_SMART_PLUG_SCHEDULE_ENABLED
+                    ),
+                    "schedule_on": device.get("schedule_on", DEFAULT_SMART_PLUG_SCHEDULE_ON),
+                    "schedule_off": device.get(
+                        "schedule_off", DEFAULT_SMART_PLUG_SCHEDULE_OFF
+                    ),
+                    "on_command": device.get("on_command", {}),
+                    "off_command": device.get("off_command", {}),
+                    "last_command": self.smart_plug_last_state.get(serial),
+                    "last_command_at": self.smart_plug_last_state_at.get(serial),
+                    "scheduled_state": self._smart_plug_scheduled_state(
+                        device, dt_util.now()
+                    ),
                     "values": {},
                     "charges": device.get("charges"),
                     "error": str(err),
@@ -301,11 +338,14 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             float(values.get("ac_power_w") or 0) for values in inverters.values()
         )
         homewizard_meters = {}
+        homewizard_items = _coerce_homewizard_meters(
+            settings.get(CONF_HOMEWIZARD_METERS, [])
+        )
         homewizard_solar_power = 0.0
         homewizard_phase_power = {"l1": 0.0, "l2": 0.0, "l3": 0.0}
         homewizard_grid_power: float | None = None
         homewizard_grid_phase_power = {"l1": 0.0, "l2": 0.0, "l3": 0.0}
-        for item in settings.get(CONF_HOMEWIZARD_METERS, []):
+        for item in homewizard_items:
             source_id = item.get("host") or item.get("device_id")
             if not source_id:
                 continue
@@ -362,6 +402,15 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         corrected_grid_power = homewizard_grid_power
         corrected_grid_phase_power = dict(homewizard_grid_phase_power)
         effective_solar_power = corrected_homewizard_solar if homewizard_meters else solar_power
+        self._update_solar_scale_hint(weather, effective_solar_power)
+        forecast_solar_power = self._forecast_solar_power_for_horizon(
+            weather,
+            effective_solar_power,
+            dt_util.now(),
+        )
+        for serial, item in smart_plugs.items():
+            if isinstance(item, dict):
+                item["forecast_solar_power"] = forecast_solar_power
         for serial, item in powerstreams.items():
             strategy = self.powerstream_strategies.get(serial, POWERSTREAM_STRATEGY_SELF_USE)
             item["group_strategy"] = strategy
@@ -399,6 +448,13 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             bands,
             batteries,
             effective_solar_power,
+            forecast_solar_power,
+        )
+
+        await self._async_apply_smart_plug_schedule_now(
+            settings,
+            effective_solar_power,
+            forecast_solar_power,
         )
 
         return {
@@ -415,6 +471,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "homewizard_solar_power": homewizard_solar_power,
             "powerstream_export_w": powerstream_export,
             "corrected_solar_power": effective_solar_power,
+            "forecast_solar_power": forecast_solar_power,
             "corrected_phase_power": corrected_phase_power,
             "homewizard_grid_power": homewizard_grid_power,
             "corrected_grid_power": corrected_grid_power,
@@ -439,6 +496,76 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         weather["provider"] = "Open-Meteo"
         return weather
 
+    def _forecast_solar_power_for_horizon(
+        self,
+        weather: dict[str, Any],
+        current_solar_power_w: float,
+        now: dt_datetime,
+        horizon_hours: int = 4,
+    ) -> float:
+        hourly = weather.get("hourly") or []
+        if not isinstance(hourly, list) or not hourly:
+            return 0.0
+
+        scale = self._solar_scale_per_m2(current_solar_power_w, weather)
+        if scale <= 0:
+            return 0.0
+
+        horizon_start = now.replace(minute=0, second=0, microsecond=0)
+        horizon_end = horizon_start + timedelta(hours=horizon_hours)
+        forecast_values: list[float] = []
+        for row in hourly:
+            try:
+                starts_at = dt_datetime.fromisoformat(str(row.get("start")))
+            except (TypeError, ValueError):
+                continue
+            if not (horizon_start <= starts_at < horizon_end):
+                continue
+            value = row.get("shortwave_w_m2")
+            try:
+                watts_m2 = float(value)
+            except (TypeError, ValueError):
+                continue
+            forecast_values.append(max(0.0, watts_m2))
+
+        if not forecast_values:
+            return 0.0
+
+        average_shortwave = sum(forecast_values) / len(forecast_values)
+        return round(max(0.0, average_shortwave * scale), 1)
+
+    def _solar_scale_per_m2(self, current_solar_w: float, weather: dict[str, Any]) -> float:
+        shortwave_now = float(weather.get("shortwave_w_m2") or 0.0)
+        if shortwave_now > 0 and current_solar_w > 0:
+            ratio = float(current_solar_w) / shortwave_now
+            if 0.0 < ratio <= 20.0:
+                return ratio
+        if self._solar_scale_hint_w_per_m2 > 0:
+            return self._solar_scale_hint_w_per_m2
+        if shortwave_now > 0:
+            return 0.0
+        return 0.0
+
+    def _update_solar_scale_hint(self, weather: dict[str, Any], current_solar_power_w: float) -> None:
+        shortwave_now = float(weather.get("shortwave_w_m2") or 0.0)
+        if shortwave_now <= 0:
+            return
+
+        if current_solar_power_w <= 0:
+            return
+
+        ratio = current_solar_power_w / shortwave_now
+        if ratio <= 0 or ratio > 20:
+            return
+
+        if self._solar_scale_hint_w_per_m2 <= 0:
+            self._solar_scale_hint_w_per_m2 = ratio
+            return
+
+        self._solar_scale_hint_w_per_m2 = (
+            0.8 * self._solar_scale_hint_w_per_m2 + 0.2 * ratio
+        )
+
     def _simulate_scenarios(
         self,
         settings: dict[str, Any],
@@ -446,6 +573,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         bands: dict[str, float | None],
         batteries: dict[str, Any],
         solar_power_w: float,
+        forecast_solar_watts: float,
     ) -> dict[str, dict[str, Any]]:
         now = dt_util.now()
         elapsed_hours = max(
@@ -466,18 +594,24 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         usable_export_w = export_capacity_w if battery_soc is None or battery_soc > 10 else 0.0
         buffer_export_w = export_capacity_w if battery_soc is None or battery_soc > 50 else 0.0
         solar_surplus_w = max(0.0, float(solar_power_w or 0))
+        forecast_solar_w = max(0.0, float(forecast_solar_watts or 0))
+        forecasted_solar_for_plug = max(solar_surplus_w, forecast_solar_w)
+        can_charge_from_grid = forecast_solar_w < self.solar_plug_threshold_watts
         input_warnings = _scenario_input_warnings(price_now, cheap, expensive, battery_soc)
 
         simulated = {
             "self_use": self._scenario_result(
                 label="Optimalisatie eigen gebruik",
-                action="solar laden" if solar_surplus_w > 100 else "stand-by",
-                power_w=min(solar_surplus_w, export_capacity_w),
-                eur_per_hour=(min(solar_surplus_w, export_capacity_w) / 1000) * max(price, spread),
+                action="solar laden" if forecasted_solar_for_plug > 100 else "stand-by",
+                power_w=min(forecasted_solar_for_plug, export_capacity_w),
+                eur_per_hour=(
+                    min(forecasted_solar_for_plug, export_capacity_w) / 1000
+                )
+                * max(price, spread),
                 price=price,
                 battery_soc=battery_soc,
                 reason="netto zonopwek beschikbaar"
-                if solar_surplus_w > 100
+                if forecasted_solar_for_plug > 100
                 else "geen bruikbare zonopwek",
                 input_warnings=input_warnings,
             ),
@@ -486,24 +620,27 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 action="terugleveren"
                 if expensive is not None and price >= expensive and usable_export_w > 0
                 else "laden"
-                if cheap is not None and price <= cheap
+                if cheap is not None and price <= cheap and can_charge_from_grid
                 else "wachten",
                 power_w=usable_export_w
                 if expensive is not None and price >= expensive
-                else -min(solar_surplus_w or export_capacity_w, export_capacity_w)
-                if cheap is not None and price <= cheap
+                else -min(
+                    forecasted_solar_for_plug if can_charge_from_grid else export_capacity_w,
+                    export_capacity_w,
+                )
+                if cheap is not None and price <= cheap and can_charge_from_grid
                 else 0.0,
                 eur_per_hour=(usable_export_w / 1000) * price
                 if expensive is not None and price >= expensive
-                else -(min(solar_surplus_w or export_capacity_w, export_capacity_w) / 1000) * price
-                if cheap is not None and price <= cheap
+                else -(min(forecasted_solar_for_plug, export_capacity_w) / 1000) * price
+                if cheap is not None and price <= cheap and can_charge_from_grid
                 else 0.0,
                 price=price,
                 battery_soc=battery_soc,
                 reason="hoge prijs en accu boven minimum"
                 if expensive is not None and price >= expensive and usable_export_w > 0
                 else "lage prijs, laden voorbereiden"
-                if cheap is not None and price <= cheap
+                if cheap is not None and price <= cheap and can_charge_from_grid
                 else "prijs niet laag of hoog genoeg",
                 input_warnings=input_warnings,
             ),
@@ -840,6 +977,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         price_now = (self.data or {}).get("price_now")
         bands = (self.data or {}).get("price_bands") or {}
         solar_power = float((self.data or {}).get("corrected_solar_power") or 0)
+        forecast_solar_power = float((self.data or {}).get("forecast_solar_power") or 0)
 
         if self.strategy == STRATEGY_IDLE:
             for device in self.settings.get(CONF_POWERSTREAMS, []):
@@ -875,10 +1013,12 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 default_strategy,
             )
 
-        plug_on = solar_power >= self.solar_plug_threshold_watts
         for device in self.settings.get(CONF_SMART_PLUGS, []):
             serial = device.get("serial")
             if serial and "VUL_HIER" not in serial:
+                plug_on = self._smart_plug_target_state(
+                    device, solar_power, forecast_solar_power
+                )
                 await self.async_set_smart_plug(serial, plug_on)
 
     async def _async_apply_strategy_groups(
@@ -988,15 +1128,92 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         device = self._smart_plug(serial)
         template = device["on_command"] if on else device["off_command"]
         command = render_template_dict(template, {"on": on})
+        timestamp = dt_util.utcnow().isoformat()
+        self.smart_plug_last_state[str(serial)] = on
+        self.smart_plug_last_state_at[str(serial)] = timestamp
         if self.dry_run:
-            self.async_set_updated_data(
-                {**(self.data or {}), "last_action": f"dry-run plug {serial} -> {on}"}
+            self._publish_smart_plug_runtime_state(
+                serial, on, timestamp, f"dry-run plug {serial} -> {on}"
             )
             return
         await self.ecoflow.set_device_command(serial, command)
-        self.async_set_updated_data(
-            {**(self.data or {}), "last_action": f"plug {serial} -> {on}"}
+        self._publish_smart_plug_runtime_state(
+            serial, on, timestamp, f"plug {serial} -> {on}"
         )
+
+    def _publish_smart_plug_runtime_state(
+        self, serial: str, on: bool, timestamp: str, last_action: str
+    ) -> None:
+        data = self.data or {}
+        smart_plugs = dict(data.get("smart_plugs", {}))
+        current = dict(smart_plugs.get(str(serial), {}))
+        current["last_command"] = on
+        current["last_command_at"] = timestamp
+        smart_plugs[str(serial)] = current
+        self.async_set_updated_data(
+            {**data, "smart_plugs": smart_plugs, "last_action": last_action}
+        )
+
+    async def _async_apply_smart_plug_schedule_now(
+        self,
+        settings: dict[str, Any],
+        solar_power: float,
+        forecast_solar_power: float,
+    ) -> None:
+        now = dt_util.now()
+        for device in settings.get(CONF_SMART_PLUGS, []):
+            serial = device.get("serial")
+            if not serial or "VUL_HIER" in serial:
+                continue
+            scheduled = self._smart_plug_scheduled_state(device, now)
+            desired: bool | None
+            if scheduled is not None:
+                desired = scheduled
+            elif self.strategy != STRATEGY_IDLE:
+                desired = self._smart_plug_target_state(
+                    device,
+                    solar_power,
+                    forecast_solar_power,
+                )
+            else:
+                continue
+            if desired is None:
+                continue
+            current = self.smart_plug_last_state.get(str(serial))
+            if current is not None and current == desired:
+                continue
+            await self.async_set_smart_plug(str(serial), desired)
+
+    def _smart_plug_scheduled_state(
+        self,
+        device: dict[str, Any],
+        now: dt_datetime,
+    ) -> bool | None:
+        if not device.get("schedule_enabled"):
+            return None
+        start_time = _parse_time_value(device.get("schedule_on"))
+        end_time = _parse_time_value(device.get("schedule_off"))
+        if start_time is None or end_time is None:
+            return None
+        if start_time == end_time:
+            return None
+
+        current = now.time()
+        if start_time < end_time:
+            return start_time <= current < end_time
+        return current >= start_time or current < end_time
+
+    def _smart_plug_target_state(
+        self,
+        device: dict[str, Any],
+        solar_power: float,
+        forecast_solar_power: float,
+    ) -> bool:
+        scheduled = self._smart_plug_scheduled_state(device, dt_util.now())
+        if scheduled is not None:
+            return scheduled
+        combined_solar = max(float(solar_power or 0), float(forecast_solar_power or 0))
+        return combined_solar >= self.solar_plug_threshold_watts
 
     def _powerstream(self, serial: str) -> dict[str, Any]:
         for device in self.settings.get(CONF_POWERSTREAMS, []):
@@ -1443,6 +1660,63 @@ def _is_soc_limit_or_setting(normalized_key: str) -> bool:
     return any(part in normalized_key for part in blocked_parts)
 
 
+def _coerce_homewizard_meters(
+    items: list[dict[str, Any]] | Any,
+) -> list[dict[str, Any]]:
+    """Drop manual HomeWizard entries when HA-imported entries exist for same role."""
+    if not isinstance(items, list):
+        return []
+
+    ha_roles: set[str] = set()
+    seen_ha: set[str] = set()
+    output: list[dict[str, Any]] = []
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("source") != "homeassistant":
+            continue
+        role = _coerce_homewizard_role(item)
+        ha_roles.add(role)
+        key = f"{role}:{item.get('device_id', '')}"
+        if key in seen_ha:
+            continue
+        seen_ha.add(key)
+        output.append(item)
+
+    for item in items:
+        if not isinstance(item, dict) or item.get("source") == "homeassistant":
+            continue
+        role = _coerce_homewizard_role(item)
+        if role in ha_roles:
+            continue
+        output.append(item)
+
+    return output
+
+
+def _coerce_homewizard_role(item: dict[str, Any]) -> str:
+    explicit = str(item.get("role") or "").strip()
+    if explicit in (HOMEWIZARD_ROLE_SOLAR_TOTAL, HOMEWIZARD_ROLE_GRID_METER):
+        return explicit
+    return _infer_homewizard_role_from_text(
+        item.get("name"),
+        item.get("model"),
+        item.get("host"),
+        item.get("device_id"),
+    )
+
+
+def _infer_homewizard_role_from_text(*parts: Any) -> str:
+    text = " ".join(str(part or "") for part in parts).lower()
+    compact = text.replace("_", " ").replace("-", " ")
+    if "p1" in compact or "netmeter" in compact or "energy socket" in compact:
+        return HOMEWIZARD_ROLE_GRID_METER
+    if "p1 meter" in compact or "p1meter" in compact:
+        return HOMEWIZARD_ROLE_GRID_METER
+    return DEFAULT_HOMEWIZARD_ROLE
+
+
 def _extract_serials(response: dict[str, Any]) -> list[str]:
     serials: set[str] = set()
 
@@ -1459,3 +1733,15 @@ def _extract_serials(response: dict[str, Any]) -> list[str]:
 
     walk(response.get("data", response))
     return sorted(serials)
+
+
+def _parse_time_value(value: Any) -> dt_datetime.time | None:
+    if value is None:
+        return None
+    candidate = str(value).strip()
+    if not candidate:
+        return None
+    try:
+        return dt_datetime.strptime(candidate, "%H:%M").time()
+    except ValueError:
+        return None

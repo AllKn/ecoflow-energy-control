@@ -195,8 +195,8 @@ class ConfigFlowStaticTest(unittest.TestCase):
                 "async def async_step_general"
             )
         ]
-        self.assertIn('"homewizard": "HomeWizard lokale meter"', add_device)
         self.assertIn('"sma": "SMA cloud omvormer"', add_device)
+        self.assertNotIn("HomeWizard lokale meter", add_device)
         self.assertNotIn("homewizard_ha", add_device)
         self.assertIn('"import_homewizard"', self.text)
         self.assertIn("HOMEWIZARD_ROLE_CHOICES", self.text)
@@ -247,6 +247,19 @@ class ConfigFlowStaticTest(unittest.TestCase):
         self.assertIn("data=merged", save)
         self.assertIn("options={}", save)
         self.assertIn("async_reload(self._entry.entry_id)", save)
+
+    def test_homewizard_duplicate_pruning_keeps_homeassistant_version(self) -> None:
+        prune = self.text[
+            self.text.index("def _prune_homewizard_manual_duplicates") : self.text.index(
+                "def _edit_context"
+            )
+        ]
+        self.assertIn('if item.get("source") != "homeassistant":', prune)
+        self.assertIn("ha_roles", prune)
+        self.assertIn("seen_ha", prune)
+        self.assertIn("for item in items:", prune)
+        self.assertIn('if role in ha_roles:', prune)
+        self.assertIn('key = f"{role}:{item.get(\'device_id\', \'\')}"', prune)
 
     def test_general_and_advanced_settings_use_merge_save(self) -> None:
         general = self.text[

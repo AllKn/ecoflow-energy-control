@@ -4,7 +4,7 @@ from __future__ import annotations
 
 DOMAIN = "ecoflow_energy_control"
 APP_NAME = "EEC app"
-APP_VERSION = "0.5.269"
+APP_VERSION = "0.5.271"
 LEGACY_DASHBOARD_OBJECT_PREFIX = "ecoflow_energy_control_applicatie"
 
 CONF_ACCESS_KEY = "access_key"
@@ -21,6 +21,9 @@ CONF_SMA_INVERTERS = "sma_inverters"
 CONF_BATTERIES = "batteries"
 CONF_POWERSTREAMS = "powerstreams"
 CONF_SMART_PLUGS = "smart_plugs"
+CONF_SMART_PLUG_SCHEDULE_ENABLED = "schedule_enabled"
+CONF_SMART_PLUG_SCHEDULE_ON = "schedule_on"
+CONF_SMART_PLUG_SCHEDULE_OFF = "schedule_off"
 CONF_HOMEWIZARD_METERS = "homewizard_meters"
 CONF_DRY_RUN = "dry_run"
 CONF_SMA_API_HOST = "sma_api_host"
@@ -156,3 +159,7 @@ DEFAULT_SMART_PLUG_OFF_COMMAND = {
     "operateType": "TCP_SET_SWITCH",
     "params": {"enabled": False},
 }
+
+DEFAULT_SMART_PLUG_SCHEDULE_ENABLED = False
+DEFAULT_SMART_PLUG_SCHEDULE_ON = "22:00"
+DEFAULT_SMART_PLUG_SCHEDULE_OFF = "07:00"

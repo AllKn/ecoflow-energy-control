@@ -256,6 +256,7 @@ Vanaf versie `0.5.267` staan dashboard-updatehints ook op de bestaande `Versie`-
 Vanaf versie `0.5.268` krijgt de eerste tegel in `Controle` expliciet de korte naam `Overzicht`. Daardoor blijft het hoofd-dashboard compact, ook wanneer Home Assistant nog een oude lange entiteitnaam in de registry bewaart.
 
 Vanaf versie `0.5.269` ruimt de integratie bij het laden oude lange Home Assistant registry-namen op wanneer ze nog met `EcoFlow Energy Control applicatie` beginnen. Het scenario-detailblok gebruikt daarnaast korte tegels, zodat oude registry-namen de simpele dashboardflow niet meer overheersen.
+Vanaf versie `0.5.271` is Smart Plug als onderdeel van de ene main flow uitgebreid met automatisch tijdvensterschema: elk plug-item kan nu `schema_on` en `schema_off` behouden. De coordinator past dit schema automatisch toe tijdens elke update, en device-status toont die velden plus berekende geplande status.
 
 ## Huidige stand
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import unittest
 
 
@@ -180,6 +181,27 @@ class CoordinatorStaticTest(unittest.TestCase):
         self.assertIn("await self._async_apply_group_strategies", helper_block)
         self.assertIn('"last_powerstream_command": last_strategy_command', helper_block)
         self.assertIn('"strategie wacht op 10-minuten begrenzing"', helper_block)
+
+    def test_smart_plug_forecast_parser_uses_local_datetime_alias(self) -> None:
+        start = self.coordinator.index("def _forecast_solar_power_for_horizon")
+        end = self.coordinator.index("def _solar_scale_per_m2", start)
+        block = self.coordinator[start:end]
+        self.assertIn(
+            "starts_at = dt_datetime.fromisoformat(str(row.get(\"start\")))", block
+        )
+        self.assertIsNone(re.search(r"\bdatetime\.fromisoformat\(", block))
+
+    def test_homewizard_reading_prefers_homeassistant_items_by_role(self) -> None:
+        coerce_block = self.coordinator[
+            self.coordinator.index("def _coerce_homewizard_meters") : self.coordinator.index(
+                "def _coerce_homewizard_role", self.coordinator.index("def _coerce_homewizard_meters")
+            )
+        ]
+        self.assertIn("ha_roles", coerce_block)
+        self.assertIn("for item in items:", coerce_block)
+        self.assertIn('if item.get("source") != "homeassistant":', coerce_block)
+        self.assertIn("if role in ha_roles:", coerce_block)
+        self.assertIn("return output", coerce_block)
 
 
 if __name__ == "__main__":

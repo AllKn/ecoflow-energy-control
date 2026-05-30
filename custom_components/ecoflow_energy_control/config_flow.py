@@ -46,6 +46,9 @@ from .const import (
     DEFAULT_SMA_ENDPOINT,
     DEFAULT_SMART_PLUG_OFF_COMMAND,
     DEFAULT_SMART_PLUG_ON_COMMAND,
+    DEFAULT_SMART_PLUG_SCHEDULE_ENABLED,
+    DEFAULT_SMART_PLUG_SCHEDULE_OFF,
+    DEFAULT_SMART_PLUG_SCHEDULE_ON,
     DEFAULT_WEATHER_CITY,
     DOMAIN,
     HOMEWIZARD_ROLE_CHOICES,
@@ -348,7 +351,6 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                             "delta_pro_3": "EcoFlow Delta Pro 3",
                             "powerstream": "EcoFlow PowerStream",
                             "smart_plug": "EcoFlow Smart Plug",
-                            "homewizard": "HomeWizard lokale meter",
                             "sma": "SMA cloud omvormer",
                         }
                     )
@@ -567,38 +569,16 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
     async def async_step_add_homewizard(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
-        return await self.async_step_device_homewizard(user_input)
+        return await self.async_step_import_homewizard(user_input)
 
     async def async_step_device_homewizard(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            try:
-                from .api.homewizard import read_homewizard_meter
-
-                await read_homewizard_meter(
-                    async_get_clientsession(self.hass), dict(user_input)
-                )
-            except Exception:  # noqa: BLE001
-                errors["base"] = "cannot_connect"
-            else:
-                values = self._settings()
-                values.setdefault(CONF_HOMEWIZARD_METERS, []).append(dict(user_input))
-                return self._save(values)
-        return self.async_show_form(
-            step_id="device_homewizard",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("name", default="HomeWizard zonmeter"): str,
-                    vol.Required("host"): str,
-                    vol.Required("role", default=DEFAULT_HOMEWIZARD_ROLE): vol.In(
-                        HOMEWIZARD_ROLE_CHOICES
-                    ),
-                }
-            ),
-            errors=errors,
-        )
+        # HomeWizard meters are now sourced from the Home Assistant HomeWizard
+        # integration; keep a single manual setup path for clarity.
+        if not (user_input or {}).get("device_id"):
+            user_input = None
+        return await self.async_step_import_homewizard(user_input)
 
     async def async_step_add_homewizard_ha(
         self, user_input: dict[str, Any] | None = None
@@ -633,6 +613,15 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                         "charges": user_input["charges"],
                         "on_command": DEFAULT_SMART_PLUG_ON_COMMAND,
                         "off_command": DEFAULT_SMART_PLUG_OFF_COMMAND,
+                        "schedule_enabled": user_input.get(
+                            "schedule_enabled", DEFAULT_SMART_PLUG_SCHEDULE_ENABLED
+                        ),
+                        "schedule_on": user_input.get(
+                            "schedule_on", DEFAULT_SMART_PLUG_SCHEDULE_ON
+                        ),
+                        "schedule_off": user_input.get(
+                            "schedule_off", DEFAULT_SMART_PLUG_SCHEDULE_OFF
+                        ),
                     }
                 )
                 return self._save(values)
@@ -645,6 +634,18 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required("charges"): vol.In(
                         self._battery_choices() or {"": "Geen batterij toegevoegd"}
                     ),
+                    vol.Optional(
+                        "schedule_enabled",
+                        default=DEFAULT_SMART_PLUG_SCHEDULE_ENABLED,
+                    ): bool,
+                    vol.Optional(
+                        "schedule_on",
+                        default=DEFAULT_SMART_PLUG_SCHEDULE_ON,
+                    ): str,
+                    vol.Optional(
+                        "schedule_off",
+                        default=DEFAULT_SMART_PLUG_SCHEDULE_OFF,
+                    ): str,
                 }
             ),
             errors=errors,
@@ -851,6 +852,16 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     "off_command": current.get(
                         "off_command", DEFAULT_SMART_PLUG_OFF_COMMAND
                     ),
+                    "schedule_enabled": user_input.get(
+                        "schedule_enabled",
+                        current.get("schedule_enabled", False),
+                    ),
+                    "schedule_on": user_input.get(
+                        "schedule_on", current.get("schedule_on", "")
+                    ),
+                    "schedule_off": user_input.get(
+                        "schedule_off", current.get("schedule_off", "")
+                    ),
                 }
                 return self._replace_device(group, index, item)
         return self.async_show_form(
@@ -864,6 +875,20 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         "charges", default=current.get("charges", "")
                     ): vol.In(self._battery_choices() or {"": "Geen batterij toegevoegd"}),
+                    vol.Optional(
+                        "schedule_enabled",
+                        default=current.get(
+                            "schedule_enabled", DEFAULT_SMART_PLUG_SCHEDULE_ENABLED
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        "schedule_on",
+                        default=current.get("schedule_on", DEFAULT_SMART_PLUG_SCHEDULE_ON),
+                    ): str,
+                    vol.Optional(
+                        "schedule_off",
+                        default=current.get("schedule_off", DEFAULT_SMART_PLUG_SCHEDULE_OFF),
+                    ): str,
                 }
             ),
             errors=errors,
@@ -876,11 +901,17 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
         values.setdefault(CONF_SMA_INVERTERS, [])
         values.setdefault(CONF_SMART_PLUGS, [])
         values.setdefault(CONF_HOMEWIZARD_METERS, [])
+        values[CONF_HOMEWIZARD_METERS] = self._prune_homewizard_manual_duplicates(
+            values[CONF_HOMEWIZARD_METERS]
+        )
         return values
 
     def _save(self, values: dict[str, Any]) -> config_entries.FlowResult:
         merged = self._settings()
         merged.update(values)
+        merged[CONF_HOMEWIZARD_METERS] = self._prune_homewizard_manual_duplicates(
+            merged.get(CONF_HOMEWIZARD_METERS, [])
+        )
         self.hass.config_entries.async_update_entry(
             self._entry, data=merged, options={}
         )
@@ -888,6 +919,40 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
             self.hass.config_entries.async_reload(self._entry.entry_id)
         )
         return self.async_create_entry(title="", data={})
+
+    def _prune_homewizard_manual_duplicates(
+        self, items: list[dict[str, Any]] | Any
+    ) -> list[dict[str, Any]]:
+        """Keep manual HomeWizard entries only when they don't shadow HA-imported roles."""
+        if not isinstance(items, list):
+            return []
+
+        ha_roles: set[str] = set()
+        seen_ha: set[str] = set()
+        output: list[dict[str, Any]] = []
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if item.get("source") != "homeassistant":
+                continue
+            role = _coerce_homewizard_role(item)
+            ha_roles.add(role)
+            key = f"{role}:{item.get('device_id', '')}"
+            if key in seen_ha:
+                continue
+            seen_ha.add(key)
+            output.append(item)
+
+        for item in items:
+            if not isinstance(item, dict) or item.get("source") == "homeassistant":
+                continue
+            role = _coerce_homewizard_role(item)
+            if role in ha_roles:
+                continue
+            output.append(item)
+
+        return output
 
     def _edit_context(self, expected_group: str) -> tuple[str, int, dict[str, Any]]:
         if self._pending_edit is None:
@@ -942,6 +1007,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     "charges": config["charges"],
                     "on_command": DEFAULT_SMART_PLUG_ON_COMMAND,
                     "off_command": DEFAULT_SMART_PLUG_OFF_COMMAND,
+                    "schedule_enabled": DEFAULT_SMART_PLUG_SCHEDULE_ENABLED,
+                    "schedule_on": DEFAULT_SMART_PLUG_SCHEDULE_ON,
+                    "schedule_off": DEFAULT_SMART_PLUG_SCHEDULE_OFF,
                 }
             )
         self._pending_import_device = None
@@ -1172,6 +1240,28 @@ def _suggest_homewizard_role(device: Any, name: str) -> str:
         )
     )
     if "p1" in text or "meter" in text or "energy socket" in text:
+        return HOMEWIZARD_ROLE_GRID_METER
+    return HOMEWIZARD_ROLE_SOLAR_TOTAL
+
+
+def _coerce_homewizard_role(item: dict[str, Any]) -> str:
+    explicit = str(item.get("role") or "").strip()
+    if explicit in (HOMEWIZARD_ROLE_SOLAR_TOTAL, HOMEWIZARD_ROLE_GRID_METER):
+        return explicit
+    return _infer_homewizard_role_from_text(
+        item.get("name"),
+        item.get("model"),
+        item.get("host"),
+        item.get("device_id"),
+    )
+
+
+def _infer_homewizard_role_from_text(*parts: Any) -> str:
+    text = " ".join(str(part or "") for part in parts).lower()
+    compact = text.replace("_", " ").replace("-", " ")
+    if "p1" in compact or "netmeter" in compact or "energy socket" in compact:
+        return HOMEWIZARD_ROLE_GRID_METER
+    if "p1 meter" in compact or "p1meter" in compact:
         return HOMEWIZARD_ROLE_GRID_METER
     return HOMEWIZARD_ROLE_SOLAR_TOTAL
 

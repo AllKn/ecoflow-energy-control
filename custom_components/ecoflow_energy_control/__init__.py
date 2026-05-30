@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -23,6 +24,7 @@ from .const import (
     CONF_SMA_INVERTERS,
     CONF_SMART_PLUGS,
     DEFAULT_PRICE_SOURCE,
+    DEFAULT_HOMEWIZARD_ROLE,
     DOMAIN,
     SERVICE_APPLY_BEST_SCENARIO,
     SERVICE_APPLY_STRATEGY,
@@ -122,9 +124,68 @@ def _normalize_entry_storage(hass: HomeAssistant, entry: ConfigEntry) -> None:
     if merged.get(CONF_PRICE_URL) == _OLD_DEFAULT_PRICE_URL:
         merged[CONF_PRICE_URL] = ""
         merged[CONF_PRICE_SOURCE] = DEFAULT_PRICE_SOURCE
+    merged[CONF_HOMEWIZARD_METERS] = _prune_homewizard_manual_duplicates(
+        merged.get(CONF_HOMEWIZARD_METERS, [])
+    )
     merged.setdefault(CONF_PRICE_SOURCE, DEFAULT_PRICE_SOURCE)
     if merged != entry.data or entry.options:
         hass.config_entries.async_update_entry(entry, data=merged, options={})
+
+
+def _prune_homewizard_manual_duplicates(items: list[dict[str, Any]] | Any) -> list[dict[str, Any]]:
+    """Keep manual HomeWizard entries only when they don't shadow HA-imported roles."""
+    if not isinstance(items, list):
+        return []
+    ha_roles: set[str] = set()
+    seen_ha: set[str] = set()
+    output: list[dict[str, Any]] = []
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("source") != "homeassistant":
+            continue
+        role = _coerce_homewizard_role(item)
+        ha_roles.add(role)
+        key = f"{role}:{item.get('device_id', '')}"
+        if key in seen_ha:
+            continue
+        seen_ha.add(key)
+        output.append(item)
+
+    for item in items:
+        if not isinstance(item, dict) or item.get("source") == "homeassistant":
+            continue
+        role = _coerce_homewizard_role(item)
+        if role in ha_roles:
+            continue
+        output.append(item)
+    return output
+
+
+def _coerce_homewizard_role(item: dict[str, Any]) -> str:
+    explicit = str(item.get("role") or "").strip()
+    if explicit in (
+        HOMEWIZARD_ROLE_SOLAR_TOTAL,
+        HOMEWIZARD_ROLE_GRID_METER,
+    ):
+        return explicit
+    return _infer_homewizard_role_from_text(
+        item.get("name"),
+        item.get("model"),
+        item.get("host"),
+        item.get("device_id"),
+    )
+
+
+def _infer_homewizard_role_from_text(*parts: Any) -> str:
+    text = " ".join(str(part or "") for part in parts).lower()
+    compact = text.replace("_", " ").replace("-", " ")
+    if "p1" in compact or "netmeter" in compact or "energy socket" in compact:
+        return HOMEWIZARD_ROLE_GRID_METER
+    if "p1 meter" in compact or "p1meter" in compact:
+        return HOMEWIZARD_ROLE_GRID_METER
+    return DEFAULT_HOMEWIZARD_ROLE
 
 
 def _shorten_legacy_entity_registry_names(
