@@ -4,9 +4,9 @@
   "codeowners": ["@local"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/local/ecoflow-energy-control",
+  "documentation": "https://github.com/AllKn/ecoflow-energy-control",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/local/ecoflow-energy-control/issues",
+  "issue_tracker": "https://github.com/AllKn/ecoflow-energy-control/issues",
   "requirements": [],
-    "version": "0.5.256"
+  "version": "0.5.267"
 }

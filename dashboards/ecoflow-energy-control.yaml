@@ -1,3 +1,4 @@
+# EEC app dashboard yaml version: 0.5.267
 title: EEC app
 views:
   - title: Main
@@ -362,6 +363,12 @@ views:
               options:
                 type: entity
                 name: Versie
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_yaml_version
+              options:
+                type: tile
+                name: YAML
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_source_summary
@@ -887,42 +894,42 @@ views:
               name: EUR/kWh
               type: column
               data_generator: |
-                const now = Date.now();
-                const end = now + 24 * 60 * 60 * 1000;
-                const prices = entity.attributes.prices || [];
+                var now = Date.now();
+                var rangeEnd = now + 24 * 60 * 60 * 1000;
+                var prices = entity.attributes.prices || [];
                 return prices
                   .map((item) => [new Date(item.start).getTime(), Number(item.price)])
                   .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
-                  .filter((item) => item[0] >= now && item[0] <= end);
+                  .filter((item) => item[0] >= now && item[0] <= rangeEnd);
             - entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
               name: Laagste
               type: line
               stroke_width: 2
               data_generator: |
-                const now = Date.now();
-                const end = now + 24 * 60 * 60 * 1000;
-                const prices = entity.attributes.prices || [];
-                const value = Number(entity.state);
+                var now = Date.now();
+                var rangeEnd = now + 24 * 60 * 60 * 1000;
+                var prices = entity.attributes.prices || [];
+                var value = Number(entity.state);
                 if (!Number.isFinite(value)) return [];
                 return prices
                   .map((item) => [new Date(item.start).getTime(), value])
                   .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
-                  .filter((item) => item[0] >= now && item[0] <= end);
+                  .filter((item) => item[0] >= now && item[0] <= rangeEnd);
             - entity: sensor.ecoflow_energy_control_applicatie_hoogste_prijs_tot_morgen
               name: Hoogste
               type: line
               stroke_width: 2
               data_generator: |
-                const now = Date.now();
-                const end = now + 24 * 60 * 60 * 1000;
-                const source = hass.states['sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen'];
-                const prices = source ? source.attributes.prices || [] : [];
-                const value = Number(entity.state);
+                var now = Date.now();
+                var rangeEnd = now + 24 * 60 * 60 * 1000;
+                var source = hass.states['sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen'];
+                var prices = source ? source.attributes.prices || [] : [];
+                var value = Number(entity.state);
                 if (!Number.isFinite(value)) return [];
                 return prices
                   .map((item) => [new Date(item.start).getTime(), value])
                   .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
-                  .filter((item) => item[0] >= now && item[0] <= end);
+                  .filter((item) => item[0] >= now && item[0] <= rangeEnd);
 
       - type: custom:auto-entities
         show_empty: false
@@ -997,13 +1004,13 @@ views:
               name: °C
               type: column
               data_generator: |
-                const now = Date.now();
-                const end = now + 24 * 60 * 60 * 1000;
-                const rows = entity.attributes.hourly || [];
+                var now = Date.now();
+                var rangeEnd = now + 24 * 60 * 60 * 1000;
+                var rows = entity.attributes.hourly || [];
                 return rows
                   .map((item) => [new Date(item.start).getTime(), Number(item.temperature)])
                   .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
-                  .filter((item) => item[0] >= now && item[0] <= end);
+                  .filter((item) => item[0] >= now && item[0] <= rangeEnd);
 
       - type: custom:auto-entities
         show_empty: false

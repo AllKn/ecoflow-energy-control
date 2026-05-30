@@ -128,6 +128,13 @@ class ArtifactIntegrityTest(unittest.TestCase):
             with self.subTest(path=path.name):
                 self.assertFalse(path.exists())
 
+    def test_release_check_tool_is_documented(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertTrue((ROOT / "tools" / "release_check.py").exists())
+        self.assertIn("tools/release_check.py", readme)
+        self.assertTrue((ROOT / "tools" / "build_release_package.py").exists())
+        self.assertIn("tools/build_release_package.py", readme)
+
 
 if __name__ == "__main__":
     unittest.main()

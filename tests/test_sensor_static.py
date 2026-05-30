@@ -34,6 +34,7 @@ class SensorStaticTest(unittest.TestCase):
             "powerstream_export",
             "app_status",
             "app_version",
+            "dashboard_yaml_version",
             "execution_status",
             "last_action",
             "dashboard_overview",
@@ -73,6 +74,28 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn("LEGACY_DASHBOARD_OBJECT_PREFIX", self.text)
         self.assertIn("_attr_suggested_object_id", self.text)
         self.assertIn("slugify(", self.text)
+
+    def test_version_sensor_exposes_dashboard_update_hint(self) -> None:
+        start = self.text.index("class VersionSensor")
+        end = self.text.index("class DashboardYamlVersionSensor")
+        block = self.text[start:end]
+        self.assertIn('"eec_sensor_role": "app_version"', block)
+        self.assertIn('"dashboard_yaml_version": APP_VERSION', block)
+        self.assertIn('f"EEC app dashboard yaml version: {APP_VERSION}"', block)
+        self.assertIn('"dashboard_file": "dashboards/ecoflow-energy-control.yaml"', block)
+        self.assertIn('"dashboard_path": "/ecoflow-app-dashboard/ecoflow-energy"', block)
+        self.assertIn('"dashboard_update_hint"', block)
+
+    def test_dashboard_yaml_version_sensor_is_visually_identifiable(self) -> None:
+        start = self.text.index("class DashboardYamlVersionSensor")
+        end = self.text.index("class PriceMinimumSensor")
+        block = self.text[start:end]
+        self.assertIn('"dashboard_yaml_version"', block)
+        self.assertIn('return "mdi:file-document-check"', block)
+        self.assertIn('"status": "actueel"', block)
+        self.assertIn('"dashboard_yaml_version": APP_VERSION', block)
+        self.assertIn('f"EEC app dashboard yaml version: {APP_VERSION}"', block)
+        self.assertIn('"stale_dashboard_hint"', block)
 
     def test_homewizard_p1_grid_power_is_separate_from_solar_power(self) -> None:
         self.assertIn("HomeWizardGridPowerSensor(coordinator)", self.text)

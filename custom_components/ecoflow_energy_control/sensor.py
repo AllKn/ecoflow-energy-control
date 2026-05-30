@@ -57,6 +57,7 @@ async def async_setup_entry(
     coordinator: EcoFlowEnergyCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SensorEntity] = [
         VersionSensor(coordinator),
+        DashboardYamlVersionSensor(coordinator),
         PriceSensor(coordinator),
         PriceMinimumSensor(coordinator),
         PriceMaximumSensor(coordinator),
@@ -287,6 +288,47 @@ class VersionSensor(BaseSensor):
         return {
             "eec_device_type": "control",
             "eec_sensor_role": "app_version",
+            "dashboard_yaml_version": APP_VERSION,
+            "dashboard_yaml_marker": f"EEC app dashboard yaml version: {APP_VERSION}",
+            "dashboard_file": "dashboards/ecoflow-energy-control.yaml",
+            "dashboard_path": "/ecoflow-app-dashboard/ecoflow-energy",
+            "dashboard_update_hint": (
+                "Ontbreekt Controle > YAML of wijkt die versie af, importeer "
+                "of vervang het hoofd-dashboard opnieuw."
+            ),
+        }
+
+
+class DashboardYamlVersionSensor(BaseSensor):
+    """Shipped dashboard YAML version marker."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "dashboard_yaml_version", "dashboard YAML")
+
+    @property
+    def native_value(self) -> str:
+        return APP_VERSION
+
+    @property
+    def icon(self) -> str:
+        return "mdi:file-document-check"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "dashboard",
+            "eec_sensor_role": "dashboard_yaml_version",
+            "status": "actueel",
+            "dashboard_yaml_version": APP_VERSION,
+            "yaml_marker": f"EEC app dashboard yaml version: {APP_VERSION}",
+            "dashboard_file": "dashboards/ecoflow-energy-control.yaml",
+            "dashboard_path": "/ecoflow-app-dashboard/ecoflow-energy",
+            "shipped_dashboards": ["ecoflow-energy-control.yaml"],
+            "stale_dashboard_hint": (
+                "Als deze tegel ontbreekt, toont Home Assistant nog een oude "
+                "geimporteerde Lovelace-config."
+            ),
+            "basis": "deze tegel bewijst welke dashboard-YAML is geimporteerd",
         }
 
 

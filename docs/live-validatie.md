@@ -22,12 +22,18 @@ Vanaf versie `0.5.255` levert EEC app nog maar één dagelijks dashboard mee. Po
 
 De setup is live bruikbaar als deze punten kloppen:
 
-- **Setup** vraagt voor basisinzicht alleen om een batterij; `Main` of `Setup advies` toont of EnergyZero als standaard prijsbron is gebruikt.
+- **Controle > Setup** vraagt voor basisinzicht alleen om een batterij; `Main` toont of EnergyZero als standaard prijsbron is gebruikt.
 - **Flow** toont `Main` als compacte hoofdregel en `Inzicht` als `basis klaar` of beter.
 - **Stap** noemt een concrete volgende actie, of geeft aan dat `Advies` gestart kan worden.
 - **Basis** toont waarden voor `P1 W`, `Netto W`, `Accu`, `kWh`, `EUR/kWh`, `Terug W` en zonverwachting zonder `unknown` of `unavailable`.
 - **Scenario - nu** toont een beste scenario, plan in gewone taal, eventuele blokkade, match met je keuze, uitvoerbaarheid, adviesvermogen en `EUR/u`.
 - **Controle > Bewijs** toont databewijs en stuur-bewijs, bijvoorbeeld `6/6 data, sturing klaar` of `6/6 data, sturing gedeeltelijk`.
+- **Controle > YAML** toont dezelfde versie als de integratie. Ontbreekt deze tegel, dan is de integratie wel bijgewerkt maar de Lovelace-dashboardconfig nog oud.
+- Open in dat geval de attributen van **Controle > Versie**. Daar staan `dashboard_yaml_version`, `dashboard_yaml_marker`, `dashboard_file`, `dashboard_path` en een `dashboard_update_hint`.
+- In de ruwe dashboardconfig staat bovenaan `EEC app dashboard yaml version`. Die versie moet gelijk zijn aan de integratieversie.
+- Toont **Versie** nog een lager nummer dan de README of `manifest.json`, dan draait Home Assistant nog de vorige HACS-download. Publiceer eerst de nieuwe commit op GitHub, laat HACS opnieuw updaten en herstart daarna Home Assistant.
+- Voor publicatie kun je lokaal `python3 tools/release_check.py` uitvoeren. Die check noemt ook welke versie je daarna in Home Assistant bij **Versie** en **YAML** hoort te zien.
+- Als GitHub via de terminal niet lukt, maak dan met `python3 tools/build_release_package.py` een schoon uploadpakket en upload de inhoud naar de root van de repository. Dit pakket bevat ook de tests, zodat de GitHub-repo dezelfde verificatiecontracten bevat als je lokale map. In `release-manifest.json` staan versie, bestandslijst en checksums.
 - **Datacheck** heeft geen rode blokkade voor prijzen, batterijen, PowerStreams, P1/netmeter, zon, weer, scenario's of sturing.
 - **Scenario hulp** staat pas na `Datacheck` en is naslag; de echte keuze voor scenario en testmodus staat bovenin `Flow`.
 - **Handmatig - tools** staat helemaal onderaan en wordt alleen gebruikt voor diagnose, API-checks of bewust handmatig testen.
@@ -35,6 +41,8 @@ De setup is live bruikbaar als deze punten kloppen:
 Lege secundaire kaarten mogen wegblijven. Bij minimale setup is het juist goed als optionele blokken zoals `P1 historie`, PowerStream-details of extra diagnose pas verschijnen wanneer daar entiteiten voor zijn.
 
 Ook grafieken mogen wegblijven wanneer hun bron nog `unknown` of `unavailable` is. Zodra prijs- en weerdata binnenkomen, verschijnen de uurprijs- en weergrafieken vanzelf. Datacheck hoort prijs- en weeruurdata tegelijk te bewaken, zodat een verborgen grafiek altijd een zichtbare oorzaak heeft.
+
+Als de browserconsole bij de grafieken `Identifier 'end' has already been declared` meldt, draait nog een dashboard-YAML van voor versie `0.5.257`.
 
 ## Flow
 

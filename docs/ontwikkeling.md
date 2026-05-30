@@ -231,6 +231,28 @@ Vanaf versie `0.5.255` levert de app geen losse PowerStream-, app-stijl- of scen
 
 Vanaf versie `0.5.256` is Datacheck geen tekstlijst meer maar een grid met tegels. De bronstatus blijft dynamisch op dezelfde readiness-checks gebaseerd, maar is visueel sneller te scannen op het ene hoofd-dashboard.
 
+Vanaf versie `0.5.257` zijn de ApexCharts data-generators aangepast zodat prijs- en weergrafieken geen lokale JavaScript-variabelen meer herdeclareren. Dat voorkomt dat de grafiekkaart leeg blijft door `Identifier 'end' has already been declared`.
+
+Vanaf versie `0.5.258` heeft `Controle` een `YAML`-tegel. Die toont de versie van de geimporteerde dashboardconfig, zodat na een HACS-update zichtbaar is of Home Assistant nog een oude Lovelace-config gebruikt.
+
+Vanaf versie `0.5.259` staat dezelfde dashboardversie ook als commentaar op de eerste regel van `dashboards/ecoflow-energy-control.yaml`. Bij handmatig controleren of opnieuw importeren is daardoor meteen te zien welke Lovelace-YAML wordt gebruikt.
+
+Vanaf versie `0.5.260` is de `YAML`-tegel visueel herkenbaarder door een document-check-icoon, een statusattribuut en een expliciete YAML-marker. Daarmee valt de dashboardconfig-check sneller op naast de gewone integratieversie.
+
+Vanaf versie `0.5.261` verwijst de Home Assistant manifest-informatie naar de publieke GitHub-repository `AllKn/ecoflow-energy-control`. HACS, documentatie en foutmeldingen wijzen daardoor naar dezelfde updatebron.
+
+Vanaf versie `0.5.262` is er een lokale updatecontrole via `tools/release_check.py`. Die controleert voor publicatie of manifest, README, app-versie, dashboard-YAML, HACS-domein en GitHub-links dezelfde release beschrijven en noemt welke versie na de update in Home Assistant zichtbaar moet zijn.
+
+Vanaf versie `0.5.263` is er ook `tools/build_release_package.py`. Die maakt een schoon zip-pakket voor handmatige GitHub-upload zonder `.git`, caches of lokale bestanden, zodat HACS dezelfde gevalideerde inhoud kan ophalen.
+
+Vanaf versie `0.5.264` neemt dat releasepakket ook de testbestanden mee. Daardoor blijft de GitHub-repository bij handmatige upload niet alleen bruikbaar voor HACS, maar ook als volledige verificatiebron voor de dashboard- en integratiecontracten.
+
+Vanaf versie `0.5.265` bevat het releasepakket ook `release-manifest.json` met versie, domein, bestandslijst, bestandsgroottes en SHA256-checksums. Daarmee is handmatige GitHub-upload beter te vergelijken met de lokaal gevalideerde inhoud.
+
+Vanaf versie `0.5.266` bewaakt de dashboardtest extra dat oude live-dashboardlabels zoals `Gereedheid` en `Keuze wijzigen` niet terugkeren in de meegeleverde YAML. Ook wordt in `Scenario - nu` gecontroleerd dat kerntegels zoals `Input` niet dubbel worden gedefinieerd.
+
+Vanaf versie `0.5.267` staan dashboard-updatehints ook op de bestaande `Versie`-sensor. Daardoor kan een gebruiker bij een oude dashboardimport alsnog zien welke dashboard-YAML versie verwacht wordt, welke marker bovenaan de YAML hoort te staan en dat het hoofd-dashboard opnieuw geïmporteerd of vervangen moet worden.
+
 ## Huidige stand
 
 EEC app werkt nu als lokale energieregisseur binnen Home Assistant. De app combineert EcoFlow Cloud API, EnergyZero/EPEX-prijzen, HomeWizard live-data, Home Assistant P1-historie, weerverwachting en scenarioadvies. Waar data ontbreekt, toont de app diagnose in plaats van stil te falen.

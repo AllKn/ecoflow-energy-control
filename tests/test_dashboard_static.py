@@ -283,11 +283,23 @@ class MainDashboardStaticTest(unittest.TestCase):
         )
 
     def test_dashboard_contract_has_one_primary_route(self) -> None:
+        self.assertIn("# EEC app dashboard yaml version:", self.text)
         self.assertIn("title: EEC app", self.text)
         self.assertIn("  - title: Main", self.text)
         self.assertIn("    path: ecoflow-energy", self.text)
         dashboard_files = sorted(ROOT.glob("dashboards/ecoflow-energy-*.yaml"))
         self.assertEqual(dashboard_files, [MAIN_DASHBOARD])
+
+    def test_main_dashboard_does_not_reintroduce_old_live_labels(self) -> None:
+        blocked_labels = (
+            "title: Gereedheid",
+            "title: Keuze wijzigen",
+            "name: Gereedheid",
+            "name: Keuze wijzigen",
+        )
+        for label in blocked_labels:
+            with self.subTest(label=label):
+                self.assertNotIn(label, self.text)
 
     def test_readme_points_to_main_dashboard_as_primary_flow(self) -> None:
         readme = README.read_text(encoding="utf-8")
@@ -489,6 +501,17 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("state_not: unavailable", weather_block)
         self.assertIn("state_not: unknown", weather_block)
 
+    def test_apex_generators_avoid_const_redeclaration(self) -> None:
+        generators = re.findall(
+            r"data_generator: \|\n((?:                .+\n)+)", self.text
+        )
+        self.assertTrue(generators)
+        for block in generators:
+            with self.subTest(block=block[:40]):
+                self.assertNotIn("const now =", block)
+                self.assertNotIn("const end =", block)
+                self.assertIn("var rangeEnd =", block)
+
     def test_advice_card_compares_selected_and_best_scenario(self) -> None:
         start = self.text.index("title: Waarom")
         end = self.text.index("title: Datacheck")
@@ -542,6 +565,7 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertNotIn("eec_sensor_role: dashboard_insight_state", block)
         self.assertIn("eec_sensor_role: app_status", block)
         self.assertIn("eec_sensor_role: app_version", block)
+        self.assertIn("eec_sensor_role: dashboard_yaml_version", block)
         self.assertIn("eec_sensor_role: dashboard_source_summary", block)
         self.assertIn("eec_sensor_role: dashboard_problem", block)
         self.assertIn("eec_sensor_role: dashboard_live_proof", block)
@@ -552,6 +576,7 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertNotIn("eec_sensor_role: dashboard_next_step", block)
         self.assertIn("name: Setup", block)
         self.assertIn("name: Setup %", block)
+        self.assertIn("name: YAML", block)
         self.assertNotIn("name: Setup advies", block)
         self.assertNotIn("name: Advies", block)
         self.assertNotIn("name: Inzicht", block)
@@ -716,6 +741,9 @@ class MainDashboardStaticTest(unittest.TestCase):
         ):
             with self.subTest(role=role):
                 self.assertIn(f"eec_sensor_role: {role}", block)
+        self.assertEqual(block.count("name: Overzicht"), 1)
+        self.assertEqual(block.count("name: Plan"), 1)
+        self.assertEqual(block.count("name: Input"), 1)
         self.assertIn("name: Overzicht", block)
         self.assertIn("name: Plan", block)
         self.assertIn("name: Uitvoerbaar", block)
@@ -724,7 +752,6 @@ class MainDashboardStaticTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("execution_hint", sensor_text)
         self.assertIn("blocked_by", sensor_text)
-        self.assertIn("name: Input", block)
         self.assertIn("name: Zeker", block)
         self.assertIn("name: Zekerheid", block)
         self.assertIn("min: 0", block)

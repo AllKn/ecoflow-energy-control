@@ -124,6 +124,7 @@ Voor live validatie na een update kijk je bovenaan naar:
 - **Scenario - nu**: toont het actuele beste scenario, wat jouw gekozen scenario doet, de match met je keuze en de verwachte EUR/uur.
 - **Controle > Aandacht**: toont de eerste blokkade, optimalisatie of waarschuwing die aandacht nodig heeft.
 - **Controle > Bewijs**: scheidt databewijs van stuur-bewijs, bijvoorbeeld `6/6 data, sturing gedeeltelijk`.
+- **Controle > YAML**: toont de geimporteerde dashboard-YAML versie. Ontbreekt deze tegel, dan kijkt Home Assistant nog naar een oude geimporteerde dashboardconfig.
 - **Datacheck**: toont de details per bron als `Aandacht` of `Bewijs` niet volledig klaar is.
 - **Flow > Advies** is de normale bediening; **Scenario hulp** is naslag en **Handmatig - tools** is alleen voor diagnose of bewust testen.
 
@@ -159,7 +160,25 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.256`
+`0.5.267`
+
+## Updatecontrole
+
+Voor publicatie naar GitHub/HACS kun je lokaal controleren of de versies, manifest-links en dashboard-YAML gelijk lopen:
+
+```text
+python3 tools/release_check.py
+```
+
+Als terminal-login naar GitHub lastig is, kun je ook een schoon uploadpakket maken:
+
+```text
+python3 tools/build_release_package.py
+```
+
+Dit maakt `dist/eec-app-<versie>.zip`. Upload de inhoud van die zip naar de root van de GitHub-repository, zodat `custom_components`, `dashboards`, `docs`, `tests`, `tools`, `README.md` en `hacs.json` op dezelfde plek blijven staan. De zip bevat ook `release-manifest.json` met checksums voor de bestanden in het pakket.
+
+Na een HACS-update moeten **Controle > Versie** en **Controle > YAML** hetzelfde versienummer tonen. Als de integratieversie wel nieuw is maar de `YAML`-tegel ontbreekt, gebruikt Home Assistant nog een oude geïmporteerde dashboardconfig. Open dan de attributen van **Versie**; daar staat de verwachte dashboardversie, YAML-marker en herstelhint.
 
 ## EcoFlow Signing
 
@@ -672,3 +691,25 @@ Versie `0.5.254` laat Datacheck ook de bron voor de weergrafiek bewaken. Als de 
 Versie `0.5.255` verwijdert de losse PowerStream-, app-stijl- en scenario-dashboardbestanden. Het HACS-pakket levert daarmee nog één hoofd-dashboard voor de dagelijkse flow; detailblokken blijven op die route beschikbaar en verschijnen alleen waar ze relevant zijn.
 
 Versie `0.5.256` maakt Datacheck grafischer. De bronchecks staan nu als tegels in een grid in plaats van als tekstlijst, zodat prijzen, batterijen, PowerStreams, P1/netmeter, zon, weer, scenario's en sturing sneller scanbaar zijn.
+
+Versie `0.5.257` corrigeert de ApexCharts data-generators voor prijs- en weergrafieken. Variabelen worden niet meer als `const` herdeclarerend opgebouwd, waardoor de browserfout `Identifier 'end' has already been declared` verdwijnt.
+
+Versie `0.5.258` voegt een `YAML`-tegel toe aan `Controle`. Die tegel toont de dashboard-YAML versie en maakt zichtbaar of Home Assistant de nieuwste hoofd-dashboardconfig heeft geimporteerd of nog een oude Lovelace-config toont.
+
+Versie `0.5.259` zet dezelfde versie ook als commentaar bovenaan `dashboards/ecoflow-energy-control.yaml`. Daardoor is in de ruwe dashboardconfig direct zichtbaar welke YAML is geimporteerd.
+
+Versie `0.5.260` maakt de `YAML`-tegel herkenbaarder met een document-check-icoon, een statusattribuut en een expliciete YAML-marker. Daardoor valt de dashboardconfig-check sneller op in de tegelweergave van `Controle`.
+
+Versie `0.5.261` corrigeert de Home Assistant manifest-links naar de publieke GitHub-repository `AllKn/ecoflow-energy-control`. Daardoor wijzen HACS en de integratie-informatie naar dezelfde bron als waar de updates worden gepubliceerd.
+
+Versie `0.5.262` voegt `tools/release_check.py` toe als lokale updatecontrole. Die check bewijst voor publicatie dat manifest, README, app-versie, dashboard-YAML, HACS-domein en GitHub-links dezelfde release beschrijven en noemt daarna welke versie Home Assistant moet tonen.
+
+Versie `0.5.263` voegt `tools/build_release_package.py` toe. Daarmee kan zonder terminal-login een schoon zip-pakket voor GitHub worden gemaakt, zonder `.git`, caches of lokale rommel, zodat HACS dezelfde bestanden kan ophalen als lokaal zijn gevalideerd.
+
+Versie `0.5.264` maakt het releasepakket compleet voor de GitHub-repository. De zip neemt nu ook de testbestanden mee en bouwt de bestandslijst dynamisch uit de relevante mappen, terwijl `dist`, caches en lokale systeembestanden worden uitgesloten.
+
+Versie `0.5.265` voegt `release-manifest.json` toe aan het zip-pakket. Dat manifest bevat versie, domein, bestandslijst, bestandsgroottes en SHA256-checksums, zodat handmatige GitHub-upload beter te controleren is.
+
+Versie `0.5.266` borgt de simpele hoofdflow extra met dashboardtests. Oude live-dashboardlabels zoals `Gereedheid` en `Keuze wijzigen` mogen niet meer in de meegeleverde YAML voorkomen, en `Scenario - nu` bewaakt dat kerntegels zoals `Input` niet dubbel worden gedefinieerd.
+
+Versie `0.5.267` zet dashboard-updatehints ook op de bestaande `Versie`-sensor. Daardoor kun je zelfs met een nog oude dashboardimport zien welke dashboard-YAML versie hoort te draaien en dat het hoofd-dashboard opnieuw geïmporteerd of vervangen moet worden.
