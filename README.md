@@ -160,7 +160,7 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.267`
+`0.5.268`
 
 ## Updatecontrole
 
@@ -713,3 +713,5 @@ Versie `0.5.265` voegt `release-manifest.json` toe aan het zip-pakket. Dat manif
 Versie `0.5.266` borgt de simpele hoofdflow extra met dashboardtests. Oude live-dashboardlabels zoals `Gereedheid` en `Keuze wijzigen` mogen niet meer in de meegeleverde YAML voorkomen, en `Scenario - nu` bewaakt dat kerntegels zoals `Input` niet dubbel worden gedefinieerd.
 
 Versie `0.5.267` zet dashboard-updatehints ook op de bestaande `Versie`-sensor. Daardoor kun je zelfs met een nog oude dashboardimport zien welke dashboard-YAML versie hoort te draaien en dat het hoofd-dashboard opnieuw geïmporteerd of vervangen moet worden.
+
+Versie `0.5.268` geeft de eerste tegel in `Controle` expliciet de korte naam `Overzicht`. Daardoor gebruikt Home Assistant geen oude, lange entiteitnaam meer wanneer het dashboard al eerder geimporteerd was.

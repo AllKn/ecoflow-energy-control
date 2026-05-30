@@ -555,6 +555,7 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("card_param: cards", block)
         self.assertIn("columns: 6", block)
         self.assertIn("eec_sensor_role: dashboard_overview", block)
+        self.assertIn("name: Overzicht", block)
         self.assertIn("eec_sensor_role: dashboard_setup", block)
         self.assertIn("eec_sensor_role: dashboard_setup_progress", block)
         self.assertNotIn("eec_sensor_role: dashboard_setup_advice", block)

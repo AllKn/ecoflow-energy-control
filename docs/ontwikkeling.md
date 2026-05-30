@@ -253,6 +253,8 @@ Vanaf versie `0.5.266` bewaakt de dashboardtest extra dat oude live-dashboardlab
 
 Vanaf versie `0.5.267` staan dashboard-updatehints ook op de bestaande `Versie`-sensor. Daardoor kan een gebruiker bij een oude dashboardimport alsnog zien welke dashboard-YAML versie verwacht wordt, welke marker bovenaan de YAML hoort te staan en dat het hoofd-dashboard opnieuw geïmporteerd of vervangen moet worden.
 
+Vanaf versie `0.5.268` krijgt de eerste tegel in `Controle` expliciet de korte naam `Overzicht`. Daardoor blijft het hoofd-dashboard compact, ook wanneer Home Assistant nog een oude lange entiteitnaam in de registry bewaart.
+
 ## Huidige stand
 
 EEC app werkt nu als lokale energieregisseur binnen Home Assistant. De app combineert EcoFlow Cloud API, EnergyZero/EPEX-prijzen, HomeWizard live-data, Home Assistant P1-historie, weerverwachting en scenarioadvies. Waar data ontbreekt, toont de app diagnose in plaats van stil te falen.
