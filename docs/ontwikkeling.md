@@ -217,6 +217,20 @@ Vanaf versie `0.5.248` is de minimale setup weer een stap kleiner. EnergyZero ge
 
 Vanaf versie `0.5.249` is die standaardkeuze ook zichtbaar in het dashboard. `Main` en `Setup advies` laten zien wanneer EnergyZero impliciet is gebruikt, zodat minder instellingen niet voelt als verborgen gedrag.
 
+Vanaf versie `0.5.250` zijn globale EEC-entiteiten bewust korter zichtbaar. De app laat in dashboards labels als `check prijzen`, `testmodus` en `advies starten` zien, terwijl batterij-, PowerStream- en HomeWizard-entiteiten hun ingestelde vriendelijke apparaatnaam blijven gebruiken. Ook is de live route naar het hoofd-dashboard gedocumenteerd, omdat Home Assistant het dashboard via de gekozen sidebarroute opent en oude `/lovelace/...` links naar `Overview` kunnen terugvallen.
+
+Vanaf versie `0.5.251` is de hoofdroute verder aangescherpt. `P1 historie` en `Scenario hulp` staan niet meer tussen de actuele beslissing en het bewijs; de gebruiker ziet eerst live flow, basiswaarden, scenario, controle, uitleg en datacheck. Historie en hulp blijven op hetzelfde dashboard staan, maar als secundaire context.
+
+Vanaf versie `0.5.252` verbergt het hoofd-dashboard lege secundaire kaarten. Daardoor blijft dezelfde ene dashboardroute bruikbaar bij minimale instellingen: ontbrekende optionele bronnen leveren geen lege blokken op, terwijl diagnose en detailcontext vanzelf verschijnen zodra de bijbehorende entiteiten bestaan.
+
+Vanaf versie `0.5.253` geldt dat ook voor de grafische apexcharts-kaarten. De uurprijzen- en weergrafiek worden pas getoond als hun bronentiteiten beschikbaar zijn. Zo blijft de minimale flow visueel rustig, maar blijft de grafische analyse meteen beschikbaar zodra prijs- en weerdata binnenkomen.
+
+Vanaf versie `0.5.254` controleert Datacheck ook of de uurverwachting lang genoeg is om de weergrafiek te vullen. Daardoor verdwijnt een lege grafiek uit beeld, terwijl de gebruiker in Datacheck ziet of weerdata ontbreekt, te kort is of klaar staat.
+
+Vanaf versie `0.5.255` levert de app geen losse PowerStream-, app-stijl- of scenario-dashboards meer mee. De relevante detailblokken blijven op het hoofd-dashboard staan, lager dan de dagelijkse beslisroute, zodat de gebruiker niet meer hoeft te kiezen tussen meerdere dashboards.
+
+Vanaf versie `0.5.256` is Datacheck geen tekstlijst meer maar een grid met tegels. De bronstatus blijft dynamisch op dezelfde readiness-checks gebaseerd, maar is visueel sneller te scannen op het ene hoofd-dashboard.
+
 ## Huidige stand
 
 EEC app werkt nu als lokale energieregisseur binnen Home Assistant. De app combineert EcoFlow Cloud API, EnergyZero/EPEX-prijzen, HomeWizard live-data, Home Assistant P1-historie, weerverwachting en scenarioadvies. Waar data ontbreekt, toont de app diagnose in plaats van stil te falen.

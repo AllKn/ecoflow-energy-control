@@ -31,7 +31,7 @@ async def async_setup_entry(
 class ApplyStrategyButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEntity):
     """Apply the active strategy once."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
     _attr_name = "strategie nu toepassen"
     _attr_suggested_object_id = (
         f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_strategie_nu_toepassen"
@@ -59,7 +59,7 @@ class ApplyStrategyButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEnt
 class ApplyBestScenarioButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEntity):
     """Apply the best simulated scenario once."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
     _attr_name = "advies starten"
     _attr_suggested_object_id = f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_advies_starten"
 
@@ -85,7 +85,7 @@ class ApplyBestScenarioButton(CoordinatorEntity[EcoFlowEnergyCoordinator], Butto
 class CheckEcoFlowApiButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEntity):
     """Manually check EcoFlow API connectivity."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
     _attr_name = "EcoFlow API controleren"
     _attr_suggested_object_id = (
         f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_ecoflow_api_controleren"
@@ -113,7 +113,7 @@ class CheckEcoFlowApiButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonE
 class RefreshPricesButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEntity):
     """Manually refresh day-ahead prices."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
     _attr_name = "prijzen ophalen"
     _attr_suggested_object_id = (
         f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_epex_prijzen_ophalen"

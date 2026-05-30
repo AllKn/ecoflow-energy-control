@@ -732,13 +732,22 @@ def _check_p1_history(data: dict[str, Any], settings: dict[str, Any]) -> dict[st
 
 def _check_weather(data: dict[str, Any]) -> dict[str, Any]:
     weather = data.get("weather") or {}
+    hourly = weather.get("hourly") or []
     details = {
         "weather_label": weather.get("weather_label"),
-        "weather_hours": len(weather.get("hourly") or []),
+        "weather_hours": len(hourly),
         "shortwave_w_m2": weather.get("shortwave_w_m2"),
     }
-    if weather.get("shortwave_w_m2") is None and not weather.get("hourly"):
+    if weather.get("shortwave_w_m2") is None and not hourly:
         return _check("weather", "gedeeltelijk", "weerdata ontbreekt", details)
+    if not hourly:
+        return _check(
+            "weather", "gedeeltelijk", "weergrafiek mist komende uren", details
+        )
+    if len(hourly) < 12:
+        return _check(
+            "weather", "gedeeltelijk", "weergrafiek heeft minder dan 12 uur", details
+        )
     return _check(
         "weather", "klaar", weather.get("weather_label") or "weer beschikbaar", details
     )

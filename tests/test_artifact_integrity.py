@@ -15,9 +15,6 @@ USER_VISIBLE_ARTIFACTS = (
     ROOT / "custom_components" / "ecoflow_energy_control" / "translations" / "en.json",
     ROOT / "custom_components" / "ecoflow_energy_control" / "translations" / "nl.json",
     ROOT / "dashboards" / "ecoflow-energy-control.yaml",
-    ROOT / "dashboards" / "ecoflow-energy-powerstreams.yaml",
-    ROOT / "dashboards" / "ecoflow-energy-app-style.yaml",
-    ROOT / "dashboards" / "ecoflow-energy-scenarios.yaml",
 )
 
 

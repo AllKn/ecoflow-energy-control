@@ -68,7 +68,7 @@ async def async_setup_entry(
 class StrategySelect(CoordinatorEntity[EcoFlowEnergyCoordinator], SelectEntity):
     """Strategy selector."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
     _attr_name = "strategie"
     _attr_suggested_object_id = f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_strategie"
     _attr_options = [STRATEGY_LABELS[value] for value in STRATEGIES]

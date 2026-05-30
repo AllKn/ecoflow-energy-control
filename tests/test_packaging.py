@@ -79,15 +79,13 @@ class PackagingTest(unittest.TestCase):
 
     def test_required_dashboards_exist_and_are_documented(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        for filename in (
-            "ecoflow-energy-control.yaml",
-            "ecoflow-energy-powerstreams.yaml",
-            "ecoflow-energy-app-style.yaml",
-            "ecoflow-energy-scenarios.yaml",
-        ):
-            with self.subTest(filename=filename):
-                self.assertTrue((ROOT / "dashboards" / filename).exists())
-                self.assertIn(f"dashboards/{filename}", readme)
+        filename = "ecoflow-energy-control.yaml"
+        self.assertTrue((ROOT / "dashboards" / filename).exists())
+        self.assertIn(f"dashboards/{filename}", readme)
+        shipped_dashboards = sorted(
+            path.name for path in (ROOT / "dashboards").glob("ecoflow-energy-*.yaml")
+        )
+        self.assertEqual(shipped_dashboards, [filename])
 
 
 if __name__ == "__main__":

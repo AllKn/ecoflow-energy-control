@@ -108,6 +108,8 @@ class SensorStaticTest(unittest.TestCase):
 
     def test_device_entities_use_short_role_labels_with_friendly_device_names(self) -> None:
         self.assertIn("def _apply_device_entity_label", self.text)
+        self.assertIn("_attr_has_entity_name = False", self.text)
+        self.assertIn("entity._attr_has_entity_name = True", self.text)
         self.assertIn("_attr_name = label", self.text)
         self.assertIn("LEGACY_DASHBOARD_OBJECT_PREFIX}_{device_name}_{object_suffix}", self.text)
         self.assertIn('super().__init__(coordinator, f"{serial}_soc", "SoC")', self.text)

@@ -10,6 +10,16 @@ Open het hoofd-dashboard:
 dashboards/ecoflow-energy-control.yaml
 ```
 
+Gebruik in Home Assistant de dashboardroute van het geimporteerde dashboard. Bij de standaard sidebarnaam `Ecoflow App dashboard` is dat:
+
+```text
+/ecoflow-app-dashboard/ecoflow-energy
+```
+
+Als `/lovelace/ecoflow-energy` op `Overview` uitkomt, gebruik je een oud of verkeerd pad.
+
+Vanaf versie `0.5.255` levert EEC app nog maar één dagelijks dashboard mee. PowerStream-, scenario-, weer- en diagnoseblokken staan lager op deze hoofdroute en worden verborgen als er geen passende entiteiten zijn.
+
 De setup is live bruikbaar als deze punten kloppen:
 
 - **Setup** vraagt voor basisinzicht alleen om een batterij; `Main` of `Setup advies` toont of EnergyZero als standaard prijsbron is gebruikt.
@@ -19,8 +29,12 @@ De setup is live bruikbaar als deze punten kloppen:
 - **Scenario - nu** toont een beste scenario, plan in gewone taal, eventuele blokkade, match met je keuze, uitvoerbaarheid, adviesvermogen en `EUR/u`.
 - **Controle > Bewijs** toont databewijs en stuur-bewijs, bijvoorbeeld `6/6 data, sturing klaar` of `6/6 data, sturing gedeeltelijk`.
 - **Datacheck** heeft geen rode blokkade voor prijzen, batterijen, PowerStreams, P1/netmeter, zon, weer, scenario's of sturing.
-- **Scenario hulp** staat pas na `Controle` en is naslag; de echte keuze voor scenario en testmodus staat bovenin `Flow`.
+- **Scenario hulp** staat pas na `Datacheck` en is naslag; de echte keuze voor scenario en testmodus staat bovenin `Flow`.
 - **Handmatig - tools** staat helemaal onderaan en wordt alleen gebruikt voor diagnose, API-checks of bewust handmatig testen.
+
+Lege secundaire kaarten mogen wegblijven. Bij minimale setup is het juist goed als optionele blokken zoals `P1 historie`, PowerStream-details of extra diagnose pas verschijnen wanneer daar entiteiten voor zijn.
+
+Ook grafieken mogen wegblijven wanneer hun bron nog `unknown` of `unavailable` is. Zodra prijs- en weerdata binnenkomen, verschijnen de uurprijs- en weergrafieken vanzelf. Datacheck hoort prijs- en weeruurdata tegelijk te bewaken, zodat een verborgen grafiek altijd een zichtbare oorzaak heeft.
 
 ## Flow
 
@@ -53,7 +67,7 @@ Deze kaart moet de kernmetingen tonen waarop de strategie rust.
 
 Een lege of nulwaarde is alleen goed als dat fysiek klopt. Bij verbruik van 8 kW moet `P1 W` dus ook rond 8000 W liggen en niet rond 800 W.
 
-Dag-, week- en maandtotalen van de P1-meter staan bewust in `P1 historie` onder `Scenario - nu`; `Basis` blijft gericht op live waarden die direct invloed hebben op het actuele scenario.
+Dag-, week- en maandtotalen van de P1-meter staan bewust in `P1 historie` onder de datacheck; `Basis` blijft gericht op live waarden die direct invloed hebben op het actuele scenario.
 
 ## Scenario - nu
 
@@ -92,7 +106,7 @@ Deze kaart is naslag, geen tweede bedieningspaneel.
 
 ## Datacheck
 
-De Datacheck toont de ruwe status per bron.
+De Datacheck toont de ruwe status per bron als tegels.
 
 - `Prijzen`: uurprijzen moeten vandaag en morgen bevatten.
 - `Batterijen`: elke batterij moet live SoC hebben.

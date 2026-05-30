@@ -214,7 +214,7 @@ async def async_setup_entry(
 class BaseSensor(CoordinatorEntity[EcoFlowEnergyCoordinator], SensorEntity):
     """Base sensor."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
 
     def __init__(self, coordinator: EcoFlowEnergyCoordinator, key: str, name: str) -> None:
         super().__init__(coordinator)
@@ -5463,6 +5463,7 @@ def _apply_device_entity_label(
     entity: BaseSensor, device_name: str, label: str, object_suffix: str
 ) -> None:
     """Keep device entities short while preserving stable readable object ids."""
+    entity._attr_has_entity_name = True
     entity._attr_name = label
     entity._attr_suggested_object_id = slugify(
         f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_{device_name}_{object_suffix}"

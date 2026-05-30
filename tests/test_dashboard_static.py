@@ -10,9 +10,6 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 MAIN_DASHBOARD = ROOT / "dashboards" / "ecoflow-energy-control.yaml"
 OPTIONAL_DASHBOARDS = (
-    ROOT / "dashboards" / "ecoflow-energy-powerstreams.yaml",
-    ROOT / "dashboards" / "ecoflow-energy-app-style.yaml",
-    ROOT / "dashboards" / "ecoflow-energy-scenarios.yaml",
 )
 README = ROOT / "README.md"
 FRONTEND_REQUIREMENTS = ROOT / "dashboards" / "frontend-requirements.yaml"
@@ -240,11 +237,11 @@ class MainDashboardStaticTest(unittest.TestCase):
                 "Flow",
                 "Basis",
                 "Scenario - nu",
-                "P1 historie",
                 "Controle",
-                "Scenario hulp",
                 "Waarom",
                 "Datacheck",
+                "P1 historie",
+                "Scenario hulp",
                 "Prijsgrenzen",
                 "Opslag waarde",
                 "Accu's - in/uit",
@@ -265,11 +262,11 @@ class MainDashboardStaticTest(unittest.TestCase):
                 "Flow",
                 "Basis",
                 "Scenario - nu",
-                "P1 historie",
                 "Controle",
-                "Scenario hulp",
                 "Waarom",
                 "Datacheck",
+                "P1 historie",
+                "Scenario hulp",
                 "Prijsgrenzen",
                 "Opslag waarde",
                 "Accu's - in/uit",
@@ -289,11 +286,8 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("title: EEC app", self.text)
         self.assertIn("  - title: Main", self.text)
         self.assertIn("    path: ecoflow-energy", self.text)
-        for path in OPTIONAL_DASHBOARDS:
-            text = path.read_text(encoding="utf-8")
-            with self.subTest(path=path.name):
-                self.assertNotIn("path: ecoflow-energy", text)
-                self.assertNotIn("- title: Main", text)
+        dashboard_files = sorted(ROOT.glob("dashboards/ecoflow-energy-*.yaml"))
+        self.assertEqual(dashboard_files, [MAIN_DASHBOARD])
 
     def test_readme_points_to_main_dashboard_as_primary_flow(self) -> None:
         readme = README.read_text(encoding="utf-8")
@@ -301,7 +295,7 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("dashboards/ecoflow-energy-control.yaml", readme)
         self.assertIn("volledige flow", readme)
         self.assertIn("Voor normaal gebruik heb je alleen dit dashboard nodig", readme)
-        self.assertIn("Optionele detail- en testdashboards", readme)
+        self.assertIn("Niet-relevante losse dashboards zijn verwijderd", readme)
         for marker in (
             "Voor live validatie na een update kijk je bovenaan naar:",
             "**Flow**",
@@ -380,12 +374,10 @@ class MainDashboardStaticTest(unittest.TestCase):
         flow_pos = self.text.index("title: Flow")
         basis_pos = self.text.index("title: Basis")
         scenario_pos = self.text.index("title: Scenario - nu")
-        history_pos = self.text.index("title: P1 historie")
         control_pos = self.text.index("title: Controle")
         self.assertLess(flow_pos, basis_pos)
         self.assertLess(basis_pos, scenario_pos)
-        self.assertLess(scenario_pos, history_pos)
-        self.assertLess(history_pos, control_pos)
+        self.assertLess(scenario_pos, control_pos)
         block = self.text[basis_pos:scenario_pos]
         self.assertIn("type: grid\n          title: Basis", self.text)
         self.assertIn("columns: 6", block)
@@ -410,9 +402,11 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertNotIn("eec_sensor_role: p1_history", block)
 
     def test_p1_history_card_keeps_totals_out_of_live_basis(self) -> None:
+        checks_pos = self.text.index("title: Datacheck")
         start = self.text.index("title: P1 historie")
-        end = self.text.index("title: Controle")
+        end = self.text.index("title: Scenario hulp")
         block = self.text[start:end]
+        self.assertLess(checks_pos, start)
         self.assertIn("type: grid\n          title: P1 historie", self.text)
         self.assertIn("columns: 3", block)
         self.assertEqual(block.count("eec_sensor_role: p1_history"), 3)
@@ -424,11 +418,11 @@ class MainDashboardStaticTest(unittest.TestCase):
         self.assertIn("name: Maand", block)
 
     def test_scenario_help_card_avoids_duplicate_controls(self) -> None:
-        readiness_pos = self.text.index("title: Controle")
+        checks_pos = self.text.index("title: Datacheck")
         start = self.text.index("title: Scenario hulp")
-        end = self.text.index("title: Waarom")
+        end = self.text.index("title: Prijsgrenzen")
         block = self.text[start:end]
-        self.assertLess(readiness_pos, start)
+        self.assertLess(checks_pos, start)
         self.assertIn("type: entities\n          title: Scenario hulp", self.text)
         self.assertIn("eec_device_type: dashboard", block)
         self.assertIn("eec_sensor_role: dashboard_strategy_guide", block)
@@ -441,16 +435,59 @@ class MainDashboardStaticTest(unittest.TestCase):
 
     def test_diagnostics_follow_explanation(self) -> None:
         readiness_pos = self.text.index("title: Controle")
-        help_pos = self.text.index("title: Scenario hulp")
         explanation_pos = self.text.index("title: Waarom")
         checks_pos = self.text.index("title: Datacheck")
+        history_pos = self.text.index("title: P1 historie")
+        help_pos = self.text.index("title: Scenario hulp")
         limits_pos = self.text.index("title: Prijsgrenzen")
         manual_pos = self.text.index("title: Handmatig - tools")
-        self.assertLess(readiness_pos, help_pos)
-        self.assertLess(help_pos, explanation_pos)
+        self.assertLess(readiness_pos, explanation_pos)
         self.assertLess(explanation_pos, checks_pos)
-        self.assertLess(checks_pos, limits_pos)
+        self.assertLess(checks_pos, history_pos)
+        self.assertLess(history_pos, help_pos)
+        self.assertLess(help_pos, limits_pos)
         self.assertLess(limits_pos, manual_pos)
+
+    def test_optional_secondary_cards_hide_when_empty(self) -> None:
+        for title in (
+            "P1 historie",
+            "Scenario hulp",
+            "Prijsgrenzen",
+            "Opslag waarde",
+            "Accu's - in/uit",
+            "PowerStreams - sturen",
+            "PowerStreams - live",
+            "Scenario's - details",
+            "Weer",
+            "Netto opwek",
+            "Diagnose",
+        ):
+            with self.subTest(title=title):
+                start = self.text.index(f"title: {title}")
+                prefix = self.text[max(0, start - 160):start]
+                self.assertIn("type: custom:auto-entities", prefix)
+                self.assertIn("show_empty: false", prefix)
+
+    def test_graph_cards_are_conditional_on_source_entities(self) -> None:
+        price_start = self.text.index("title: Uurtarieven - komende 24 uur")
+        price_block = self.text[max(0, price_start - 420):price_start]
+        self.assertIn("type: conditional", price_block)
+        self.assertIn(
+            "entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen",
+            price_block,
+        )
+        self.assertIn("state_not: unavailable", price_block)
+        self.assertIn("state_not: unknown", price_block)
+
+        weather_start = self.text.index("title: Weer - temperatuur 24 uur")
+        weather_block = self.text[max(0, weather_start - 420):weather_start]
+        self.assertIn("type: conditional", weather_block)
+        self.assertIn(
+            "entity: sensor.ecoflow_energy_control_applicatie_komende_uren",
+            weather_block,
+        )
+        self.assertIn("state_not: unavailable", weather_block)
+        self.assertIn("state_not: unknown", weather_block)
 
     def test_advice_card_compares_selected_and_best_scenario(self) -> None:
         start = self.text.index("title: Waarom")
@@ -489,7 +526,7 @@ class MainDashboardStaticTest(unittest.TestCase):
 
     def test_readiness_card_renders_as_grid_cards(self) -> None:
         start = self.text.index("title: Controle")
-        end = self.text.index("title: Scenario hulp")
+        end = self.text.index("title: Waarom")
         block = self.text[start:end]
         self.assertIn("type: grid\n          title: Controle", self.text)
         self.assertIn("card_param: cards", block)
@@ -529,7 +566,11 @@ class MainDashboardStaticTest(unittest.TestCase):
         start = self.text.index("title: Datacheck")
         end = self.text.index("title: Prijsgrenzen")
         block = self.text[start:end]
+        self.assertIn("type: grid\n          title: Datacheck", self.text)
+        self.assertIn("card_param: cards", block)
+        self.assertIn("columns: 4", block)
         self.assertIn("eec_sensor_role: dashboard_check", block)
+        self.assertIn("type: tile", block)
         self.assertIn("attribute: check_key", block)
 
     def test_manual_action_card_is_dynamic_grid(self) -> None:
@@ -723,11 +764,9 @@ class OptionalDashboardStaticTest(unittest.TestCase):
         readme = README.read_text(encoding="utf-8")
         requirements_text = FRONTEND_REQUIREMENTS.read_text(encoding="utf-8")
         declared_cards = _declared_frontend_cards()
-        dashboards = (MAIN_DASHBOARD, *OPTIONAL_DASHBOARDS)
         custom_cards = set()
-        for path in dashboards:
-            text = path.read_text(encoding="utf-8")
-            custom_cards.update(re.findall(r"type: custom:([a-z0-9_-]+)", text))
+        text = MAIN_DASHBOARD.read_text(encoding="utf-8")
+        custom_cards.update(re.findall(r"type: custom:([a-z0-9_-]+)", text))
         self.assertTrue(custom_cards)
         self.assertEqual(custom_cards, declared_cards)
         for card in sorted(custom_cards):
@@ -748,59 +787,10 @@ class OptionalDashboardStaticTest(unittest.TestCase):
                 self.assertIn("used_for:", block)
                 self.assertIn("missing_effect:", block)
 
-    def test_optional_dashboards_do_not_use_old_fragile_summary_entities(self) -> None:
-        blocked = (
-            "sensor.ecoflow_energy_control_applicatie_zon_nu",
-            "sensor.ecoflow_energy_control_applicatie_zon_4_uur",
-            "sensor.ecoflow_energy_control_applicatie_zon_12_uur",
-            "sensor.ecoflow_energy_control_applicatie_zon_24_uur",
-            "sensor.ecoflow_energy_control_applicatie_verwachte_besparing",
-            "sensor.ecoflow_energy_control_applicatie_opwek_gecorrigeerd",
-            "sensor.ecoflow_energy_control_applicatie_stroomprijs_nu",
-            "sensor.ecoflow_energy_control_applicatie_homewizard_opwek_ruw",
-            "sensor.ecoflow_energy_control_applicatie_powerstream_teruglevering",
-            "sensor.ecoflow_energy_control_applicatie_status",
-            "sensor.ecoflow_energy_control_applicatie_versie",
-            "state_attr('sensor.ecoflow_energy_control_applicatie_zon_nu'",
-        )
-        for path in OPTIONAL_DASHBOARDS:
-            text = path.read_text(encoding="utf-8")
-            for entity_id in blocked:
-                with self.subTest(path=path.name, entity_id=entity_id):
-                    self.assertNotIn(entity_id, text)
-
-    def test_optional_dashboards_use_discovery_for_core_cards(self) -> None:
-        required = {
-            "ecoflow-energy-powerstreams.yaml": (
-                "eec_sensor_role: test_mode",
-                "eec_sensor_role: global_strategy",
-                "eec_sensor_role: price_now",
-                "eec_sensor_role: corrected_power",
-                "eec_sensor_role: weather_icon_summary",
-                "eec_sensor_role: weather_solar_24h",
-                "eec_sensor_role: powerstream_setpoint",
-            ),
-            "ecoflow-energy-app-style.yaml": (
-                "eec_sensor_role: price_now",
-                "eec_sensor_role: corrected_power",
-                "eec_sensor_role: homewizard_raw_power",
-                "eec_sensor_role: powerstream_export",
-                "eec_sensor_role: weather_icon_summary",
-                "eec_sensor_role: powerstream_setpoint",
-            ),
-            "ecoflow-energy-scenarios.yaml": (
-                "eec_sensor_role: app_version",
-                "eec_sensor_role: price_now",
-                "eec_sensor_role: corrected_power",
-                "eec_sensor_role: app_status",
-                "eec_sensor_role: scenario_eur_per_hour",
-            ),
-        }
-        for path in OPTIONAL_DASHBOARDS:
-            text = path.read_text(encoding="utf-8")
-            for needle in required[path.name]:
-                with self.subTest(path=path.name, needle=needle):
-                    self.assertIn(needle, text)
+    def test_no_separate_feature_dashboards_are_shipped(self) -> None:
+        self.assertEqual(OPTIONAL_DASHBOARDS, ())
+        dashboard_files = sorted(ROOT.glob("dashboards/ecoflow-energy-*.yaml"))
+        self.assertEqual(dashboard_files, [MAIN_DASHBOARD])
 
 
 if __name__ == "__main__":

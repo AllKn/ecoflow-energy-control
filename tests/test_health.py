@@ -19,6 +19,13 @@ assert SPEC and SPEC.loader
 SPEC.loader.exec_module(health)
 
 
+WEATHER_READY = {
+    "shortwave_w_m2": 120,
+    "weather_label": "zon",
+    "hourly": [{"temperature": 20}] * 24,
+}
+
+
 class DashboardReadinessTest(unittest.TestCase):
     def test_ready_when_core_data_is_available(self) -> None:
         result = health.dashboard_readiness(
@@ -35,7 +42,7 @@ class DashboardReadinessTest(unittest.TestCase):
                     }
                 },
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -65,6 +72,7 @@ class DashboardReadinessTest(unittest.TestCase):
             checks["solar"]["details"]["corrected_solar_power"], 250
         )
         self.assertEqual(checks["weather"]["details"]["weather_label"], "zon")
+        self.assertEqual(checks["weather"]["details"]["weather_hours"], 24)
         self.assertEqual(checks["scenarios"]["details"]["scenario_count"], 3)
         self.assertFalse(checks["execution"]["details"]["dry_run"])
 
@@ -503,7 +511,7 @@ class DashboardReadinessTest(unittest.TestCase):
                         }
                     }
                 },
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -536,7 +544,7 @@ class DashboardReadinessTest(unittest.TestCase):
                 },
                 "corrected_solar_power": 250,
                 "homewizard_meters": {"P1": {"history": {"available": False}}},
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -571,7 +579,7 @@ class DashboardReadinessTest(unittest.TestCase):
                     }
                 },
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -600,7 +608,7 @@ class DashboardReadinessTest(unittest.TestCase):
                     }
                 },
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -632,7 +640,7 @@ class DashboardReadinessTest(unittest.TestCase):
                     }
                 },
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -649,6 +657,74 @@ class DashboardReadinessTest(unittest.TestCase):
             "haal prijsdata op: prijsgrafiek heeft minder dan 12 uur",
         )
 
+    def test_missing_weather_chart_keeps_dashboard_partially_ready(self) -> None:
+        result = health.dashboard_readiness(
+            {
+                "price_now": 0.21,
+                "prices": [{"price": 0.2}] * 24,
+                "price_summary": {"chart": [{"price": 0.2}] * 24},
+                "batteries": {"bat": {"values": {"pd.soc": 70}}},
+                "powerstreams": {
+                    "ps": {
+                        "values": {"permanentWatts": 0},
+                        "battery_serial": "bat",
+                        "battery_soc": 70,
+                    }
+                },
+                "corrected_solar_power": 250,
+                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "scenarios": {"a": {}, "b": {}, "c": {}},
+            },
+            {
+                "batteries": [{"serial": "bat"}],
+                "powerstreams": [{"serial": "ps"}],
+                "homewizard_meters": [{"host": "meter"}],
+                "dry_run": False,
+            },
+        )
+        self.assertEqual(result["status"], "gedeeltelijk")
+        self.assertIn("weather", result["warnings"])
+        self.assertEqual(
+            result["next_step"],
+            "controleer weerdata: weergrafiek mist komende uren",
+        )
+
+    def test_short_weather_chart_keeps_dashboard_partially_ready(self) -> None:
+        result = health.dashboard_readiness(
+            {
+                "price_now": 0.21,
+                "prices": [{"price": 0.2}] * 24,
+                "price_summary": {"chart": [{"price": 0.2}] * 24},
+                "batteries": {"bat": {"values": {"pd.soc": 70}}},
+                "powerstreams": {
+                    "ps": {
+                        "values": {"permanentWatts": 0},
+                        "battery_serial": "bat",
+                        "battery_soc": 70,
+                    }
+                },
+                "corrected_solar_power": 250,
+                "weather": {
+                    "shortwave_w_m2": 120,
+                    "weather_label": "zon",
+                    "hourly": [{"temperature": 20}] * 6,
+                },
+                "scenarios": {"a": {}, "b": {}, "c": {}},
+            },
+            {
+                "batteries": [{"serial": "bat"}],
+                "powerstreams": [{"serial": "ps"}],
+                "homewizard_meters": [{"host": "meter"}],
+                "dry_run": False,
+            },
+        )
+        self.assertEqual(result["status"], "gedeeltelijk")
+        self.assertIn("weather", result["warnings"])
+        self.assertEqual(
+            result["next_step"],
+            "controleer weerdata: weergrafiek heeft minder dan 12 uur",
+        )
+
     def test_powerstream_without_linked_battery_is_partial(self) -> None:
         result = health.dashboard_readiness(
             {
@@ -658,7 +734,7 @@ class DashboardReadinessTest(unittest.TestCase):
                 "batteries": {"bat": {"values": {"pd.soc": 70}}},
                 "powerstreams": {"ps": {"values": {"permanentWatts": 0}}},
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -690,7 +766,7 @@ class DashboardReadinessTest(unittest.TestCase):
                     }
                 },
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -725,7 +801,7 @@ class DashboardReadinessTest(unittest.TestCase):
                     },
                 },
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -748,7 +824,7 @@ class DashboardReadinessTest(unittest.TestCase):
                 "batteries": {"bat": {"values": {"inv.inputWatts": 140}}},
                 "powerstreams": {},
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -778,7 +854,7 @@ class DashboardReadinessTest(unittest.TestCase):
                 "batteries": {"other": {"values": {"pd.soc": 70}}},
                 "powerstreams": {},
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -811,7 +887,7 @@ class DashboardReadinessTest(unittest.TestCase):
                 },
                 "powerstreams": {},
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -842,7 +918,7 @@ class DashboardReadinessTest(unittest.TestCase):
                     }
                 },
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {
@@ -874,7 +950,7 @@ class DashboardReadinessTest(unittest.TestCase):
                     }
                 },
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
                 "last_powerstream_error": "1008 request fail",
             },
@@ -908,7 +984,7 @@ class DashboardReadinessTest(unittest.TestCase):
                     }
                 },
                 "corrected_solar_power": 250,
-                "weather": {"shortwave_w_m2": 120, "weather_label": "zon"},
+                "weather": WEATHER_READY,
                 "scenarios": {"a": {}, "b": {}, "c": {}},
             },
             {

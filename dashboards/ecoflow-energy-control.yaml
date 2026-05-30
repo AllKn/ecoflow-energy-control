@@ -321,55 +321,6 @@ views:
       - type: custom:auto-entities
         card:
           type: grid
-          title: P1 historie
-          columns: 3
-          square: false
-        card_param: cards
-        filter:
-          include:
-            - attributes:
-                eec_device_type: homewizard
-                eec_sensor_role: p1_history
-                period: today
-              options:
-                type: gauge
-                name: Dag
-                min: -40
-                max: 80
-                severity:
-                  green: -40
-                  yellow: 0
-                  red: 40
-            - attributes:
-                eec_device_type: homewizard
-                eec_sensor_role: p1_history
-                period: week
-              options:
-                type: gauge
-                name: Week
-                min: -200
-                max: 400
-                severity:
-                  green: -200
-                  yellow: 0
-                  red: 200
-            - attributes:
-                eec_device_type: homewizard
-                eec_sensor_role: p1_history
-                period: month
-              options:
-                type: gauge
-                name: Maand
-                min: -800
-                max: 1600
-                severity:
-                  green: -800
-                  yellow: 0
-                  red: 800
-
-      - type: custom:auto-entities
-        card:
-          type: grid
           title: Controle
           columns: 6
           square: false
@@ -457,19 +408,6 @@ views:
       - type: custom:auto-entities
         card:
           type: entities
-          title: Scenario hulp
-          show_header_toggle: false
-        filter:
-          include:
-            - attributes:
-                eec_device_type: dashboard
-                eec_sensor_role: dashboard_strategy_guide
-              options:
-                name: Strategie hulp
-
-      - type: custom:auto-entities
-        card:
-          type: entities
           title: Waarom
           show_header_toggle: false
         filter:
@@ -512,19 +450,88 @@ views:
 
       - type: custom:auto-entities
         card:
-          type: entities
+          type: grid
           title: Datacheck
-          show_header_toggle: false
+          columns: 4
+          square: false
+        card_param: cards
         filter:
           include:
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_check
+              options:
+                type: tile
         sort:
           method: attribute
           attribute: check_key
 
       - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: grid
+          title: P1 historie
+          columns: 3
+          square: false
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: homewizard
+                eec_sensor_role: p1_history
+                period: today
+              options:
+                type: gauge
+                name: Dag
+                min: -40
+                max: 80
+                severity:
+                  green: -40
+                  yellow: 0
+                  red: 40
+            - attributes:
+                eec_device_type: homewizard
+                eec_sensor_role: p1_history
+                period: week
+              options:
+                type: gauge
+                name: Week
+                min: -200
+                max: 400
+                severity:
+                  green: -200
+                  yellow: 0
+                  red: 200
+            - attributes:
+                eec_device_type: homewizard
+                eec_sensor_role: p1_history
+                period: month
+              options:
+                type: gauge
+                name: Maand
+                min: -800
+                max: 1600
+                severity:
+                  green: -800
+                  yellow: 0
+                  red: 800
+
+      - type: custom:auto-entities
+        show_empty: false
+        card:
+          type: entities
+          title: Scenario hulp
+          show_header_toggle: false
+        filter:
+          include:
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_strategy_guide
+              options:
+                name: Strategie hulp
+
+      - type: custom:auto-entities
+        show_empty: false
         card:
           type: grid
           title: Prijsgrenzen
@@ -559,6 +566,7 @@ views:
                   red: 0.35
 
       - type: custom:auto-entities
+        show_empty: false
         card:
           type: grid
           title: Opslag waarde
@@ -595,6 +603,7 @@ views:
           method: name
 
       - type: custom:auto-entities
+        show_empty: false
         card:
           type: grid
           title: Accu's - in/uit
@@ -682,6 +691,7 @@ views:
           method: name
 
       - type: custom:auto-entities
+        show_empty: false
         card:
           type: entities
           title: PowerStreams - sturen
@@ -701,6 +711,7 @@ views:
           method: name
 
       - type: custom:auto-entities
+        show_empty: false
         card:
           type: grid
           title: PowerStreams - live
@@ -793,6 +804,7 @@ views:
           method: name
 
       - type: custom:auto-entities
+        show_empty: false
         card:
           type: grid
           title: Scenario's - details
@@ -846,66 +858,74 @@ views:
         sort:
           method: name
 
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: Uurtarieven - komende 24 uur
-          show_states: true
-        graph_span: 24h
-        now:
-          show: true
-          label: Nu
-        apex_config:
-          plotOptions:
-            bar:
-              columnWidth: 80%
-          xaxis:
-            labels:
-              datetimeFormatter:
-                hour: HH:mm
-        series:
+      - type: conditional
+        conditions:
           - entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
-            name: EUR/kWh
-            type: column
-            data_generator: |
-              const now = Date.now();
-              const end = now + 24 * 60 * 60 * 1000;
-              const prices = entity.attributes.prices || [];
-              return prices
-                .map((item) => [new Date(item.start).getTime(), Number(item.price)])
-                .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
-                .filter((item) => item[0] >= now && item[0] <= end);
+            state_not: unavailable
           - entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
-            name: Laagste
-            type: line
-            stroke_width: 2
-            data_generator: |
-              const now = Date.now();
-              const end = now + 24 * 60 * 60 * 1000;
-              const prices = entity.attributes.prices || [];
-              const value = Number(entity.state);
-              if (!Number.isFinite(value)) return [];
-              return prices
-                .map((item) => [new Date(item.start).getTime(), value])
-                .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
-                .filter((item) => item[0] >= now && item[0] <= end);
-          - entity: sensor.ecoflow_energy_control_applicatie_hoogste_prijs_tot_morgen
-            name: Hoogste
-            type: line
-            stroke_width: 2
-            data_generator: |
-              const now = Date.now();
-              const end = now + 24 * 60 * 60 * 1000;
-              const source = hass.states['sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen'];
-              const prices = source ? source.attributes.prices || [] : [];
-              const value = Number(entity.state);
-              if (!Number.isFinite(value)) return [];
-              return prices
-                .map((item) => [new Date(item.start).getTime(), value])
-                .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
-                .filter((item) => item[0] >= now && item[0] <= end);
+            state_not: unknown
+        card:
+          type: custom:apexcharts-card
+          header:
+            show: true
+            title: Uurtarieven - komende 24 uur
+            show_states: true
+          graph_span: 24h
+          now:
+            show: true
+            label: Nu
+          apex_config:
+            plotOptions:
+              bar:
+                columnWidth: 80%
+            xaxis:
+              labels:
+                datetimeFormatter:
+                  hour: HH:mm
+          series:
+            - entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
+              name: EUR/kWh
+              type: column
+              data_generator: |
+                const now = Date.now();
+                const end = now + 24 * 60 * 60 * 1000;
+                const prices = entity.attributes.prices || [];
+                return prices
+                  .map((item) => [new Date(item.start).getTime(), Number(item.price)])
+                  .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
+                  .filter((item) => item[0] >= now && item[0] <= end);
+            - entity: sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen
+              name: Laagste
+              type: line
+              stroke_width: 2
+              data_generator: |
+                const now = Date.now();
+                const end = now + 24 * 60 * 60 * 1000;
+                const prices = entity.attributes.prices || [];
+                const value = Number(entity.state);
+                if (!Number.isFinite(value)) return [];
+                return prices
+                  .map((item) => [new Date(item.start).getTime(), value])
+                  .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
+                  .filter((item) => item[0] >= now && item[0] <= end);
+            - entity: sensor.ecoflow_energy_control_applicatie_hoogste_prijs_tot_morgen
+              name: Hoogste
+              type: line
+              stroke_width: 2
+              data_generator: |
+                const now = Date.now();
+                const end = now + 24 * 60 * 60 * 1000;
+                const source = hass.states['sensor.ecoflow_energy_control_applicatie_laagste_prijs_tot_morgen'];
+                const prices = source ? source.attributes.prices || [] : [];
+                const value = Number(entity.state);
+                if (!Number.isFinite(value)) return [];
+                return prices
+                  .map((item) => [new Date(item.start).getTime(), value])
+                  .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
+                  .filter((item) => item[0] >= now && item[0] <= end);
 
       - type: custom:auto-entities
+        show_empty: false
         card:
           type: entities
           title: Weer
@@ -945,40 +965,48 @@ views:
         sort:
           method: name
 
-      - type: custom:apexcharts-card
-        header:
-          show: true
-          title: Weer - temperatuur 24 uur
-        graph_span: 24h
-        apex_config:
-          chart:
-            height: 220
-          plotOptions:
-            bar:
-              columnWidth: 70%
-          dataLabels:
-            enabled: false
-          yaxis:
-            title:
-              text: °C
-          xaxis:
-            labels:
-              datetimeFormatter:
-                hour: HH:mm
-        series:
+      - type: conditional
+        conditions:
           - entity: sensor.ecoflow_energy_control_applicatie_komende_uren
-            name: °C
-            type: column
-            data_generator: |
-              const now = Date.now();
-              const end = now + 24 * 60 * 60 * 1000;
-              const rows = entity.attributes.hourly || [];
-              return rows
-                .map((item) => [new Date(item.start).getTime(), Number(item.temperature)])
-                .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
-                .filter((item) => item[0] >= now && item[0] <= end);
+            state_not: unavailable
+          - entity: sensor.ecoflow_energy_control_applicatie_komende_uren
+            state_not: unknown
+        card:
+          type: custom:apexcharts-card
+          header:
+            show: true
+            title: Weer - temperatuur 24 uur
+          graph_span: 24h
+          apex_config:
+            chart:
+              height: 220
+            plotOptions:
+              bar:
+                columnWidth: 70%
+            dataLabels:
+              enabled: false
+            yaxis:
+              title:
+                text: °C
+            xaxis:
+              labels:
+                datetimeFormatter:
+                  hour: HH:mm
+          series:
+            - entity: sensor.ecoflow_energy_control_applicatie_komende_uren
+              name: °C
+              type: column
+              data_generator: |
+                const now = Date.now();
+                const end = now + 24 * 60 * 60 * 1000;
+                const rows = entity.attributes.hourly || [];
+                return rows
+                  .map((item) => [new Date(item.start).getTime(), Number(item.temperature)])
+                  .filter((item) => Number.isFinite(item[0]) && Number.isFinite(item[1]))
+                  .filter((item) => item[0] >= now && item[0] <= end);
 
       - type: custom:auto-entities
+        show_empty: false
         card:
           type: entities
           title: Netto opwek
@@ -1017,6 +1045,7 @@ views:
                 name: Richting
 
       - type: custom:auto-entities
+        show_empty: false
         card:
           type: entities
           title: Diagnose

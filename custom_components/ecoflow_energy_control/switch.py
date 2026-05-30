@@ -24,7 +24,7 @@ async def async_setup_entry(
 class DryRunSwitch(CoordinatorEntity[EcoFlowEnergyCoordinator], SwitchEntity):
     """Toggle dry-run mode."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
     _attr_name = "testmodus"
     _attr_suggested_object_id = f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_testmodus"
 

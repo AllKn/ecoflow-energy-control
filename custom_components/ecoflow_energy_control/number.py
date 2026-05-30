@@ -42,7 +42,7 @@ async def async_setup_entry(
 class ThresholdNumber(CoordinatorEntity[EcoFlowEnergyCoordinator], NumberEntity):
     """Runtime numeric setting."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
 
     def __init__(
         self,

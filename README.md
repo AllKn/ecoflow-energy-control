@@ -105,9 +105,17 @@ Het primaire dashboard staat in:
 dashboards/ecoflow-energy-control.yaml
 ```
 
+In Home Assistant wordt dit dashboard geopend via het dashboardpad dat je bij het importeren kiest. Als het dashboard in de zijbalk `Ecoflow App dashboard` heet, is de live route:
+
+```text
+/ecoflow-app-dashboard/ecoflow-energy
+```
+
+Gebruik dus niet een oude `/lovelace/ecoflow-energy` URL als die naar `Overview` terugvalt.
+
 Gebruik dit dashboard als hoofdscherm. Het combineert de volledige flow: actuele status, accu-inhoud, PowerStream-sturing, strategieadvies, prijzen, netto opwek, weer en diagnose. De kaarten zoeken apparaten dynamisch op via EEC-attributen, zodat hardcoded device-namen zoals `Delta Pro` of `PowerStream 1` niet meer nodig zijn.
 
-Voor normaal gebruik heb je alleen dit dashboard nodig. De andere dashboards zijn bewust detail- en testweergaven voor diagnose, ontwikkeling of vergelijking.
+Voor normaal gebruik heb je alleen dit dashboard nodig. Niet-relevante losse dashboards zijn verwijderd; detail-, test- en scenario-informatie staat nu lager op dezelfde hoofdroute.
 
 Voor live validatie na een update kijk je bovenaan naar:
 
@@ -125,12 +133,9 @@ De volledige checklist staat in:
 docs/live-validatie.md
 ```
 
-Optionele detail- en testdashboards staan in:
+Frontend-vereisten voor dit dashboard staan in:
 
 ```text
-dashboards/ecoflow-energy-powerstreams.yaml
-dashboards/ecoflow-energy-app-style.yaml
-dashboards/ecoflow-energy-scenarios.yaml
 dashboards/frontend-requirements.yaml
 ```
 
@@ -154,7 +159,7 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.249`
+`0.5.256`
 
 ## EcoFlow Signing
 
@@ -180,7 +185,7 @@ Versie `0.5.10` toont de geladen app-versie op het dashboard, maakt de komende 2
 
 Versie `0.5.11` kan HomeWizard-apparaten importeren uit de officiële Home Assistant HomeWizard-integratie. EEC app leest dan de bestaande Home Assistant-entiteiten in plaats van dezelfde meters direct opnieuw via de lokale API te pollen.
 
-Versie `0.5.12` voegt een simulatie-laag toe voor scenario's: optimalisatie eigen gebruik, handelen en een 50%-buffer. De app rekent live geschatte besparing/winst in EUR per uur en cumulatief per dag/week/maand door en levert een apart scenario-dashboard in `dashboards/ecoflow-energy-scenarios.yaml`.
+Versie `0.5.12` voegt een simulatie-laag toe voor scenario's: optimalisatie eigen gebruik, handelen en een 50%-buffer. De app rekent live geschatte besparing/winst in EUR per uur en cumulatief per dag/week/maand door en levert een scenario-overzicht dat vanaf versie `0.5.255` in het hoofd-dashboard staat.
 
 Versie `0.5.13` corrigeert de HomeWizard-import via Home Assistant wanneer die vanuit Apparaat toevoegen wordt gestart en logt inspectiefouten voor HomeWizard-apparaten duidelijker.
 
@@ -294,7 +299,7 @@ Versie `0.5.68` maakt de startstatus in de Flow-strip eenduidiger. `start_button
 
 Versie `0.5.69` voegt een losse `startstatus` sensor toe aan de Flow-strip. Daardoor is `actie nodig`, `wachten`, `testmodus` of `startbaar` direct als eigen dashboardtegel zichtbaar, naast het langere flow-advies.
 
-Versie `0.5.70` maakt het hoofd-dashboard expliciet de primaire route. `dashboards/ecoflow-energy-control.yaml` bevat de volledige flow voor status, sturing, scenario's, prijzen, netto opwek, weer en diagnose; de andere dashboards blijven alleen optionele detail- en testweergaven.
+Versie `0.5.70` maakt het hoofd-dashboard expliciet de primaire route. `dashboards/ecoflow-energy-control.yaml` bevat de volledige flow voor status, sturing, scenario's, prijzen, netto opwek, weer en diagnose.
 
 Versie `0.5.71` voegt een concreet uitvoerplan toe aan het hoofd-dashboard. Per PowerStream-groep bundelt de app nu actie, advieswattage, huidig wattage, gekoppelde accu, accu-SoC, vrije Wh, blokkades, throttle-status en eventuele commandfout in één dashboard-sensor.
 
@@ -653,3 +658,17 @@ Versie `0.5.247` maakt de bovenste Flow-strip visueler met ingebouwde Home Assis
 Versie `0.5.248` maakt de minimale setup opnieuw kleiner: de setupstatus gebruikt EnergyZero als impliciete standaard prijsbron. Daardoor vraagt de basisroute niet meer om een prijsbron-instelling als die ontbreekt; een batterij toevoegen is genoeg om de basisinrichting klaar te zetten, waarna live prijsdata apart wordt gevalideerd.
 
 Versie `0.5.249` maakt die impliciete EnergyZero-keuze ook zichtbaar in het dashboard. `Main` en `Setup advies` tonen nu of de prijsbron standaard is ingevuld, zodat de basisroute minder instellingen vraagt zonder onverklaarbaar te worden.
+
+Versie `0.5.250` ruimt de zichtbare naamgeving verder op. Globale EEC-entiteiten tonen korte labels zoals `check prijzen`, `testmodus` en `advies starten`, terwijl apparaat-entiteiten de ingestelde vriendelijke apparaatnaam blijven gebruiken. De documentatie benoemt ook de juiste Home Assistant dashboardroute, zodat oude `/lovelace/...` links niet op `Overview` uitkomen.
+
+Versie `0.5.251` zet secundaire informatie lager in het hoofd-dashboard. De dagelijkse route is nu eerst `Flow`, `Basis`, `Scenario - nu`, `Controle`, `Waarom` en `Datacheck`; `P1 historie` en `Scenario hulp` blijven beschikbaar, maar staan pas daarna als context en naslag.
+
+Versie `0.5.252` verbergt lege secundaire kaarten op het hoofd-dashboard. Optionele blokken zoals `P1 historie`, `Scenario hulp`, PowerStream-details, opslagwaarde, weercontext en diagnose verschijnen alleen wanneer er passende entiteiten zijn, zodat het dashboard bij minimale setup compact blijft.
+
+Versie `0.5.253` maakt ook de grafische uurprijs- en weergrafiek conditioneel. Als prijs- of weerbron nog `unknown` of `unavailable` is, verdwijnt de grafiekkaart in plaats van als lege of `loading` kaart in de hoofdflow te blijven staan.
+
+Versie `0.5.254` laat Datacheck ook de bron voor de weergrafiek bewaken. Als de weerkaart verborgen blijft doordat uurverwachting ontbreekt of te kort is, staat dat nu zichtbaar in de broncheck in plaats van alleen in een stille dashboardkaart.
+
+Versie `0.5.255` verwijdert de losse PowerStream-, app-stijl- en scenario-dashboardbestanden. Het HACS-pakket levert daarmee nog één hoofd-dashboard voor de dagelijkse flow; detailblokken blijven op die route beschikbaar en verschijnen alleen waar ze relevant zijn.
+
+Versie `0.5.256` maakt Datacheck grafischer. De bronchecks staan nu als tegels in een grid in plaats van als tekstlijst, zodat prijzen, batterijen, PowerStreams, P1/netmeter, zon, weer, scenario's en sturing sneller scanbaar zijn.
