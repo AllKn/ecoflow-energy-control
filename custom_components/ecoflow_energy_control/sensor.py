@@ -4297,8 +4297,13 @@ def _homewizard_grid_status(coordinator: EcoFlowEnergyCoordinator) -> dict[str, 
         if item.get("role") == HOMEWIZARD_ROLE_GRID_METER
     ]
     data = coordinator.data or {}
+    live_grid_sources = [
+        item
+        for item in (data.get("homewizard_meters") or {}).values()
+        if isinstance(item, dict) and item.get("role") == HOMEWIZARD_ROLE_GRID_METER
+    ]
     grid_power = data.get("corrected_grid_power")
-    if not grid_sources:
+    if not grid_sources and not live_grid_sources:
         state = "P1 ontbreekt"
         message = "HomeWizard P1/netmeter niet ingesteld"
     elif grid_power is None:
@@ -4311,6 +4316,7 @@ def _homewizard_grid_status(coordinator: EcoFlowEnergyCoordinator) -> dict[str, 
         "state": state,
         "message": message,
         "configured_grid_meters": len(grid_sources),
+        "live_grid_meters": len(live_grid_sources),
         "grid_power_w": data.get("homewizard_grid_power"),
         "corrected_grid_power_w": grid_power,
         "corrected_grid_phase_power": data.get("corrected_grid_phase_power"),

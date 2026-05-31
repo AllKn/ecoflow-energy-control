@@ -123,6 +123,8 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn('"P1 ontbreekt"', self.text)
         self.assertIn('"corrected_grid_power"', self.text)
         self.assertIn('"grid_power_w"', self.text)
+        self.assertIn("live_grid_sources = [", self.text)
+        self.assertIn('"live_grid_meters": len(live_grid_sources)', self.text)
         self.assertIn('"verbruik van net"', self.text)
         self.assertIn('"levering aan net"', self.text)
 

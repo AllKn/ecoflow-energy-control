@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
@@ -81,6 +82,7 @@ from .power import normalize_homewizard_power_w, normalize_powerstream_watts
 from .policy import best_scenario, powerstream_group_decision, scenario_is_actionable
 
 _LOGGER = logging.getLogger(__name__)
+SIMULATION_STORE_VERSION = 1
 
 
 class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -111,6 +113,11 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._scenario_last_update = dt_util.now()
         self._scenario_totals: dict[str, dict[str, float]] = {}
         self._scenario_periods = self._scenario_period_keys(self._scenario_last_update)
+        self._simulation_store: Store[dict[str, Any]] = Store(
+            hass,
+            SIMULATION_STORE_VERSION,
+            f"{DOMAIN}_{entry.entry_id}_simulation",
+        )
         super().__init__(
             hass,
             _LOGGER,
@@ -118,8 +125,38 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
         )
 
+    async def async_load_simulation_state(self) -> None:
+        """Restore scenario simulation counters from Home Assistant storage."""
+        stored = await self._simulation_store.async_load()
+        if not isinstance(stored, dict):
+            return
+
+        totals = stored.get("scenario_totals")
+        periods = stored.get("scenario_periods")
+        if isinstance(totals, dict):
+            self._scenario_totals = _coerce_scenario_totals(totals)
+        if isinstance(periods, dict):
+            self._scenario_periods = {
+                str(key): str(value)
+                for key, value in periods.items()
+                if key in {"day", "week", "month"}
+            }
+        self._scenario_last_update = dt_util.now()
+
+    async def _async_save_simulation_state(self) -> None:
+        """Persist scenario simulation counters across reloads and updates."""
+        await self._simulation_store.async_save(
+            {
+                "scenario_totals": self._scenario_totals,
+                "scenario_periods": self._scenario_periods,
+                "saved_at": dt_util.now().isoformat(),
+            }
+        )
+
     async def _async_update_data(self) -> dict[str, Any]:
         settings = {**self.entry.data, **self.entry.options}
+        settings[CONF_DRY_RUN] = self.dry_run
+        self.settings = settings
         errors: dict[str, str] = {}
         previous = self.data or {}
 
@@ -453,6 +490,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             effective_solar_power,
             forecast_solar_power,
         )
+        await self._async_save_simulation_state()
 
         await self._async_apply_smart_plug_schedule_now(
             settings,
@@ -1753,6 +1791,26 @@ def _coerce_homewizard_meters(
         output.append(item)
 
     return output
+
+
+def _coerce_scenario_totals(value: dict[str, Any]) -> dict[str, dict[str, float]]:
+    """Coerce stored scenario totals into the current in-memory shape."""
+    totals: dict[str, dict[str, float]] = {}
+    for scenario_key, periods in value.items():
+        if not isinstance(periods, dict):
+            continue
+        totals[str(scenario_key)] = {
+            period: _coerce_float(periods.get(period))
+            for period in ("day", "week", "month")
+        }
+    return totals
+
+
+def _coerce_float(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _coerce_homewizard_role(item: dict[str, Any]) -> str:

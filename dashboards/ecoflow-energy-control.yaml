@@ -1,7 +1,7 @@
-# EEC app dashboard yaml version: 0.5.281
-title: Ecoflow app [0.5.281]
+# EEC app dashboard yaml version: 0.5.284
+title: Ecoflow app [0.5.284]
 views:
-  - title: Main [0.5.281]
+  - title: Main [0.5.284]
     path: ecoflow-energy
     icon: mdi:view-dashboard
     cards:
@@ -537,3 +537,210 @@ views:
               options:
                 name: Prijzen
                 icon: mdi:currency-eur
+
+  - title: Simulatie
+    path: scenario-simulatie
+    icon: mdi:chart-timeline-variant-shimmer
+    cards:
+      - type: markdown
+        content: |
+          ## Simulatie-logboek
+          Deze pagina stuurt niets aan. De sensoren hieronder worden bij elke update opnieuw berekend en door Home Assistant bewaard. De dag/week/maand-totalen worden ook in de EEC-opslag bewaard, zodat ze na een update of herstart doorlopen.
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          show_header_toggle: false
+          title: Advies nu
+        card_param: entities
+        filter:
+          include:
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_scenario_overview
+              options:
+                name: Beste scenario
+                icon: mdi:clipboard-list
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_scenario_plan
+              options:
+                name: Waarom
+                icon: mdi:map-marker-path
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_value_rate
+              options:
+                name: Waarde EUR/u
+                icon: mdi:currency-eur
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_best_power
+              options:
+                name: Adviesvermogen
+                icon: mdi:flash
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_best_day_value
+              options:
+                name: Dagwaarde
+                icon: mdi:cash-clock
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_best_period_value
+              options:
+                name: D/W/M totaal
+                icon: mdi:cash-multiple
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_choice_delta
+              options:
+                name: Gemiste waarde
+                icon: mdi:cash-alert
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_confidence_score
+              options:
+                name: Zekerheid
+                icon: mdi:shield-check
+
+      - type: custom:auto-entities
+        card:
+          type: history-graph
+          title: Beste advies - laatste 72 uur
+          hours_to_show: 72
+        card_param: entities
+        filter:
+          include:
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_value_rate
+              options:
+                name: Beste EUR/u
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_best_power
+              options:
+                name: Beste vermogen
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_choice_delta
+              options:
+                name: Gemiste EUR/u
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_confidence_score
+              options:
+                name: Zekerheid
+
+      - type: custom:auto-entities
+        card:
+          type: history-graph
+          title: Scenario's - EUR/u
+          hours_to_show: 72
+        card_param: entities
+        filter:
+          include:
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_eur_per_hour
+
+      - type: custom:auto-entities
+        card:
+          type: history-graph
+          title: Scenario's - vermogen
+          hours_to_show: 72
+        card_param: entities
+        filter:
+          include:
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_power
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          show_header_toggle: false
+          title: Scenario-totalen
+        card_param: entities
+        filter:
+          include:
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_day_eur
+              options:
+                name: Vandaag
+                icon: mdi:calendar-today
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_week_eur
+              options:
+                name: Week
+                icon: mdi:calendar-week
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_month_eur
+              options:
+                name: Maand
+                icon: mdi:calendar-month
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          show_header_toggle: false
+          title: Scenario-verklaring
+        card_param: entities
+        filter:
+          include:
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_action
+              options:
+                name: Actie
+                icon: mdi:play-box
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_reason
+              options:
+                name: Reden
+                icon: mdi:comment-text
+            - attributes:
+                eec_device_type: scenario
+                eec_sensor_role: scenario_executable
+              options:
+                name: Uitvoerbaar
+                icon: mdi:check-decagram
+
+      - type: custom:auto-entities
+        card:
+          type: history-graph
+          title: Context - laatste 72 uur
+          hours_to_show: 72
+        card_param: entities
+        filter:
+          include:
+            - attributes:
+                eec_device_type: price
+                eec_sensor_role: price_now
+              options:
+                name: Prijs
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: corrected_power
+              options:
+                name: Netto W
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: powerstream_export
+              options:
+                name: Teruglevering
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_soc
+              options:
+                name: Accu %
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: weather_solar_4h
+              options:
+                name: Zon 4u

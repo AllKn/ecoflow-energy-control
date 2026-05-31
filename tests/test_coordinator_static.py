@@ -145,6 +145,26 @@ class CoordinatorStaticTest(unittest.TestCase):
             return_block,
         )
 
+    def test_polling_refreshes_runtime_settings_from_entry(self) -> None:
+        update_block = self.coordinator[
+            self.coordinator.index("async def _async_update_data")
+            : self.coordinator.index("try:", self.coordinator.index("async def _async_update_data"))
+        ]
+        self.assertIn("settings = {**self.entry.data, **self.entry.options}", update_block)
+        self.assertIn("settings[CONF_DRY_RUN] = self.dry_run", update_block)
+        self.assertIn("self.settings = settings", update_block)
+
+    def test_scenario_simulation_totals_are_persisted(self) -> None:
+        self.assertIn("from homeassistant.helpers.storage import Store", self.coordinator)
+        self.assertIn("SIMULATION_STORE_VERSION", self.coordinator)
+        self.assertIn("self._simulation_store", self.coordinator)
+        self.assertIn("async def async_load_simulation_state", self.coordinator)
+        self.assertIn("async def _async_save_simulation_state", self.coordinator)
+        self.assertIn('"scenario_totals": self._scenario_totals', self.coordinator)
+        self.assertIn("await self._async_save_simulation_state()", self.coordinator)
+        self.assertIn("_coerce_scenario_totals", self.coordinator)
+        self.assertIn("await coordinator.async_load_simulation_state()", self.init)
+
     def test_corrected_phase_power_can_show_net_consumption(self) -> None:
         self.assertNotIn("phase: max(\n                0.0,", self.coordinator)
         self.assertIn(

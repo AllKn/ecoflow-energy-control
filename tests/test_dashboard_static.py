@@ -124,9 +124,30 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         self.assertIn("name: Smart Plug API", block)
         self.assertIn("type: custom:auto-entities", block)
 
+    def test_simulation_view_collects_scenario_history(self) -> None:
+        self.assertIn("  - title: Simulatie", self.text)
+        self.assertIn("    path: scenario-simulatie", self.text)
+        start = self.text.index("## Simulatie-logboek")
+        block = self.text[start:]
+        self.assertGreaterEqual(block.count("type: history-graph"), 4)
+        for marker in (
+            "hours_to_show: 72",
+            "eec_sensor_role: dashboard_value_rate",
+            "eec_sensor_role: dashboard_best_power",
+            "eec_sensor_role: dashboard_choice_delta",
+            "eec_sensor_role: scenario_eur_per_hour",
+            "eec_sensor_role: scenario_power",
+            "eec_sensor_role: scenario_day_eur",
+            "eec_sensor_role: scenario_week_eur",
+            "eec_sensor_role: scenario_month_eur",
+            "eec_sensor_role: weather_solar_4h",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, block)
+
     def test_controle_is_diagnostische_core(self) -> None:
         start = self.text.index("## Controle & diagnose")
-        end = len(self.text)
+        end = self.text.index("## Simulatie-logboek")
         block = self.text[start:end]
         for role in (
             "dashboard_overview",

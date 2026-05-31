@@ -52,6 +52,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up EcoFlow Energy Control from a config entry."""
     _normalize_entry_storage(hass, entry)
     coordinator = EcoFlowEnergyCoordinator(hass, entry)
+    await coordinator.async_load_simulation_state()
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
