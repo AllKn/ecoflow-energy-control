@@ -381,6 +381,8 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         homewizard_items = _coerce_homewizard_meters(
             settings.get(CONF_HOMEWIZARD_METERS, [])
         )
+        settings[CONF_HOMEWIZARD_METERS] = homewizard_items
+        self.settings = settings
         homewizard_solar_power = 0.0
         homewizard_phase_power = {"l1": 0.0, "l2": 0.0, "l3": 0.0}
         homewizard_grid_power: float | None = None
@@ -1780,7 +1782,7 @@ def _coerce_homewizard_meters(
         if key in seen_ha:
             continue
         seen_ha.add(key)
-        output.append(item)
+        output.append({**item, "role": role})
 
     for item in items:
         if not isinstance(item, dict) or item.get("source") == "homeassistant":
@@ -1788,7 +1790,7 @@ def _coerce_homewizard_meters(
         role = _coerce_homewizard_role(item)
         if role in ha_roles:
             continue
-        output.append(item)
+        output.append({**item, "role": role})
 
     return output
 
@@ -1815,6 +1817,8 @@ def _coerce_float(value: Any) -> float:
 
 def _coerce_homewizard_role(item: dict[str, Any]) -> str:
     explicit = str(item.get("role") or "").strip()
+    if item.get("source") == "homeassistant" and _looks_like_homewizard_p1(item):
+        return HOMEWIZARD_ROLE_GRID_METER
     if explicit in (HOMEWIZARD_ROLE_SOLAR_TOTAL, HOMEWIZARD_ROLE_GRID_METER):
         return explicit
     return _infer_homewizard_role_from_text(
@@ -1822,6 +1826,37 @@ def _coerce_homewizard_role(item: dict[str, Any]) -> str:
         item.get("model"),
         item.get("host"),
         item.get("device_id"),
+    )
+
+
+def _looks_like_homewizard_p1(item: dict[str, Any]) -> bool:
+    """Return true when a Home Assistant HomeWizard item is clearly a P1 meter."""
+    entities = item.get("entities") if isinstance(item.get("entities"), dict) else {}
+    if any(
+        entities.get(key)
+        for key in (
+            "energy_import",
+            "energy_import_t1",
+            "energy_import_t2",
+            "energy_export",
+            "energy_export_t1",
+            "energy_export_t2",
+        )
+    ):
+        return True
+    if entities.get("power") and any(
+        entities.get(key) for key in ("power_l1", "power_l2", "power_l3")
+    ):
+        return True
+    return (
+        _infer_homewizard_role_from_text(
+            item.get("name"),
+            item.get("model"),
+            item.get("host"),
+            item.get("device_id"),
+            " ".join(str(value) for value in entities.values()),
+        )
+        == HOMEWIZARD_ROLE_GRID_METER
     )
 
 

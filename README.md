@@ -159,7 +159,7 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.284`
+`0.5.285`
 
 ## Updatecontrole
 
@@ -730,6 +730,6 @@ Versie `0.5.279` levert het hoofd-dashboard ook mee binnen de integratiemap en s
 
 Versie `0.5.280` voegt handmatige noodbediening toe: **Teruglevering naar 0** zet alle ingestelde PowerStreams direct op 0 W en houdt hun groepstrategie op idle. Daarnaast staat de EcoFlow Smart Plug voor Delta Pro-laden als schakelaar in **Handmatig - tools**, met beginstand uit de actuele Smart Plug-quota wanneer EcoFlow die status teruggeeft.
 
-Versie `0.5.284` bewaart de scenario-simulatietotalen in Home Assistant storage. Daardoor blijven dag/week/maand-totalen na een EEC-reload, Home Assistant-herstart of HACS-update beschikbaar; de **Simulatie**-dashboardpagina blijft daarnaast 72-uurs historie via Home Assistant-recorder tonen.
+Versie `0.5.285` neemt de Home Assistant Energy-presentatie mee als aparte **Energy**-dashboardpagina en maakt P1-herkenning robuuster. Een bestaande HomeWizard P1 met import/export-energie of fasevermogens wordt automatisch als `P1/netmeter` behandeld, ook wanneer hij eerder verkeerd als opwekbron was opgeslagen.
 
 Versie `0.5.271` voegt Smart Plug-automatisering op vaste tijdvensters toe: met `schema_on` / `schema_off` worden aan/uit-vensters automatisch doorgezet bij elke update, naast de bestaande zon-gedreven fallback. In de device-status zie je nu schema-velden en de berekende `smart_plug_scheduled_state`.

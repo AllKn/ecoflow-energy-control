@@ -25,6 +25,7 @@ from .const import (
     CONF_SMART_PLUGS,
     DEFAULT_PRICE_SOURCE,
     DEFAULT_HOMEWIZARD_ROLE,
+    HOMEWIZARD_ROLE_GRID_METER,
     HOMEWIZARD_ROLE_SOLAR_TOTAL,
     DOMAIN,
     SERVICE_APPLY_BEST_SCENARIO,
@@ -169,7 +170,7 @@ def _prune_homewizard_manual_duplicates(items: list[dict[str, Any]] | Any) -> li
         if key in seen_ha:
             continue
         seen_ha.add(key)
-        output.append(item)
+        output.append({**item, "role": role})
 
     for item in items:
         if not isinstance(item, dict) or item.get("source") == "homeassistant":
@@ -177,7 +178,7 @@ def _prune_homewizard_manual_duplicates(items: list[dict[str, Any]] | Any) -> li
         role = _coerce_homewizard_role(item)
         if role in ha_roles:
             continue
-        output.append(item)
+        output.append({**item, "role": role})
     return output
 
 
@@ -187,6 +188,8 @@ def _coerce_homewizard_role(item: dict[str, Any]) -> str:
         "HOMEWIZARD_ROLE_SOLAR_TOTAL", "solar_total"
     )
     homewizard_role_grid_meter = globals().get("HOMEWIZARD_ROLE_GRID_METER", "grid_meter")
+    if item.get("source") == "homeassistant" and _looks_like_homewizard_p1(item):
+        return homewizard_role_grid_meter
     if explicit in (
         homewizard_role_solar_total,
         homewizard_role_grid_meter,
@@ -197,6 +200,37 @@ def _coerce_homewizard_role(item: dict[str, Any]) -> str:
         item.get("model"),
         item.get("host"),
         item.get("device_id"),
+    )
+
+
+def _looks_like_homewizard_p1(item: dict[str, Any]) -> bool:
+    """Return true when a Home Assistant HomeWizard item is clearly a P1 meter."""
+    entities = item.get("entities") if isinstance(item.get("entities"), dict) else {}
+    if any(
+        entities.get(key)
+        for key in (
+            "energy_import",
+            "energy_import_t1",
+            "energy_import_t2",
+            "energy_export",
+            "energy_export_t1",
+            "energy_export_t2",
+        )
+    ):
+        return True
+    if entities.get("power") and any(
+        entities.get(key) for key in ("power_l1", "power_l2", "power_l3")
+    ):
+        return True
+    return (
+        _infer_homewizard_role_from_text(
+            item.get("name"),
+            item.get("model"),
+            item.get("host"),
+            item.get("device_id"),
+            " ".join(str(value) for value in entities.values()),
+        )
+        == globals().get("HOMEWIZARD_ROLE_GRID_METER", "grid_meter")
     )
 
 

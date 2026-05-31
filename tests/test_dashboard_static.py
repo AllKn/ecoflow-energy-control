@@ -128,7 +128,8 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         self.assertIn("  - title: Simulatie", self.text)
         self.assertIn("    path: scenario-simulatie", self.text)
         start = self.text.index("## Simulatie-logboek")
-        block = self.text[start:]
+        end = self.text.index("## Energy-overzicht")
+        block = self.text[start:end]
         self.assertGreaterEqual(block.count("type: history-graph"), 4)
         for marker in (
             "hours_to_show: 72",
@@ -141,6 +142,26 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
             "eec_sensor_role: scenario_week_eur",
             "eec_sensor_role: scenario_month_eur",
             "eec_sensor_role: weather_solar_4h",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, block)
+
+    def test_energy_view_reuses_home_assistant_energy_presentation(self) -> None:
+        self.assertIn("  - title: Energy", self.text)
+        self.assertIn("    path: energy", self.text)
+        start = self.text.index("## Energy-overzicht")
+        block = self.text[start:]
+        for marker in (
+            "type: energy-date-selection",
+            "type: energy-distribution",
+            "type: energy-sources-table",
+            "type: energy-usage-graph",
+            "title: P1 live",
+            "eec_sensor_role: grid_status",
+            "eec_sensor_role: grid_power",
+            "eec_sensor_role: api_status",
+            "eec_sensor_role: power",
+            "eec_sensor_role: p1_history",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, block)

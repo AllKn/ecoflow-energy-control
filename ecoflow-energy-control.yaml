@@ -1,7 +1,7 @@
-# EEC app dashboard yaml version: 0.5.284
-title: Ecoflow app [0.5.284]
+# EEC app dashboard yaml version: 0.5.285
+title: Ecoflow app [0.5.285]
 views:
-  - title: Main [0.5.284]
+  - title: Main [0.5.285]
     path: ecoflow-energy
     icon: mdi:view-dashboard
     cards:
@@ -744,3 +744,92 @@ views:
                 eec_sensor_role: weather_solar_4h
               options:
                 name: Zon 4u
+
+  - title: Energy
+    path: energy
+    icon: mdi:lightning-bolt-circle
+    cards:
+      - type: markdown
+        content: |
+          ## Energy-overzicht
+          Deze pagina volgt de opzet van het Home Assistant Energy-dashboard: eerst de verdeling en bronnen, daarna de P1-livewaarden die EEC gebruikt.
+
+      - type: energy-date-selection
+      - type: energy-distribution
+      - type: energy-sources-table
+      - type: energy-usage-graph
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          show_header_toggle: false
+          title: P1 live
+        card_param: entities
+        filter:
+          include:
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: grid_status
+              options:
+                name: P1 status
+                icon: mdi:meter-electric
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: grid_power
+              options:
+                name: P1 vermogen
+                icon: mdi:flash
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: grid_flow_state
+              options:
+                name: Netto stroom
+                icon: mdi:home-import-outline
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: corrected_power
+              options:
+                name: Netto W
+                icon: mdi:transmission-tower
+            - attributes:
+                eec_device_type: homewizard
+                eec_sensor_role: api_status
+              options:
+                name: HomeWizard API
+                icon: mdi:cloud-check
+            - attributes:
+                eec_device_type: homewizard
+                eec_sensor_role: power
+              options:
+                name: HomeWizard vermogen
+                icon: mdi:meter-electric-outline
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          show_header_toggle: false
+          title: P1 historie
+        card_param: entities
+        filter:
+          include:
+            - attributes:
+                eec_device_type: homewizard
+                eec_sensor_role: p1_history
+                period: today
+              options:
+                name: Vandaag
+                icon: mdi:calendar-today
+            - attributes:
+                eec_device_type: homewizard
+                eec_sensor_role: p1_history
+                period: week
+              options:
+                name: Week
+                icon: mdi:calendar-week
+            - attributes:
+                eec_device_type: homewizard
+                eec_sensor_role: p1_history
+                period: month
+              options:
+                name: Maand
+                icon: mdi:calendar-month

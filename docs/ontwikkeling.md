@@ -265,7 +265,7 @@ Vanaf versie `0.5.277` is Flow opnieuw hertekend naar één duidelijke lijn: eer
 Vanaf versie `0.5.278` zijn de Flow-waarde en Zekerheid-kaarten teruggebracht naar reguliere `entities`-regels. Dat voorkomt de Home Assistant `Configuration error` die ontstond bij een dynamische gauge via `custom:auto-entities`.
 Vanaf versie `0.5.279` synchroniseert de integratie het meegeleverde dashboard automatisch naar de Lovelace-opslag onder `ecoflow-app-dashboard`. Daardoor gaan dashboardtitel en inhoud mee met een HACS-update/reload, zonder handmatig plakken in de raw editor.
 Vanaf versie `0.5.280` is er handmatige noodbediening toegevoegd: `Teruglevering naar 0` zet alle PowerStreams direct op 0 W en zet hun groepstrategie op idle. De Smart Plug voor Delta Pro-laden staat daarnaast als schakelaar in het handmatige blok en gebruikt de actuele EcoFlow-status als beginstand wanneer die quota beschikbaar is.
-Vanaf versie `0.5.284` worden scenario-simulatietotalen opgeslagen in Home Assistant storage. De view `Simulatie` toont 72-uurs recorderhistorie én dag/week/maand-totalen die na reload, herstart of HACS-update beschikbaar blijven.
+Vanaf versie `0.5.285` is er een aparte view `Energy` die de Home Assistant Energy-presentatie volgt met verdeling, bronnen, gebruik en P1-liveblokken. HomeWizard P1-bronnen met import/export-energie of fasevermogens worden automatisch als `grid_meter` gecorrigeerd, zodat `P1 status` de bestaande P1-meter herkent.
 
 ## Huidige stand
 

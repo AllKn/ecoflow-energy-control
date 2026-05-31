@@ -165,6 +165,17 @@ class CoordinatorStaticTest(unittest.TestCase):
         self.assertIn("_coerce_scenario_totals", self.coordinator)
         self.assertIn("await coordinator.async_load_simulation_state()", self.init)
 
+    def test_homewizard_p1_role_is_auto_corrected_from_ha_entities(self) -> None:
+        self.assertIn("def _looks_like_homewizard_p1", self.coordinator)
+        self.assertIn("energy_import", self.coordinator)
+        self.assertIn("energy_export", self.coordinator)
+        self.assertIn('"power_l1", "power_l2", "power_l3"', self.coordinator)
+        self.assertIn('output.append({**item, "role": role})', self.coordinator)
+        self.assertIn("settings[CONF_HOMEWIZARD_METERS] = homewizard_items", self.coordinator)
+        self.assertIn("self.settings = settings", self.coordinator)
+        self.assertIn("def _looks_like_homewizard_p1", self.init)
+        self.assertIn("HOMEWIZARD_ROLE_GRID_METER", self.init)
+
     def test_corrected_phase_power_can_show_net_consumption(self) -> None:
         self.assertNotIn("phase: max(\n                0.0,", self.coordinator)
         self.assertIn(
