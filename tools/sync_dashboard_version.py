@@ -33,6 +33,13 @@ def _sync_dashboard_text(dashboard: str, version: str) -> str:
         count=1,
         flags=re.MULTILINE,
     )
+    dashboard = re.sub(
+        r"^(\s*- title:)\s*Main\b.*?$",
+        f"\\1 Main [{version}]",
+        dashboard,
+        count=1,
+        flags=re.MULTILINE,
+    )
     return dashboard
 
 
@@ -51,4 +58,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

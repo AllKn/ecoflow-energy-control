@@ -25,7 +25,7 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
 
     def test_contract_has_one_primary_route(self) -> None:
         self.assertIn("# EEC app dashboard yaml version:", self.text)
-        self.assertIn("title: EEC app", self.text)
+        self.assertIn("title: Ecoflow app", self.text)
         self.assertIn("  - title: Main", self.text)
         self.assertIn("    path: ecoflow-energy", self.text)
         dashboard_files = sorted(ROOT.glob("dashboards/ecoflow-energy-*.yaml"))
@@ -55,34 +55,22 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         route = [title for title in titles if title in {
             "Flow",
             "Basis",
-            "Scenario - nu",
-            "Smart Plugs",
-            "Controle",
-            "Waarom",
-            "Datacheck",
-            "P1 historie",
-            "Scenario hulp",
-            "Handmatig - tools",
+            "Scenario - uitvoering",
+            "Controle & diagnose",
         }]
         self.assertEqual(
             route,
             [
                 "Flow",
                 "Basis",
-                "Scenario - nu",
-                "Smart Plugs",
-                "Controle",
-                "Waarom",
-                "Datacheck",
-                "P1 historie",
-                "Scenario hulp",
-                "Handmatig - tools",
+                "Scenario - uitvoering",
+                "Controle & diagnose",
             ],
         )
 
     def test_basis_contains_core_live_insights(self) -> None:
         start = self.text.index("title: Basis")
-        end = self.text.index("title: Scenario - nu")
+        end = self.text.index("title: Scenario - uitvoering")
         block = self.text[start:end]
         for role in (
             "corrected_power",
@@ -102,8 +90,8 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
             self.assertIn(f"eec_sensor_role: {role}", block)
 
     def test_scenario_card_is_compact(self) -> None:
-        start = self.text.index("title: Scenario - nu")
-        end = self.text.index("title: Smart Plugs")
+        start = self.text.index("title: Scenario - uitvoering")
+        end = self.text.index("title: Controle & diagnose")
         block = self.text[start:end]
         for role in (
             "dashboard_scenario_overview",
@@ -119,18 +107,18 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         self.assertNotIn("dashboard_best_period_value", block)
 
     def test_smart_plug_is_part_of_dezelfde_flow(self) -> None:
-        start = self.text.index("title: Smart Plugs")
-        end = self.text.index("title: Controle")
+        start = self.text.index("title: Scenario - uitvoering")
+        end = self.text.index("title: Controle & diagnose")
         block = self.text[start:end]
         self.assertIn("eec_sensor_role: smart_plug_control", block)
         self.assertIn("eec_sensor_role: api_status", block)
-        self.assertIn("name: Plug", block)
-        self.assertIn("name: Schema", block)
+        self.assertIn("name: Smart Plug", block)
+        self.assertIn("name: Smart Plug API", block)
         self.assertIn("type: custom:auto-entities", block)
 
     def test_controle_is_diagnostische_core(self) -> None:
-        start = self.text.index("title: Controle")
-        end = self.text.index("title: Waarom")
+        start = self.text.index("title: Controle & diagnose")
+        end = len(self.text)
         block = self.text[start:end]
         for role in (
             "dashboard_overview",
@@ -145,14 +133,6 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
             "dashboard_readiness_score",
             "dashboard_ready_state",
             "dashboard_flow_phase",
-        ):
-            self.assertIn(f"eec_sensor_role: {role}", block)
-
-    def test_waarom_is_uitleg_onderaan(self) -> None:
-        start = self.text.index("title: Waarom")
-        end = self.text.index("title: Datacheck")
-        block = self.text[start:end]
-        for role in (
             "dashboard_start_state",
             "dashboard_start_reason",
             "dashboard_auto_mode",
@@ -160,27 +140,14 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
             "dashboard_execution_plan",
             "execution_status",
             "last_action",
+            "dashboard_check",
+            "dashboard_strategy_guide",
+            "p1_history",
+            "apply_strategy",
+            "check_ecoflow_api",
+            "refresh_prices",
         ):
             self.assertIn(f"eec_sensor_role: {role}", block)
-
-    def test_datacheck_is_single_tile_list(self) -> None:
-        start = self.text.index("title: Datacheck")
-        end = self.text.index("title: P1 historie")
-        block = self.text[start:end]
-        self.assertIn("eec_sensor_role: dashboard_check", block)
-        self.assertNotIn("type: gauge", block)
-
-    def test_p1_historie_and_scenario_hulp_are_secondary(self) -> None:
-        for title in ("title: P1 historie", "title: Scenario hulp", "title: Handmatig - tools"):
-            self.assertIn(title, self.text)
-        start = self.text.index("title: P1 historie")
-        end = self.text.index("title: Scenario hulp")
-        p1 = self.text[start:end]
-        self.assertIn("eec_sensor_role: p1_history", p1)
-        start = self.text.index("title: Scenario hulp")
-        end = len(self.text)
-        help_card = self.text[start:end]
-        self.assertIn("dashboard_strategy_guide", help_card)
 
     def test_secondary_sections_do_not_reappear_as_requirements(self) -> None:
         for title in (
@@ -214,7 +181,6 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         self.assertIn("Het primaire dashboard staat in:", readme)
         self.assertIn("dashboards/ecoflow-energy-control.yaml", readme)
         self.assertIn("Voor normaal gebruik heb je alleen dit dashboard nodig", readme)
-        self.assertIn("Handmatig - tools is alleen voor diagnose of bewust testen", readme)
 
     def test_dashboard_sensor_roles_exist_in_runtime_entities(self) -> None:
         runtime_role_files = [
@@ -284,12 +250,11 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
 
     def test_manual_tools_is_escape_hatch(self) -> None:
         text = self.text
-        manual_pos = text.index("title: Handmatig - tools")
-        control_pos = text.index("title: Controle")
-        self.assertGreater(manual_pos, control_pos)
+        control_pos = text.index("title: Controle & diagnose")
         self.assertIn("eec_sensor_role: apply_strategy", text)
         self.assertIn("eec_sensor_role: check_ecoflow_api", text)
         self.assertIn("eec_sensor_role: refresh_prices", text)
+        self.assertGreater(text.index("eec_sensor_role: apply_strategy"), control_pos)
 
 
 if __name__ == "__main__":

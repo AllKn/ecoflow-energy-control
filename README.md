@@ -175,14 +175,6 @@ Als je versie al bent opgevoerd in `manifest.json`, maar nog niet in de dashboar
 python3 tools/sync_dashboard_version.py
 ```
 
-Als terminal-login naar GitHub lastig is, kun je ook een schoon uploadpakket maken:
-
-```text
-python3 tools/build_release_package.py
-```
-
-Dit maakt `dist/eec-app-<versie>.zip`. Upload de inhoud van die zip naar de root van de GitHub-repository, zodat `custom_components`, `dashboards`, `docs`, `tests`, `tools`, `README.md` en `hacs.json` op dezelfde plek blijven staan. De zip bevat ook `release-manifest.json` met checksums voor de bestanden in het pakket.
-
 Na een HACS-update moeten **Controle > Versie** en **Controle > YAML** hetzelfde versienummer tonen. Als de integratieversie wel nieuw is maar de `YAML`-tegel ontbreekt, gebruikt Home Assistant nog een oude geïmporteerde dashboardconfig. Open dan de attributen van **Versie**; daar staat de verwachte dashboardversie, YAML-marker en herstelhint.
 
 ## EcoFlow Signing

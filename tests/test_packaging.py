@@ -126,7 +126,6 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("klaar voor HACS/GitHub", result.stdout)
         self.assertIn("Versie", result.stdout)
         self.assertIn("YAML", result.stdout)
-        self.assertIn("tools/build_release_package.py", result.stdout)
 
     def test_release_package_tool_lists_required_files(self) -> None:
         tool = (ROOT / "tools" / "build_release_package.py").read_text(

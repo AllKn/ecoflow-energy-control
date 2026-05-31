@@ -33,7 +33,7 @@ De setup is live bruikbaar als deze punten kloppen:
 - In de ruwe dashboardconfig staat bovenaan `EEC app dashboard yaml version`. Die versie moet gelijk zijn aan de integratieversie.
 - Toont **Versie** nog een lager nummer dan de README of `manifest.json`, dan draait Home Assistant nog de vorige HACS-download. Publiceer eerst de nieuwe commit op GitHub, laat HACS opnieuw updaten en herstart daarna Home Assistant.
 - Voor publicatie kun je lokaal `python3 tools/release_check.py` uitvoeren. Die check noemt ook welke versie je daarna in Home Assistant bij **Versie** en **YAML** hoort te zien.
-- Als GitHub via de terminal niet lukt, maak dan met `python3 tools/build_release_package.py` een schoon uploadpakket en upload de inhoud naar de root van de repository. Dit pakket bevat ook de tests, zodat de GitHub-repo dezelfde verificatiecontracten bevat als je lokale map. In `release-manifest.json` staan versie, bestandslijst en checksums.
+- Na `python3 tools/release_check.py` publiceer je de commit gewoon via je normale GitHub-flow (commit/push). HACS pakt die versie daarna op bij de volgende update.
 - **Datacheck** heeft geen rode blokkade voor prijzen, batterijen, PowerStreams, P1/netmeter, zon, weer, scenario's of sturing.
 - **Scenario hulp** staat pas na `Datacheck` en is naslag; de echte keuze voor scenario en testmodus staat bovenin `Flow`.
 - **Handmatig - tools** staat helemaal onderaan en wordt alleen gebruikt voor diagnose, API-checks of bewust handmatig testen.

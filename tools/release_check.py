@@ -60,6 +60,15 @@ def main() -> int:
                 "dashboard titel versie",
             ),
         ),
+        (
+            "dashboard hoofdpagina versie",
+            version
+            == _match(
+                r"\s*-\s*title:\s*Main \[([^\]]+)\]",
+                dashboard_text,
+                "dashboard hoofdpagina versie",
+            ),
+        ),
         ("README changelog", f"Versie `{version}`" in readme),
         ("HACS domein", DOMAIN in hacs.get("domains", [])),
         ("documentatie link", manifest.get("documentation") == REPO_URL),
@@ -80,9 +89,8 @@ def main() -> int:
 
     print(f"EEC release check: klaar voor HACS/GitHub ({version})")
     print("")
-    print("Optioneel releasepakket:")
     print("python3 tools/sync_dashboard_version.py")
-    print("python3 tools/build_release_package.py")
+    print(f'git add . && git commit -m "release: {version}" && git push')
     print("")
     print("Na publiceren op GitHub:")
     print("1. Laat HACS de repository opnieuw downloaden.")
