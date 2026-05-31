@@ -1,78 +1,129 @@
-# EEC app dashboard yaml version: 0.5.273
-title: Ecoflow app [0.5.273]
+# EEC app dashboard yaml version: 0.5.275
+title: Ecoflow app [0.5.275]
 views:
-  - title: Main [0.5.273]
+  - title: Main [0.5.275]
     path: ecoflow-energy
     icon: mdi:view-dashboard
     cards:
+      - type: markdown
+        content: |
+          ## Snelstart
+          De flow is bedoeld voor één doorklik: **Flow** → **Basis** → **Scenario - uitvoering** → **Controle**.
+
+          - **Flow**: bepaalt klaarheid, scenario en gewenste actie.
+          - **Basis**: laat de live kernwaarden zien waar de sturing op is gebaseerd.
+          - **Scenario - uitvoering**: toont of het gekozen scenario nu echt uitvoerbaar is.
+          - **Controle**: verklaart waarom iets wel of niet gebeurt.
+
+          Alles hieronder is met minimale achtergrondkennis te volgen.
+
+      - type: markdown
+        content: |
+          ## Flow
+          Dit is de primaire route voor bediening.  
+          Elk overzichtsitem heeft hieronder een korte tooltiptekst zodat je meteen weet wat het betekent.
+      - type: markdown
+        content: |
+          <span title="Hoofdstatus: samenvatting van data, strategie en uitvoerstatus.">Hoofdstatus</span> |  
+          <span title="Inzicht: of basis live is, testmodus draait of sturing mogelijk is.">Inzicht</span> |  
+          <span title="Nu: mag het systeem nu sturen of wacht het op bron/voorwaarden?">Nu</span> |  
+          <span title="Live: bewijs dat live gegevens voldoende zijn voor inzicht of sturing.">Live</span> |  
+          <span title="Advies: berekent en stuurt het beste scenario door wanneer het kan.">Advies</span> |  
+          <span title="Testmodus: eerst altijd uitzetten voor echte sturing.">Test</span>
       - type: custom:auto-entities
         card:
-          type: entities
-          title: Flow
-          show_header_toggle: false
-        card_param: entities
+          type: grid
+          columns: 3
+          square: false
+          cards: []
+        card_param: cards
         filter:
           include:
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_main_summary
               options:
+                type: tile
                 name: Hoofdstatus
+                icon: mdi:home-analytics
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_insight_state
               options:
+                type: tile
                 name: Inzicht
+                icon: mdi:lightbulb-on-outline
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_live_validation
               options:
-                name: Live validatie
+                type: tile
+                name: Live
+                icon: mdi:shield-check
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_energy_flow
               options:
-                name: Energieflow
+                type: tile
+                name: Stroom
+                icon: mdi:transmission-tower
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_control_verdict
               options:
+                type: tile
                 name: Besluit
+                icon: mdi:target
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_value_rate
               options:
+                type: gauge
                 name: EUR/u
+                icon: mdi:currency-eur
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_next_step
               options:
+                type: tile
                 name: Volgende stap
+                icon: mdi:arrow-right-bold-circle
             - attributes:
                 eec_device_type: control
                 eec_sensor_role: global_strategy
               options:
+                type: tile
                 name: Scenario
+                icon: mdi:auto-fix
             - attributes:
                 eec_device_type: control
                 eec_sensor_role: test_mode
               options:
-                name: Testmodus
+                type: tile
+                name: Test
+                icon: mdi:test-tube
             - attributes:
                 eec_device_type: action
                 eec_sensor_role: apply_best_scenario
               options:
                 type: button
-                name: Advies
+                name: Advies starten
                 icon: mdi:play
                 show_state: false
 
+      - type: markdown
+        content: |
+          ## Basis
+          Kernwaarden eerst: net/energiestroom, batterijstaat en teruglevering.
+      - type: markdown
+        content: |
+          <span title="Positieve waarde: meer verbruik uit het net. Negatief: levering aan het net.">P1 vermogen</span> en
+          <span title="Correctie van netto balans na afname/teruglevering van PowerStreams.">Netto W</span> bepalen de basisbalans.
       - type: custom:auto-entities
         card:
           type: entities
-          title: Basis
           show_header_toggle: false
-        card_param: entities
+          title: Net & balans
         filter:
           include:
             - attributes:
@@ -80,73 +131,105 @@ views:
                 eec_sensor_role: corrected_power
               options:
                 name: Netto W
+                icon: mdi:transmission-tower
             - attributes:
                 eec_device_type: solar
                 eec_sensor_role: grid_flow_state
               options:
                 name: Netto stroom
+                icon: mdi:home-import-outline
             - attributes:
                 eec_device_type: solar
                 eec_sensor_role: grid_status
               options:
                 name: P1 status
+                icon: mdi:home-lightning-bolt-outline
             - attributes:
                 eec_device_type: solar
                 eec_sensor_role: grid_power
               options:
                 name: P1 vermogen
+                icon: mdi:flash
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          show_header_toggle: false
+          title: Prijs & zon
+        filter:
+          include:
             - attributes:
                 eec_device_type: price
                 eec_sensor_role: price_now
               options:
-                name: Prijs nu
-            - attributes:
-                eec_device_type: battery_fleet
-                eec_sensor_role: battery_fleet_soc
-              options:
-                name: Accu %
-            - attributes:
-                eec_device_type: battery_fleet
-                eec_sensor_role: battery_fleet_available_kwh
-              options:
-                name: Beschikbaar kWh
-            - attributes:
-                eec_device_type: battery_fleet
-                eec_sensor_role: battery_fleet_charge_w
-              options:
-                name: Accu laadt
-            - attributes:
-                eec_device_type: battery_fleet
-                eec_sensor_role: battery_fleet_discharge_w
-              options:
-                name: Accu ontlaadt
-            - attributes:
-                eec_device_type: battery_fleet
-                eec_sensor_role: battery_fleet_net_w
-              options:
-                name: Accu netto
-            - attributes:
-                eec_device_type: solar
-                eec_sensor_role: powerstream_export
-              options:
-                name: Teruglevering
+                name: EUR/kWh nu
+                icon: mdi:cash-fast
             - attributes:
                 eec_device_type: weather
                 eec_sensor_role: expected_savings
               options:
                 name: Zonvoordeel
+                icon: mdi:sun-snowflake
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: decision_context
               options:
                 name: Context
+                icon: mdi:information-slab-circle-outline
 
       - type: custom:auto-entities
         card:
           type: entities
-          title: Scenario - uitvoering
           show_header_toggle: false
-        card_param: entities
+          title: Accu
+        filter:
+          include:
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_soc
+              options:
+                name: Accu %
+                icon: mdi:battery-80
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_available_kwh
+              options:
+                name: Beschikbaar kWh
+                icon: mdi:home-battery
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_charge_w
+              options:
+                name: Accu laadt
+                icon: mdi:arrow-up-bold
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_discharge_w
+              options:
+                name: Accu ontlaadt
+                icon: mdi:arrow-down-bold
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_fleet_net_w
+              options:
+                name: Accu netto
+                icon: mdi:sync
+            - attributes:
+                eec_device_type: solar
+                eec_sensor_role: powerstream_export
+              options:
+                name: Teruglevering
+                icon: mdi:export
+
+      - type: markdown
+        content: |
+          ## Scenario - uitvoering
+          Uitvoerbaar én leesbaar: één blok voor de actie en één korte statussamenvatting.
+      - type: custom:auto-entities
+        card:
+          type: entities
+          show_header_toggle: false
+          title: Scenario-beeld
         filter:
           include:
             - attributes:
@@ -154,48 +237,70 @@ views:
                 eec_sensor_role: dashboard_scenario_overview
               options:
                 name: Overzicht
+                icon: mdi:clipboard-list
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_scenario_plan
               options:
                 name: Plan
+                icon: mdi:map-marker-path
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_action_state
               options:
                 name: Uitvoerbaar
-            - attributes:
-                eec_device_type: dashboard
-                eec_sensor_role: dashboard_confidence_score
-              options:
-                name: Zekerheid
+                icon: mdi:check-decagram
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_measurement_state
               options:
                 name: Meting
+                icon: mdi:chart-bell-curve-cumulative
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_next_command
               options:
                 name: Volgende commando
+                icon: mdi:play-circle
             - attributes:
                 eec_device_type: smart_plug
                 eec_sensor_role: smart_plug_control
               options:
                 name: Smart Plug
+                icon: mdi:power-plug
             - attributes:
                 eec_device_type: smart_plug
                 eec_sensor_role: api_status
               options:
                 name: Smart Plug API
+                icon: mdi:cloud-check
 
       - type: custom:auto-entities
         card:
+          type: grid
+          columns: 2
+          square: false
+          cards: []
+        card_param: cards
+        filter:
+          include:
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_confidence_score
+              options:
+                type: gauge
+                name: Zekerheid
+                icon: mdi:target
+
+      - type: markdown
+        content: |
+          ## Controle & diagnose
+          Lees eerst hier: setup, bronnen, waarschuwingen en bewijsketen.
+      - type: custom:auto-entities
+        card:
           type: entities
-          title: Controle & diagnose
           show_header_toggle: false
-        card_param: entities
+          title: Controle kern
         filter:
           include:
             - attributes:
@@ -203,129 +308,163 @@ views:
                 eec_sensor_role: dashboard_overview
               options:
                 name: Overzicht
+                icon: mdi:view-dashboard
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_setup
               options:
                 name: Setup
+                icon: mdi:cog-transfer
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_setup_progress
               options:
                 name: Setup %
+                icon: mdi:progress-check
             - attributes:
                 eec_device_type: control
                 eec_sensor_role: app_status
               options:
                 name: App status
+                icon: mdi:application-cog
             - attributes:
                 eec_device_type: control
                 eec_sensor_role: app_version
               options:
                 name: App versie
+                icon: mdi:tag
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_yaml_version
               options:
                 name: YAML
-            - attributes:
-                eec_device_type: control
-                eec_sensor_role: update_info
-              options:
-                name: Update info
+                icon: mdi:file-document-check
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_source_summary
               options:
                 name: Bronnen
+                icon: mdi:source-repository
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_problem
               options:
                 name: Aandacht
+                icon: mdi:alert-circle
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_live_proof
               options:
                 name: Bewijs
+                icon: mdi:shield-check-outline
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_readiness_score
               options:
                 name: Score
+                icon: mdi:gauge
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_ready_state
               options:
                 name: Klaar
+                icon: mdi:check-bold
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_flow_phase
               options:
                 name: Fase
+                icon: mdi:progress-check
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_start_state
               options:
                 name: Start
+                icon: mdi:rocket-launch
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_start_reason
               options:
                 name: Waarom start
+                icon: mdi:comment-question
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_auto_mode
               options:
                 name: Auto
-            - attributes:
-                eec_device_type: dashboard
-                eec_sensor_role: decision_context
-              options:
-                name: Waarom
+                icon: mdi:robot
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_execution_plan
               options:
                 name: Uitvoerplan
+                icon: mdi:clipboard-text
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          show_header_toggle: false
+          title: Datacheck
+        filter:
+          include:
             - attributes:
                 eec_device_type: control
                 eec_sensor_role: execution_status
               options:
                 name: Sturing
+                icon: mdi:remote
             - attributes:
                 eec_device_type: control
                 eec_sensor_role: last_action
               options:
                 name: Laatste actie
+                icon: mdi:clock-check
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_check
               options:
                 name: Datacheck
+                icon: mdi:clipboard-check
+            - attributes:
+                eec_device_type: dashboard
+                eec_sensor_role: dashboard_strategy_guide
+              options:
+                name: Scenario hulp
+                icon: mdi:lightbulb-on
+
+      - type: custom:auto-entities
+        card:
+          type: grid
+          columns: 2
+          square: false
+          cards: []
+        card_param: cards
+        filter:
+          include:
             - attributes:
                 eec_device_type: homewizard
                 eec_sensor_role: p1_history
                 period: today
               options:
-                name: Dag
+                type: tile
+                name: P1 dag
+                icon: mdi:chart-line
             - attributes:
                 eec_device_type: homewizard
                 eec_sensor_role: p1_history
                 period: week
               options:
-                name: Week
+                type: tile
+                name: P1 week
+                icon: mdi:chart-bell-curve
             - attributes:
                 eec_device_type: homewizard
                 eec_sensor_role: p1_history
                 period: month
               options:
-                name: Maand
-            - attributes:
-                eec_device_type: dashboard
-                eec_sensor_role: dashboard_strategy_guide
-              options:
-                name: Strategie hulp
+                type: tile
+                name: P1 maand
+                icon: mdi:chart-bar
             - attributes:
                 eec_device_type: action
                 eec_sensor_role: apply_strategy

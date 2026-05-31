@@ -259,6 +259,8 @@ Vanaf versie `0.5.269` ruimt de integratie bij het laden oude lange Home Assista
 Vanaf versie `0.5.271` is Smart Plug als onderdeel van de ene main flow uitgebreid met automatisch tijdvensterschema: elk plug-item kan nu `schema_on` en `schema_off` behouden. De coordinator past dit schema automatisch toe tijdens elke update, en device-status toont die velden plus berekende geplande status.
 Vanaf versie `0.5.272` is de HomeWizard-metersanering defensiever gemaakt tijdens opstart: bij legacy of incomplete roldata gebruikt de integratie een veilige fallback i.p.v. te crashen tijdens het instellen.
 Vanaf versie `0.5.273` is de zonvoorspellingshorizon in de coordinator tijdzone-bestendig gemaakt (aware/naive datumvergelijkingen), waardoor de updatecyclus stabiel blijft bij forecast-rijen uit de weerbron.
+Vanaf versie `0.5.274` is het hoofd-dashboard opnieuw herschikt voor uitlegbaarheid en minimale achtergrondkennis: Flow, Basis en Scenario-flows hebben extra korte toelichtingsteksten, en secundaire blokken zijn compacter en duidelijker gesplitst. Daarmee blijft de productieflow met één dashboard bruikbaar zonder mini-tegeloverload.
+Vanaf versie `0.5.275` heeft de dashboardflow een extra productiewaardige leesbaarheidsronde gehad: minder losse mini-tegels en meer gecategoriseerde `entities`-lijsten in Basis en Controle, met extra routehints en inline uitleg via tooltip-achtige markdownregels zodat een nieuwe gebruiker direct kan starten zonder expertkennis.
 
 ## Huidige stand
 

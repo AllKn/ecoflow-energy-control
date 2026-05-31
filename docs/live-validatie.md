@@ -26,7 +26,7 @@ De setup is live bruikbaar als deze punten kloppen:
 - **Flow** toont `Main` als compacte hoofdregel en `Inzicht` als `basis klaar` of beter.
 - **Stap** noemt een concrete volgende actie, of geeft aan dat `Advies` gestart kan worden.
 - **Basis** toont waarden voor `P1 W`, `Netto W`, `Accu`, `kWh`, `EUR/kWh`, `Terug W` en zonverwachting zonder `unknown` of `unavailable`.
-- **Scenario - nu** toont een beste scenario, plan in gewone taal, eventuele blokkade, match met je keuze, uitvoerbaarheid, adviesvermogen en `EUR/u`.
+- **Scenario - uitvoering** toont een beste scenario, plan in gewone taal, eventuele blokkade, match met je keuze, uitvoerbaarheid, adviesvermogen en `EUR/u`.
 - **Controle > Bewijs** toont databewijs en stuur-bewijs, bijvoorbeeld `6/6 data, sturing klaar` of `6/6 data, sturing gedeeltelijk`.
 - **Controle > YAML** toont dezelfde versie als de integratie. Ontbreekt deze tegel, dan is de integratie wel bijgewerkt maar de Lovelace-dashboardconfig nog oud.
 - Open in dat geval de attributen van **Controle > Versie**. Daar staan `dashboard_yaml_version`, `dashboard_yaml_marker`, `dashboard_file`, `dashboard_path` en een `dashboard_update_hint`.
@@ -54,6 +54,7 @@ De status-, scenario- en testmoduskaarten zijn bewust `tile`-kaarten: grotere kl
 - `Inzicht`: toont de gebruikersfase, van `basis nodig` tot `sturing klaar`.
 - `Live`: bewijst of basisdata live is, volledige sturing klaar is, of alleen optimalisatie ontbreekt.
 - `Stroom`: combineert netverbruik of levering, accu en PowerStream-teruglevering.
+- `Flow-hints`: als een kaart niet meteen duidelijk is, controleer eerst de korte toelichttekst boven de kaartgroepen.
 - `Nu`: vertelt of EEC app mag sturen, wacht, testmodus gebruikt of geblokkeerd is.
 - `Stap`: toont de ene meest logische gebruikersactie en gebruikt dezelfde eerste ontbrekende live-bron als `Live` wanneer data of sturing blokkeert.
 - `Scenario`: toont de gekozen strategie.
@@ -77,7 +78,7 @@ Een lege of nulwaarde is alleen goed als dat fysiek klopt. Bij verbruik van 8 kW
 
 Dag-, week- en maandtotalen van de P1-meter staan bewust in `P1 historie` onder de datacheck; `Basis` blijft gericht op live waarden die direct invloed hebben op het actuele scenario.
 
-## Scenario - nu
+## Scenario - uitvoering
 
 Deze kaart bewijst of de app de gemeten situatie kan vertalen naar een actie.
 

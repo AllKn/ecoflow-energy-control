@@ -121,7 +121,7 @@ Voor live validatie na een update kijk je bovenaan naar:
 
 - **Flow**: laat zien of je alleen basisinzicht hebt, of sturing klaar is, of live bewijs voldoende is, wat de volgende stap is en of het advies gestart kan worden.
 - **Basis**: toont de kernmetingen waarop de keuze rust: netto W, prijs, accu, kWh, teruglevering en zonwaarde.
-- **Scenario - nu**: toont het actuele beste scenario, wat jouw gekozen scenario doet, de match met je keuze en de verwachte EUR/uur.
+- **Scenario - uitvoering**: toont het actuele beste scenario, wat jouw gekozen scenario doet, de match met je keuze en de verwachte EUR/uur.
 - **Controle > Aandacht**: toont de eerste blokkade, optimalisatie of waarschuwing die aandacht nodig heeft.
 - **Controle > Bewijs**: scheidt databewijs van stuur-bewijs, bijvoorbeeld `6/6 data, sturing gedeeltelijk`.
 - **Controle > YAML**: toont de geimporteerde dashboard-YAML versie. Ontbreekt deze tegel, dan kijkt Home Assistant nog naar een oude geimporteerde dashboardconfig.
@@ -159,7 +159,7 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.273`
+`0.5.275`
 
 ## Updatecontrole
 
@@ -717,5 +717,9 @@ Versie `0.5.269` ruimt oude lange entiteitnamen in de Home Assistant registry op
 Versie `0.5.272` herstelt een startup-crash in de integratie door robuustere verwerking van HomeWizard-meterrollen in opgeslagen instellingen (bijv. ontbrekende `solar_total`-constante/legacy data).
 
 Versie `0.5.273` maakt de zonvoorspelingshorizon robuuster tegen tijdzoneverschillen in weather-tijdstempels (aware/naive datums), zodat updates niet meer falen tijdens het laden van scenario- en forecast-berekeningen.
+
+Versie `0.5.274` herschikt de hoofd-dashboards voor betere leesbaarheid bij standaardgebruik: de flow is nu compacter met duidelijke sectieblokken, extra in-dashboard toelichtingen en minder mini-kaarten. Er zijn meer visuele hints toegevoegd zodat nieuwe gebruikers met minder uitleg direct herkennen wat Flow, Basis, Scenario - uitvoering en Diagnose betekenen.
+
+Versie `0.5.275` verbetert de leesbaarheid verder door de kernroutes te groeperen in minder drukke blokken: Basis en Controle maken meer gebruik van `entities`-lijsten i.p.v. losse mini-kaarten, met extra inline toelichtingen in markdown en korte tooltips per routekop. Daardoor blijft de productiestroom herkenbaar bij minimale achtergrondkennis.
 
 Versie `0.5.271` voegt Smart Plug-automatisering op vaste tijdvensters toe: met `schema_on` / `schema_off` worden aan/uit-vensters automatisch doorgezet bij elke update, naast de bestaande zon-gedreven fallback. In de device-status zie je nu schema-velden en de berekende `smart_plug_scheduled_state`.

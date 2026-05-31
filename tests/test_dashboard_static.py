@@ -32,7 +32,7 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         self.assertEqual(dashboard_files, [MAIN_DASHBOARD])
 
     def test_top_flow_is_graphical_and_actionable(self) -> None:
-        self.assertIn("title: Flow", self.text)
+        self.assertIn("## Flow", self.text)
         self.assertIn("eec_sensor_role: dashboard_main_summary", self.text)
         self.assertIn("eec_sensor_role: dashboard_insight_state", self.text)
         self.assertIn("eec_sensor_role: dashboard_live_validation", self.text)
@@ -43,15 +43,15 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         self.assertIn("eec_sensor_role: global_strategy", self.text)
         self.assertIn("eec_sensor_role: test_mode", self.text)
         self.assertIn("eec_sensor_role: apply_best_scenario", self.text)
-        start = self.text.index("title: Flow")
-        end = self.text.index("title: Basis")
+        start = self.text.index("## Flow")
+        end = self.text.index("## Basis")
         block = self.text[start:end]
         self.assertIn("type: button", block)
-        self.assertIn("name: Advies", block)
+        self.assertIn("name: Advies starten", block)
         self.assertLessEqual(block.count("eec_sensor_role:"), 12)
 
     def test_kern_sections_in_expected_order(self) -> None:
-        titles = re.findall(r"^\s+title: (.+)$", self.text, re.MULTILINE)
+        titles = re.findall(r"^\s*## (.+)$", self.text, re.MULTILINE)
         route = [title for title in titles if title in {
             "Flow",
             "Basis",
@@ -69,8 +69,8 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         )
 
     def test_basis_contains_core_live_insights(self) -> None:
-        start = self.text.index("title: Basis")
-        end = self.text.index("title: Scenario - uitvoering")
+        start = self.text.index("## Basis")
+        end = self.text.index("## Scenario - uitvoering")
         block = self.text[start:end]
         for role in (
             "corrected_power",
@@ -90,8 +90,8 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
             self.assertIn(f"eec_sensor_role: {role}", block)
 
     def test_scenario_card_is_compact(self) -> None:
-        start = self.text.index("title: Scenario - uitvoering")
-        end = self.text.index("title: Controle & diagnose")
+        start = self.text.index("## Scenario - uitvoering")
+        end = self.text.index("## Controle & diagnose")
         block = self.text[start:end]
         for role in (
             "dashboard_scenario_overview",
@@ -107,8 +107,8 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         self.assertNotIn("dashboard_best_period_value", block)
 
     def test_smart_plug_is_part_of_dezelfde_flow(self) -> None:
-        start = self.text.index("title: Scenario - uitvoering")
-        end = self.text.index("title: Controle & diagnose")
+        start = self.text.index("## Scenario - uitvoering")
+        end = self.text.index("## Controle & diagnose")
         block = self.text[start:end]
         self.assertIn("eec_sensor_role: smart_plug_control", block)
         self.assertIn("eec_sensor_role: api_status", block)
@@ -117,7 +117,7 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         self.assertIn("type: custom:auto-entities", block)
 
     def test_controle_is_diagnostische_core(self) -> None:
-        start = self.text.index("title: Controle & diagnose")
+        start = self.text.index("## Controle & diagnose")
         end = len(self.text)
         block = self.text[start:end]
         for role in (
@@ -136,7 +136,6 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
             "dashboard_start_state",
             "dashboard_start_reason",
             "dashboard_auto_mode",
-            "decision_context",
             "dashboard_execution_plan",
             "execution_status",
             "last_action",
@@ -250,7 +249,7 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
 
     def test_manual_tools_is_escape_hatch(self) -> None:
         text = self.text
-        control_pos = text.index("title: Controle & diagnose")
+        control_pos = text.index("## Controle & diagnose")
         self.assertIn("eec_sensor_role: apply_strategy", text)
         self.assertIn("eec_sensor_role: check_ecoflow_api", text)
         self.assertIn("eec_sensor_role: refresh_prices", text)
