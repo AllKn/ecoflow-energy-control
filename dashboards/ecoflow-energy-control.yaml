@@ -1,5 +1,5 @@
 # EEC app dashboard yaml version: 0.5.273
-title: EEC app
+title: Ecoflow app [0.5.273]
 views:
   - title: Main
     path: ecoflow-energy

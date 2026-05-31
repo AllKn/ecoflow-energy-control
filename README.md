@@ -169,6 +169,12 @@ Voor publicatie naar GitHub/HACS kun je lokaal controleren of de versies, manife
 python3 tools/release_check.py
 ```
 
+Als je versie al bent opgevoerd in `manifest.json`, maar nog niet in de dashboard-YAML staat, sync dan eerst alles in één keer:
+
+```text
+python3 tools/sync_dashboard_version.py
+```
+
 Als terminal-login naar GitHub lastig is, kun je ook een schoon uploadpakket maken:
 
 ```text
