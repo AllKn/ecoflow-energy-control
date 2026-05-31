@@ -1,7 +1,7 @@
-# EEC app dashboard yaml version: 0.5.277
-title: Ecoflow app [0.5.277]
+# EEC app dashboard yaml version: 0.5.278
+title: Ecoflow app [0.5.278]
 views:
-  - title: Main [0.5.277]
+  - title: Main [0.5.278]
     path: ecoflow-energy
     icon: mdi:view-dashboard
     cards:
@@ -70,21 +70,18 @@ views:
           <span title="Testmodus: uitzetten voordat echte sturing start.">Test</span>
       - type: custom:auto-entities
         card:
-          type: gauge
-          unit: "€/kWh"
-          min: -1
-          max: 0.3
-          severity:
-            red: -0.2
-            yellow: 0
-            green: 0.1
-          name: EUR/u
-        card_param: entity
+          type: entities
+          title: Waarde nu
+          show_header_toggle: false
+        card_param: entities
         filter:
           include:
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_value_rate
+              options:
+                name: EUR/u
+                icon: mdi:currency-eur
       - type: custom:auto-entities
         card:
           type: entities
@@ -113,10 +110,11 @@ views:
                 icon: mdi:test-tube
       - type: custom:auto-entities
         card:
-          type: entities
-          title: Advies starten
-          show_header_toggle: false
-        card_param: entities
+          type: button
+          show_name: true
+          show_state: false
+          show_icon: true
+        card_param: entity
         filter:
           include:
             - attributes:
@@ -125,8 +123,6 @@ views:
               options:
                 name: Advies starten
                 icon: mdi:play
-                type: button
-                show_state: false
 
       - type: markdown
         content: |
@@ -303,21 +299,18 @@ views:
                 icon: mdi:cloud-check
       - type: custom:auto-entities
         card:
-          type: gauge
-          min: 0
-          max: 100
-          name: Zekerheid
-          unit: "%"
-          severity:
-            green: 80
-            yellow: 40
-            red: 0
-        card_param: entity
+          type: entities
+          title: Zekerheid
+          show_header_toggle: false
+        card_param: entities
         filter:
           include:
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_confidence_score
+              options:
+                name: Zekerheid
+                icon: mdi:target
 
       - type: markdown
         content: |
@@ -499,10 +492,11 @@ views:
           Dit is alleen voor diagnose en nood-bediening; reguliere sturing gaat via `Advies starten`.
       - type: custom:auto-entities
         card:
-          type: entities
-          show_header_toggle: false
-          title: Handmatige acties
-        card_param: entities
+          type: button
+          show_name: true
+          show_state: false
+          show_icon: true
+        card_param: entity
         filter:
           include:
             - attributes:
