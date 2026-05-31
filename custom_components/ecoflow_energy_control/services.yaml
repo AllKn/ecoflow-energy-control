@@ -25,6 +25,10 @@ apply_best_scenario:
   name: Start beste advies
   description: Kiest het beste berekende scenario en past dit direct eenmalig toe.
 
+stop_powerstream_export:
+  name: Teruglevering naar 0
+  description: Zet alle ingestelde PowerStreams direct op 0 W en houdt hun groepsstrategie op idle.
+
 set_smart_plug:
   name: Zet Smart Plug
   description: Zet een EcoFlow Smart Plug aan of uit.

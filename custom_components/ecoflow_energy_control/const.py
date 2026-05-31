@@ -4,7 +4,7 @@ from __future__ import annotations
 
 DOMAIN = "ecoflow_energy_control"
 APP_NAME = "EEC app"
-APP_VERSION = "0.5.278"
+APP_VERSION = "0.5.280"
 LEGACY_DASHBOARD_OBJECT_PREFIX = "ecoflow_energy_control_applicatie"
 
 CONF_ACCESS_KEY = "access_key"
@@ -67,6 +67,7 @@ WEATHER_CITIES = {
 SERVICE_SET_POWERSTREAM_WATTS = "set_powerstream_watts"
 SERVICE_APPLY_STRATEGY = "apply_strategy"
 SERVICE_APPLY_BEST_SCENARIO = "apply_best_scenario"
+SERVICE_STOP_POWERSTREAM_EXPORT = "stop_powerstream_export"
 SERVICE_SET_SMART_PLUG = "set_smart_plug"
 
 ATTR_SERIAL = "serial"

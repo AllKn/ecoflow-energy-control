@@ -94,8 +94,8 @@ def main() -> int:
     print("")
     print("Na publiceren op GitHub:")
     print("1. Laat HACS de repository opnieuw downloaden.")
-    print("2. Herstart Home Assistant.")
-    print("3. Importeer of vervang het hoofd-dashboard opnieuw als de YAML-tegel ontbreekt.")
+    print("2. Herlaad de EEC-integratie of herstart Home Assistant.")
+    print("3. Het hoofd-dashboard wordt automatisch naar Lovelace gesynchroniseerd.")
     print(f"4. Controleer op het dashboard: Versie {version} en YAML {version}.")
     return 0
 

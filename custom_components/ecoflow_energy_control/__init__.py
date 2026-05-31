@@ -31,8 +31,10 @@ from .const import (
     SERVICE_APPLY_STRATEGY,
     SERVICE_SET_SMART_PLUG,
     SERVICE_SET_POWERSTREAM_WATTS,
+    SERVICE_STOP_POWERSTREAM_EXPORT,
 )
 from .coordinator import EcoFlowEnergyCoordinator
+from .dashboard_sync import async_sync_shipped_dashboard
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -65,6 +67,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _shorten_legacy_entity_registry_names(hass, entry)
+    await async_sync_shipped_dashboard(hass)
 
     async def set_powerstream_watts(call: ServiceCall) -> None:
         await coordinator.async_set_powerstream_watts(
@@ -76,6 +79,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def apply_best_scenario(call: ServiceCall) -> None:
         await coordinator.async_apply_best_scenario()
+
+    async def stop_powerstream_export(call: ServiceCall) -> None:
+        await coordinator.async_stop_powerstream_export()
 
     async def set_smart_plug(call: ServiceCall) -> None:
         await coordinator.async_set_smart_plug(
@@ -91,6 +97,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.services.has_service(DOMAIN, SERVICE_APPLY_BEST_SCENARIO):
         hass.services.async_register(
             DOMAIN, SERVICE_APPLY_BEST_SCENARIO, apply_best_scenario
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_STOP_POWERSTREAM_EXPORT):
+        hass.services.async_register(
+            DOMAIN, SERVICE_STOP_POWERSTREAM_EXPORT, stop_powerstream_export
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_SMART_PLUG):
         hass.services.async_register(DOMAIN, SERVICE_SET_SMART_PLUG, set_smart_plug)

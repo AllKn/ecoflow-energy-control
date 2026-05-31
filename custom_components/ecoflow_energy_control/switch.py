@@ -100,6 +100,9 @@ class SmartPlugSwitch(CoordinatorEntity[EcoFlowEnergyCoordinator], SwitchEntity)
 
     @property
     def is_on(self) -> bool:
+        item = (self.coordinator.data or {}).get("smart_plugs", {}).get(self._serial, {})
+        if isinstance(item, dict) and item.get("current_state") is not None:
+            return bool(item.get("current_state"))
         return bool(self.coordinator.smart_plug_last_state.get(self._serial))
 
     @property
@@ -116,6 +119,7 @@ class SmartPlugSwitch(CoordinatorEntity[EcoFlowEnergyCoordinator], SwitchEntity)
             "schedule_enabled": device.get("schedule_enabled") if device else None,
             "schedule_on": device.get("schedule_on") if device else None,
             "schedule_off": device.get("schedule_off") if device else None,
+            "current_state": self.is_on,
             "last_command": self.coordinator.smart_plug_last_state.get(self._serial),
             "last_command_at": self.coordinator.smart_plug_last_state_at.get(self._serial),
         }

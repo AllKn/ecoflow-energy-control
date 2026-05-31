@@ -12,6 +12,7 @@ TRANSLATIONS = ROOT / "custom_components" / "ecoflow_energy_control" / "translat
 DOMAIN = "ecoflow_energy_control"
 USER_VISIBLE_ARTIFACTS = (
     ROOT / "custom_components" / "ecoflow_energy_control" / "manifest.json",
+    ROOT / "custom_components" / "ecoflow_energy_control" / "dashboard.yaml",
     ROOT / "custom_components" / "ecoflow_energy_control" / "translations" / "en.json",
     ROOT / "custom_components" / "ecoflow_energy_control" / "translations" / "nl.json",
     ROOT / "dashboards" / "ecoflow-energy-control.yaml",

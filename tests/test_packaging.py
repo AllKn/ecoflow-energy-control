@@ -80,6 +80,7 @@ class PackagingTest(unittest.TestCase):
             "__init__.py",
             "manifest.json",
             "config_flow.py",
+            "dashboard_sync.py",
             "sensor.py",
             "number.py",
             "select.py",
@@ -155,6 +156,8 @@ class PackagingTest(unittest.TestCase):
             "hacs.json",
             "README.md",
             "custom_components/ecoflow_energy_control/manifest.json",
+            "custom_components/ecoflow_energy_control/dashboard.yaml",
+            "custom_components/ecoflow_energy_control/dashboard_sync.py",
             "custom_components/ecoflow_energy_control/sensor.py",
             "custom_components/ecoflow_energy_control/translations/nl.json",
             "dashboards/ecoflow-energy-control.yaml",
@@ -182,6 +185,7 @@ class PackagingTest(unittest.TestCase):
         for filename in (
             "README.md",
             "custom_components/ecoflow_energy_control/manifest.json",
+            "custom_components/ecoflow_energy_control/dashboard.yaml",
             "dashboards/ecoflow-energy-control.yaml",
             "tests/test_packaging.py",
         ):
@@ -193,6 +197,15 @@ class PackagingTest(unittest.TestCase):
                     hashlib.sha256(data).hexdigest(),
                 )
         self.assertIn("dist", (ROOT / ".gitignore").read_text(encoding="utf-8"))
+
+    def test_component_dashboard_matches_repo_dashboard(self) -> None:
+        repo_dashboard = (
+            ROOT / "dashboards" / "ecoflow-energy-control.yaml"
+        ).read_text(encoding="utf-8")
+        component_dashboard = (
+            ROOT / "custom_components" / DOMAIN / "dashboard.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(component_dashboard, repo_dashboard)
 
 
 if __name__ == "__main__":

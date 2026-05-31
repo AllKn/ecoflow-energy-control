@@ -159,7 +159,7 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.278`
+`0.5.280`
 
 ## Updatecontrole
 
@@ -175,7 +175,7 @@ Als je versie al bent opgevoerd in `manifest.json`, maar nog niet in de dashboar
 python3 tools/sync_dashboard_version.py
 ```
 
-Na een HACS-update moeten **Controle > Versie** en **Controle > YAML** hetzelfde versienummer tonen. Als de integratieversie wel nieuw is maar de `YAML`-tegel ontbreekt, gebruikt Home Assistant nog een oude geïmporteerde dashboardconfig. Open dan de attributen van **Versie**; daar staat de verwachte dashboardversie, YAML-marker en herstelhint.
+Na een HACS-update werkt de integratie het dashboard met pad `/ecoflow-app-dashboard/ecoflow-energy` automatisch bij tijdens setup/reload. Daarna moeten **Controle > Versie** en **Controle > YAML** hetzelfde versienummer tonen. Als de integratieversie wel nieuw is maar de dashboardtitel oud blijft, herlaad de EEC-integratie of herstart Home Assistant.
 
 ## EcoFlow Signing
 
@@ -725,5 +725,9 @@ Versie `0.5.275` verbetert de leesbaarheid verder door de kernroutes te groepere
 Versie `0.5.277` herverdeelt de bovenste Flow-strip naar een EMS-achtige, leesbare volgorde: kernstatus als compacte lijst, daarna één kolom aan control-acties met grote knoppen en duidelijke tooltips, zodat knoppen niet meer in mini-formaat in één rij krimpen.
 
 Versie `0.5.278` corrigeert de Flow-waarde en Zekerheid-kaarten naar gewone leesbare `entities`-regels. Daarmee verdwijnt de HA `Configuration error` die kon ontstaan door `custom:auto-entities` met een enkelvoudige gauge-entity.
+
+Versie `0.5.279` levert het hoofd-dashboard ook mee binnen de integratiemap en synchroniseert het automatisch naar Home Assistant Lovelace-opslag bij setup/reload. Daardoor gaat de zichtbare dashboardtitel en YAML-config mee met een HACS-release, zonder handmatige raw-editor update.
+
+Versie `0.5.280` voegt handmatige noodbediening toe: **Teruglevering naar 0** zet alle ingestelde PowerStreams direct op 0 W en houdt hun groepstrategie op idle. Daarnaast staat de EcoFlow Smart Plug voor Delta Pro-laden als schakelaar in **Handmatig - tools**, met beginstand uit de actuele Smart Plug-quota wanneer EcoFlow die status teruggeeft.
 
 Versie `0.5.271` voegt Smart Plug-automatisering op vaste tijdvensters toe: met `schema_on` / `schema_off` worden aan/uit-vensters automatisch doorgezet bij elke update, naast de bestaande zon-gedreven fallback. In de device-status zie je nu schema-velden en de berekende `smart_plug_scheduled_state`.

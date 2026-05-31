@@ -22,6 +22,7 @@ async def async_setup_entry(
         [
             ApplyBestScenarioButton(coordinator),
             ApplyStrategyButton(coordinator),
+            StopPowerstreamExportButton(coordinator),
             CheckEcoFlowApiButton(coordinator),
             RefreshPricesButton(coordinator),
         ]
@@ -79,6 +80,34 @@ class ApplyBestScenarioButton(CoordinatorEntity[EcoFlowEnergyCoordinator], Butto
         return {
             "eec_device_type": "action",
             "eec_sensor_role": "apply_best_scenario",
+        }
+
+
+class StopPowerstreamExportButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEntity):
+    """Stop all PowerStream export output."""
+
+    _attr_has_entity_name = False
+    _attr_name = "teruglevering naar 0"
+    _attr_suggested_object_id = (
+        f"{LEGACY_DASHBOARD_OBJECT_PREFIX}_teruglevering_naar_0"
+    )
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{DOMAIN}_stop_powerstream_export"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, "controller")},
+            "name": APP_NAME,
+        }
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_stop_powerstream_export()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        return {
+            "eec_device_type": "action",
+            "eec_sensor_role": "stop_powerstream_export",
         }
 
 

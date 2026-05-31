@@ -84,6 +84,7 @@ class CoordinatorStaticTest(unittest.TestCase):
             "SERVICE_SET_POWERSTREAM_WATTS": "set_powerstream_watts",
             "SERVICE_APPLY_STRATEGY": "apply_strategy",
             "SERVICE_APPLY_BEST_SCENARIO": "apply_best_scenario",
+            "SERVICE_STOP_POWERSTREAM_EXPORT": "stop_powerstream_export",
             "SERVICE_SET_SMART_PLUG": "set_smart_plug",
         }
         const_text = (COMPONENT / "const.py").read_text(encoding="utf-8")
@@ -111,6 +112,22 @@ class CoordinatorStaticTest(unittest.TestCase):
         )
         self.assertIn("await self.async_set_smart_plug(serial, False)", idle_block)
         self.assertIn('"last_action": "strategie uit"', idle_block)
+
+    def test_manual_stop_export_sets_all_powerstreams_to_zero_and_idle(self) -> None:
+        self.assertIn("async def async_stop_powerstream_export", self.coordinator)
+        block = self.coordinator[
+            self.coordinator.index("async def async_stop_powerstream_export") : self.coordinator.index(
+                "def _can_update_powerstream_strategy"
+            )
+        ]
+        self.assertIn("POWERSTREAM_STRATEGY_IDLE", block)
+        self.assertIn('str(serial), 0, "teruglevering naar 0"', block)
+        self.assertIn('"last_action": (', block)
+
+    def test_smart_plug_current_state_is_inferred_from_quotas(self) -> None:
+        self.assertIn("def _smart_plug_current_state", self.coordinator)
+        self.assertIn('"current_state": current_state', self.coordinator)
+        self.assertIn("_smart_plug_current_state(values)", self.coordinator)
 
     def test_polling_preserves_last_powerstream_command_diagnostics(self) -> None:
         return_block = self.coordinator[

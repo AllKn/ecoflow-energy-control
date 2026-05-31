@@ -42,3 +42,7 @@ class InitStaticTest(unittest.TestCase):
         self.assertIn("_prune_homewizard_manual_duplicates", self.text)
         self.assertIn("merged[CONF_HOMEWIZARD_METERS] = _prune_homewizard_manual_duplicates", self.text)
         self.assertIn("if merged != entry.data or entry.options:", self.text)
+
+    def test_setup_syncs_shipped_dashboard(self) -> None:
+        self.assertIn("from .dashboard_sync import async_sync_shipped_dashboard", self.text)
+        self.assertIn("await async_sync_shipped_dashboard(hass)", self.text)

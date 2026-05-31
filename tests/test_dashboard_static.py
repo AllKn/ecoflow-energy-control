@@ -151,8 +151,10 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
             "dashboard_strategy_guide",
             "p1_history",
             "apply_strategy",
+            "stop_powerstream_export",
             "check_ecoflow_api",
             "refresh_prices",
+            "smart_plug_control",
         ):
             self.assertIn(f"eec_sensor_role: {role}", block)
 
@@ -259,6 +261,9 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         text = self.text
         control_pos = text.index("## Controle & diagnose")
         self.assertIn("eec_sensor_role: apply_strategy", text)
+        self.assertIn("eec_sensor_role: stop_powerstream_export", text)
+        self.assertIn("name: Teruglevering naar 0", text)
+        self.assertIn("name: Delta Pro laden", text)
         self.assertIn("eec_sensor_role: check_ecoflow_api", text)
         self.assertIn("eec_sensor_role: refresh_prices", text)
         self.assertGreater(text.index("eec_sensor_role: apply_strategy"), control_pos)

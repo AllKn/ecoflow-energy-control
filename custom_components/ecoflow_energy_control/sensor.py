@@ -262,11 +262,18 @@ def _dashboard_yaml_file_version() -> str:
 
 
 def _dashboard_yaml_marker() -> str | None:
-    try:
-        lines = (_component_dir() / ".." / "dashboards" / "ecoflow-energy-control.yaml").read_text(
-            encoding="utf-8"
-        )
-    except Exception:
+    candidates = (
+        _component_dir() / "dashboard.yaml",
+        _component_dir() / ".." / "dashboards" / "ecoflow-energy-control.yaml",
+    )
+    lines = None
+    for path in candidates:
+        try:
+            lines = path.read_text(encoding="utf-8")
+            break
+        except Exception:
+            continue
+    if lines is None:
         return None
     for line in lines.splitlines():
         prefix = "# EEC app dashboard yaml version: "
@@ -336,11 +343,11 @@ class VersionSensor(BaseSensor):
             "dashboard_yaml_marker": f"EEC app dashboard yaml version: {_dashboard_yaml_version()}",
             "dashboard_version_source": "package metadata",
             "manifest_version": _integration_version(),
-            "dashboard_file": "dashboards/ecoflow-energy-control.yaml",
+            "dashboard_file": "custom_components/ecoflow_energy_control/dashboard.yaml",
             "dashboard_path": "/ecoflow-app-dashboard/ecoflow-energy",
             "dashboard_update_hint": (
-                "Ontbreekt Controle > YAML of wijkt die versie af, importeer "
-                "of vervang het hoofd-dashboard opnieuw."
+                "De integratie werkt het EEC-dashboard automatisch bij tijdens "
+                "setup/reload."
             ),
         }
 
@@ -368,13 +375,13 @@ class DashboardYamlVersionSensor(BaseSensor):
             "dashboard_yaml_version": _dashboard_yaml_version(),
             "yaml_marker": f"EEC app dashboard yaml version: {_dashboard_yaml_version()}",
             "manifest_version": _integration_version(),
-            "dashboard_file": "dashboards/ecoflow-energy-control.yaml",
+            "dashboard_file": "custom_components/ecoflow_energy_control/dashboard.yaml",
             "dashboard_path": "/ecoflow-app-dashboard/ecoflow-energy",
             "shipped_dashboards": ["ecoflow-energy-control.yaml"],
             "dashboard_file_versioned": _dashboard_yaml_file_version(),
             "stale_dashboard_hint": (
-                "Als deze tegel ontbreekt, toont Home Assistant nog een oude "
-                "geimporteerde Lovelace-config."
+                "Als deze tegel ontbreekt, herlaad de EEC-integratie zodat de "
+                "meegeleverde Lovelace-config opnieuw wordt gesynchroniseerd."
             ),
             "basis": "deze tegel bewijst welke dashboard-YAML is geimporteerd",
         }

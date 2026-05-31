@@ -32,6 +32,8 @@ class SwitchStaticTest(unittest.TestCase):
         self.assertIn('"eec_sensor_role": "smart_plug_control"', self.text)
         self.assertIn('"schedule_enabled"', self.text)
         self.assertIn('"last_command"', self.text)
+        self.assertIn('"current_state"', self.text)
+        self.assertIn('item.get("current_state")', self.text)
 
 
 if __name__ == "__main__":

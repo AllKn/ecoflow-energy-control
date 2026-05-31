@@ -265,6 +265,8 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 response = await self.ecoflow.get_device_quotas(
                     serial, device.get("quotas")
                 )
+                values = _extract_values(response)
+                current_state = _smart_plug_current_state(values)
                 smart_plugs[serial] = {
                     "name": device.get("name", serial),
                     "forecast_solar_power": forecast_solar_power,
@@ -279,11 +281,12 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "off_command": device.get("off_command", {}),
                     "last_command": self.smart_plug_last_state.get(serial),
                     "last_command_at": self.smart_plug_last_state_at.get(serial),
+                    "current_state": current_state,
                     "scheduled_state": self._smart_plug_scheduled_state(
                         device, dt_util.now()
                     ),
                     "response": response,
-                    "values": _extract_values(response),
+                    "values": values,
                     "charges": device.get("charges"),
                 }
             except Exception as err:  # noqa: BLE001
@@ -787,6 +790,29 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def set_powerstream_strategy(self, serial: str, strategy: str) -> None:
         self.powerstream_strategies[serial] = strategy
 
+    async def async_stop_powerstream_export(self) -> None:
+        """Stop all configured PowerStream output immediately."""
+        stopped = 0
+        for device in self.settings.get(CONF_POWERSTREAMS, []):
+            serial = device.get("serial")
+            if not serial or "VUL_HIER" in serial:
+                continue
+            self.powerstream_strategies[str(serial)] = POWERSTREAM_STRATEGY_IDLE
+            await self.async_set_powerstream_watts(
+                str(serial), 0, "teruglevering naar 0"
+            )
+            stopped += 1
+        self.async_set_updated_data(
+            {
+                **(self.data or {}),
+                "last_action": (
+                    f"teruglevering naar 0 voor {stopped} PowerStream(s)"
+                    if stopped
+                    else "geen PowerStreams ingesteld voor teruglevering naar 0"
+                ),
+            }
+        )
+
     def _can_update_powerstream_strategy(self, serial: str) -> bool:
         return self._powerstream_strategy_wait_seconds(serial) <= 0
 
@@ -1266,6 +1292,34 @@ def _extract_values(response: dict[str, Any]) -> dict[str, Any]:
     if isinstance(data, list):
         return _quota_list_to_values(data)
     return {}
+
+
+def _smart_plug_current_state(values: dict[str, Any]) -> bool | None:
+    """Infer Smart Plug on/off state from known EcoFlow quota fields."""
+    for key in (
+        "enabled",
+        "switch",
+        "switchState",
+        "plugSwitch",
+        "powerSwitch",
+        "on",
+        "2_1.switch",
+        "2_1.enabled",
+    ):
+        if key not in values:
+            continue
+        value = values.get(key)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            text = value.strip().lower()
+            if text in {"1", "on", "true", "enabled", "open"}:
+                return True
+            if text in {"0", "off", "false", "disabled", "close", "closed"}:
+                return False
+    return None
 
 
 def _response_debug(response: dict[str, Any]) -> dict[str, Any]:

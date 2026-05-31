@@ -1,7 +1,7 @@
-# EEC app dashboard yaml version: 0.5.278
-title: Ecoflow app [0.5.278]
+# EEC app dashboard yaml version: 0.5.280
+title: Ecoflow app [0.5.280]
 views:
-  - title: Main [0.5.278]
+  - title: Main [0.5.280]
     path: ecoflow-energy
     icon: mdi:view-dashboard
     cards:
@@ -492,6 +492,20 @@ views:
           Dit is alleen voor diagnose en nood-bediening; reguliere sturing gaat via `Advies starten`.
       - type: custom:auto-entities
         card:
+          type: entities
+          show_header_toggle: false
+          title: Smart Plug handmatig
+        card_param: entities
+        filter:
+          include:
+            - attributes:
+                eec_device_type: smart_plug
+                eec_sensor_role: smart_plug_control
+              options:
+                name: Delta Pro laden
+                icon: mdi:power-plug-battery
+      - type: custom:auto-entities
+        card:
           type: button
           show_name: true
           show_state: false
@@ -505,6 +519,12 @@ views:
               options:
                 name: Start
                 icon: mdi:play-circle
+            - attributes:
+                eec_device_type: action
+                eec_sensor_role: stop_powerstream_export
+              options:
+                name: Teruglevering naar 0
+                icon: mdi:transmission-tower-off
             - attributes:
                 eec_device_type: action
                 eec_sensor_role: check_ecoflow_api

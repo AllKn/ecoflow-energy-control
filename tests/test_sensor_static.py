@@ -84,7 +84,7 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn('"dashboard_yaml_version": _dashboard_yaml_version()', block)
         self.assertIn('"dashboard_yaml_marker": f"EEC app dashboard yaml version: {_dashboard_yaml_version()}"', block)
         self.assertIn('"integration_version": _integration_version()', block)
-        self.assertIn('"dashboard_file": "dashboards/ecoflow-energy-control.yaml"', block)
+        self.assertIn('"dashboard_file": "custom_components/ecoflow_energy_control/dashboard.yaml"', block)
         self.assertIn('"dashboard_path": "/ecoflow-app-dashboard/ecoflow-energy"', block)
         self.assertIn('"dashboard_update_hint"', block)
 

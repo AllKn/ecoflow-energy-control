@@ -263,6 +263,8 @@ Vanaf versie `0.5.274` is het hoofd-dashboard opnieuw herschikt voor uitlegbaarh
 Vanaf versie `0.5.275` heeft de dashboardflow een extra productiewaardige leesbaarheidsronde gehad: minder losse mini-tegels en meer gecategoriseerde `entities`-lijsten in Basis en Controle, met extra routehints en inline uitleg via tooltip-achtige markdownregels zodat een nieuwe gebruiker direct kan starten zonder expertkennis.
 Vanaf versie `0.5.277` is Flow opnieuw hertekend naar één duidelijke lijn: eerst een compacte statuslijst, daarna één-koloms control-acties en duidelijke labelregels, naar voorbeeld van veel gebruikte EMS-dashboard flows. Daardoor blijft de route meteen hanteerbaar op mobiel zonder kleine onleesbare knoppen.
 Vanaf versie `0.5.278` zijn de Flow-waarde en Zekerheid-kaarten teruggebracht naar reguliere `entities`-regels. Dat voorkomt de Home Assistant `Configuration error` die ontstond bij een dynamische gauge via `custom:auto-entities`.
+Vanaf versie `0.5.279` synchroniseert de integratie het meegeleverde dashboard automatisch naar de Lovelace-opslag onder `ecoflow-app-dashboard`. Daardoor gaan dashboardtitel en inhoud mee met een HACS-update/reload, zonder handmatig plakken in de raw editor.
+Vanaf versie `0.5.280` is er handmatige noodbediening toegevoegd: `Teruglevering naar 0` zet alle PowerStreams direct op 0 W en zet hun groepstrategie op idle. De Smart Plug voor Delta Pro-laden staat daarnaast als schakelaar in het handmatige blok en gebruikt de actuele EcoFlow-status als beginstand wanneer die quota beschikbaar is.
 
 ## Huidige stand
 

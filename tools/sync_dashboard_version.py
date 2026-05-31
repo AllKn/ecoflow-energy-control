@@ -11,6 +11,9 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "custom_components" / "ecoflow_energy_control" / "manifest.json"
 DASHBOARD = ROOT / "dashboards" / "ecoflow-energy-control.yaml"
+COMPONENT_DASHBOARD = (
+    ROOT / "custom_components" / "ecoflow_energy_control" / "dashboard.yaml"
+)
 
 
 def _read_version() -> str:
@@ -45,13 +48,20 @@ def _sync_dashboard_text(dashboard: str, version: str) -> str:
 
 def main() -> int:
     version = _read_version()
-    original = DASHBOARD.read_text(encoding="utf-8")
-    synced = _sync_dashboard_text(original, version)
-    if synced == original:
+    changed = False
+    for path in (DASHBOARD, COMPONENT_DASHBOARD):
+        if not path.exists():
+            continue
+        original = path.read_text(encoding="utf-8")
+        synced = _sync_dashboard_text(original, version)
+        if synced != original:
+            path.write_text(synced, encoding="utf-8")
+            changed = True
+
+    if not changed:
         print(f"Dashboard versie al synchroon met {version}.")
         return 0
 
-    DASHBOARD.write_text(synced, encoding="utf-8")
     print(f"Dashboard versie bijgewerkt naar {version}.")
     return 0
 
