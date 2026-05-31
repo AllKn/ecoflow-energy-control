@@ -39,6 +39,7 @@ export async function slide07(presentation, ctx) {
       { text: "0.5.278 zet dynamische gauge-blokken om naar stabiele lijstregels om HA configuratiefouten te voorkomen.", color: colors.amber },
       { text: "0.5.279 synchroniseert het meegeleverde dashboard automatisch naar Lovelace bij setup/reload.", color: colors.amber },
       { text: "0.5.280 voegt handmatige stop-teruglevering en Smart Plug-bediening toe.", color: colors.amber },
+      { text: "0.5.281 maakt actieknoppen beschikbaarheidsbewust op basis van actuele status.", color: colors.amber },
       { text: "Vanaf 0.5.275 gebruikt Basis en Controle meer lijstblokken dan mini-tegels voor betere leesbaarheid.", color: colors.amber },
       { text: "Scenario - uitvoering blijft compact met overview, plan, uitvoerbaarheid en de geplande actie in één blok.", color: colors.amber },
       { text: "Scenario-details bundelen actie, reden, vermogen en EUR-effect.", color: colors.amber },

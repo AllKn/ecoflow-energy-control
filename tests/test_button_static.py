@@ -41,10 +41,20 @@ class ButtonStaticTest(unittest.TestCase):
     def test_best_scenario_button_calls_coordinator(self) -> None:
         self.assertIn("ApplyBestScenarioButton(coordinator)", self.text)
         self.assertIn("async_apply_best_scenario", self.text)
+        self.assertIn("scenario_is_actionable(scenario)", self.text)
+        self.assertIn('"actionable": scenario_is_actionable(scenario)', self.text)
 
     def test_stop_export_button_calls_coordinator(self) -> None:
         self.assertIn("StopPowerstreamExportButton(coordinator)", self.text)
         self.assertIn("async_stop_powerstream_export", self.text)
+        self.assertIn("_current_powerstream_export_w(self.coordinator) > 0", self.text)
+        self.assertIn('"current_export_w": _current_powerstream_export_w', self.text)
+
+    def test_status_dependent_buttons_expose_availability(self) -> None:
+        self.assertIn("def _has_configured_powerstreams", self.text)
+        self.assertIn("def _has_configured_smart_plugs", self.text)
+        self.assertIn("def _has_configured_control_target", self.text)
+        self.assertGreaterEqual(self.text.count("def available(self) -> bool:"), 3)
 
 
 if __name__ == "__main__":

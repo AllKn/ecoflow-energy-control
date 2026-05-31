@@ -4,7 +4,7 @@ from __future__ import annotations
 
 DOMAIN = "ecoflow_energy_control"
 APP_NAME = "EEC app"
-APP_VERSION = "0.5.280"
+APP_VERSION = "0.5.281"
 LEGACY_DASHBOARD_OBJECT_PREFIX = "ecoflow_energy_control_applicatie"
 
 CONF_ACCESS_KEY = "access_key"

@@ -8,8 +8,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import APP_NAME, DOMAIN, LEGACY_DASHBOARD_OBJECT_PREFIX
+from .const import (
+    APP_NAME,
+    CONF_POWERSTREAMS,
+    CONF_SMART_PLUGS,
+    DOMAIN,
+    LEGACY_DASHBOARD_OBJECT_PREFIX,
+)
 from .coordinator import EcoFlowEnergyCoordinator
+from .policy import best_scenario, scenario_is_actionable
 
 
 async def async_setup_entry(
@@ -50,10 +57,17 @@ class ApplyStrategyButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEnt
         await self.coordinator.async_apply_strategy()
 
     @property
-    def extra_state_attributes(self) -> dict[str, str]:
+    def available(self) -> bool:
+        return _has_configured_control_target(self.coordinator)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
         return {
             "eec_device_type": "action",
             "eec_sensor_role": "apply_strategy",
+            "has_powerstreams": _has_configured_powerstreams(self.coordinator),
+            "has_smart_plugs": _has_configured_smart_plugs(self.coordinator),
+            "last_action": (self.coordinator.data or {}).get("last_action"),
         }
 
 
@@ -76,10 +90,20 @@ class ApplyBestScenarioButton(CoordinatorEntity[EcoFlowEnergyCoordinator], Butto
         await self.coordinator.async_apply_best_scenario()
 
     @property
-    def extra_state_attributes(self) -> dict[str, str]:
+    def available(self) -> bool:
+        scenario = best_scenario((self.coordinator.data or {}).get("scenarios", {}), {})
+        return scenario_is_actionable(scenario)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        scenario = best_scenario((self.coordinator.data or {}).get("scenarios", {}), {})
         return {
             "eec_device_type": "action",
             "eec_sensor_role": "apply_best_scenario",
+            "best_scenario": scenario.get("label") or scenario.get("key"),
+            "best_scenario_key": scenario.get("key"),
+            "actionable": scenario_is_actionable(scenario),
+            "reason": scenario.get("reason"),
         }
 
 
@@ -104,10 +128,20 @@ class StopPowerstreamExportButton(CoordinatorEntity[EcoFlowEnergyCoordinator], B
         await self.coordinator.async_stop_powerstream_export()
 
     @property
-    def extra_state_attributes(self) -> dict[str, str]:
+    def available(self) -> bool:
+        return _has_configured_powerstreams(self.coordinator) and (
+            _current_powerstream_export_w(self.coordinator) > 0
+            or not (self.coordinator.data or {}).get("powerstreams")
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
         return {
             "eec_device_type": "action",
             "eec_sensor_role": "stop_powerstream_export",
+            "current_export_w": _current_powerstream_export_w(self.coordinator),
+            "has_powerstreams": _has_configured_powerstreams(self.coordinator),
+            "last_action": (self.coordinator.data or {}).get("last_action"),
         }
 
 
@@ -165,3 +199,33 @@ class RefreshPricesButton(CoordinatorEntity[EcoFlowEnergyCoordinator], ButtonEnt
             "eec_device_type": "action",
             "eec_sensor_role": "refresh_prices",
         }
+
+
+def _has_configured_powerstreams(coordinator: EcoFlowEnergyCoordinator) -> bool:
+    return any(
+        item.get("serial") and "VUL_HIER" not in str(item.get("serial"))
+        for item in coordinator.settings.get(CONF_POWERSTREAMS, [])
+        if isinstance(item, dict)
+    )
+
+
+def _has_configured_smart_plugs(coordinator: EcoFlowEnergyCoordinator) -> bool:
+    return any(
+        item.get("serial") and "VUL_HIER" not in str(item.get("serial"))
+        for item in coordinator.settings.get(CONF_SMART_PLUGS, [])
+        if isinstance(item, dict)
+    )
+
+
+def _has_configured_control_target(coordinator: EcoFlowEnergyCoordinator) -> bool:
+    return _has_configured_powerstreams(coordinator) or _has_configured_smart_plugs(
+        coordinator
+    )
+
+
+def _current_powerstream_export_w(coordinator: EcoFlowEnergyCoordinator) -> float:
+    data = coordinator.data or {}
+    try:
+        return max(0.0, float(data.get("powerstream_export_w") or 0))
+    except (TypeError, ValueError):
+        return 0.0

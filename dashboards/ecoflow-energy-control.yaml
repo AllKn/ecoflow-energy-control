@@ -1,7 +1,7 @@
-# EEC app dashboard yaml version: 0.5.280
-title: Ecoflow app [0.5.280]
+# EEC app dashboard yaml version: 0.5.281
+title: Ecoflow app [0.5.281]
 views:
-  - title: Main [0.5.280]
+  - title: Main [0.5.281]
     path: ecoflow-energy
     icon: mdi:view-dashboard
     cards:

@@ -265,6 +265,7 @@ Vanaf versie `0.5.277` is Flow opnieuw hertekend naar één duidelijke lijn: eer
 Vanaf versie `0.5.278` zijn de Flow-waarde en Zekerheid-kaarten teruggebracht naar reguliere `entities`-regels. Dat voorkomt de Home Assistant `Configuration error` die ontstond bij een dynamische gauge via `custom:auto-entities`.
 Vanaf versie `0.5.279` synchroniseert de integratie het meegeleverde dashboard automatisch naar de Lovelace-opslag onder `ecoflow-app-dashboard`. Daardoor gaan dashboardtitel en inhoud mee met een HACS-update/reload, zonder handmatig plakken in de raw editor.
 Vanaf versie `0.5.280` is er handmatige noodbediening toegevoegd: `Teruglevering naar 0` zet alle PowerStreams direct op 0 W en zet hun groepstrategie op idle. De Smart Plug voor Delta Pro-laden staat daarnaast als schakelaar in het handmatige blok en gebruikt de actuele EcoFlow-status als beginstand wanneer die quota beschikbaar is.
+Vanaf versie `0.5.281` zijn de handmatige actieknoppen statusbewuster. `Advies starten` volgt uitvoerbaarheid van het beste scenario, `Teruglevering naar 0` kijkt naar ingestelde PowerStreams en actuele uitvoer, en `Start` toont via attributen of er aanstuurbare PowerStreams of Smart Plugs zijn.
 
 ## Huidige stand
 
