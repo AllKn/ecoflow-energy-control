@@ -25,6 +25,7 @@ from .const import (
     CONF_SMART_PLUGS,
     DEFAULT_PRICE_SOURCE,
     DEFAULT_HOMEWIZARD_ROLE,
+    HOMEWIZARD_ROLE_SOLAR_TOTAL,
     DOMAIN,
     SERVICE_APPLY_BEST_SCENARIO,
     SERVICE_APPLY_STRATEGY,
@@ -124,9 +125,15 @@ def _normalize_entry_storage(hass: HomeAssistant, entry: ConfigEntry) -> None:
     if merged.get(CONF_PRICE_URL) == _OLD_DEFAULT_PRICE_URL:
         merged[CONF_PRICE_URL] = ""
         merged[CONF_PRICE_SOURCE] = DEFAULT_PRICE_SOURCE
-    merged[CONF_HOMEWIZARD_METERS] = _prune_homewizard_manual_duplicates(
-        merged.get(CONF_HOMEWIZARD_METERS, [])
-    )
+    try:
+        merged[CONF_HOMEWIZARD_METERS] = _prune_homewizard_manual_duplicates(
+            merged.get(CONF_HOMEWIZARD_METERS, [])
+        )
+    except (TypeError, KeyError, ValueError) as err:
+        _LOGGER.warning(
+            "Ignoring invalid HomeWizard meter config during startup: %s", err
+        )
+        merged[CONF_HOMEWIZARD_METERS] = []
     merged.setdefault(CONF_PRICE_SOURCE, DEFAULT_PRICE_SOURCE)
     if merged != entry.data or entry.options:
         hass.config_entries.async_update_entry(entry, data=merged, options={})
@@ -165,9 +172,13 @@ def _prune_homewizard_manual_duplicates(items: list[dict[str, Any]] | Any) -> li
 
 def _coerce_homewizard_role(item: dict[str, Any]) -> str:
     explicit = str(item.get("role") or "").strip()
+    homewizard_role_solar_total = globals().get(
+        "HOMEWIZARD_ROLE_SOLAR_TOTAL", "solar_total"
+    )
+    homewizard_role_grid_meter = globals().get("HOMEWIZARD_ROLE_GRID_METER", "grid_meter")
     if explicit in (
-        HOMEWIZARD_ROLE_SOLAR_TOTAL,
-        HOMEWIZARD_ROLE_GRID_METER,
+        homewizard_role_solar_total,
+        homewizard_role_grid_meter,
     ):
         return explicit
     return _infer_homewizard_role_from_text(
@@ -182,10 +193,10 @@ def _infer_homewizard_role_from_text(*parts: Any) -> str:
     text = " ".join(str(part or "") for part in parts).lower()
     compact = text.replace("_", " ").replace("-", " ")
     if "p1" in compact or "netmeter" in compact or "energy socket" in compact:
-        return HOMEWIZARD_ROLE_GRID_METER
+        return globals().get("HOMEWIZARD_ROLE_GRID_METER", "grid_meter")
     if "p1 meter" in compact or "p1meter" in compact:
-        return HOMEWIZARD_ROLE_GRID_METER
-    return DEFAULT_HOMEWIZARD_ROLE
+        return globals().get("HOMEWIZARD_ROLE_GRID_METER", "grid_meter")
+    return globals().get("HOMEWIZARD_ROLE_SOLAR_TOTAL", DEFAULT_HOMEWIZARD_ROLE)
 
 
 def _shorten_legacy_entity_registry_names(
