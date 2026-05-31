@@ -1,7 +1,7 @@
-# EEC app dashboard yaml version: 0.5.275
-title: Ecoflow app [0.5.275]
+# EEC app dashboard yaml version: 0.5.277
+title: Ecoflow app [0.5.277]
 views:
-  - title: Main [0.5.275]
+  - title: Main [0.5.277]
     path: ecoflow-energy
     icon: mdi:view-dashboard
     cards:
@@ -21,94 +21,111 @@ views:
         content: |
           ## Flow
           Dit is de primaire route voor bediening.  
-          Elk overzichtsitem heeft hieronder een korte tooltiptekst zodat je meteen weet wat het betekent.
-      - type: markdown
-        content: |
-          <span title="Hoofdstatus: samenvatting van data, strategie en uitvoerstatus.">Hoofdstatus</span> |  
-          <span title="Inzicht: of basis live is, testmodus draait of sturing mogelijk is.">Inzicht</span> |  
-          <span title="Nu: mag het systeem nu sturen of wacht het op bron/voorwaarden?">Nu</span> |  
-          <span title="Live: bewijs dat live gegevens voldoende zijn voor inzicht of sturing.">Live</span> |  
-          <span title="Advies: berekent en stuurt het beste scenario door wanneer het kan.">Advies</span> |  
-          <span title="Testmodus: eerst altijd uitzetten voor echte sturing.">Test</span>
+          De eerste kaartregel laat de kernstatus zien, daarna de controleacties als losse leesbare regels.
       - type: custom:auto-entities
         card:
-          type: grid
-          columns: 3
-          square: false
-          cards: []
-        card_param: cards
+          type: entities
+          title: Flow kern
+          show_header_toggle: false
+        card_param: entities
         filter:
           include:
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_main_summary
               options:
-                type: tile
                 name: Hoofdstatus
                 icon: mdi:home-analytics
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_insight_state
               options:
-                type: tile
                 name: Inzicht
                 icon: mdi:lightbulb-on-outline
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_live_validation
               options:
-                type: tile
                 name: Live
                 icon: mdi:shield-check
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_energy_flow
               options:
-                type: tile
                 name: Stroom
                 icon: mdi:transmission-tower
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_control_verdict
               options:
-                type: tile
                 name: Besluit
                 icon: mdi:target
+
+      - type: markdown
+        content: |
+          <span title="Nu: mag het systeem nu sturen of wacht het op bron/voorwaarden?">Nu</span> |
+          <span title="Scenario: welke strategie is actief voor dit moment.">Scenario</span> |
+          <span title="Volgende stap: welke actie hoort nu logisch te volgen.">Volgende stap</span> |
+          <span title="Advies: start het beste scenario wanneer dit kan.">Advies</span> |
+          <span title="Testmodus: uitzetten voordat echte sturing start.">Test</span>
+      - type: custom:auto-entities
+        card:
+          type: gauge
+          unit: "€/kWh"
+          min: -1
+          max: 0.3
+          severity:
+            red: -0.2
+            yellow: 0
+            green: 0.1
+          name: EUR/u
+        card_param: entity
+        filter:
+          include:
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_value_rate
-              options:
-                type: gauge
-                name: EUR/u
-                icon: mdi:currency-eur
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Flow actie
+          show_header_toggle: false
+        card_param: entities
+        filter:
+          include:
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_next_step
               options:
-                type: tile
                 name: Volgende stap
                 icon: mdi:arrow-right-bold-circle
             - attributes:
                 eec_device_type: control
                 eec_sensor_role: global_strategy
               options:
-                type: tile
                 name: Scenario
                 icon: mdi:auto-fix
             - attributes:
                 eec_device_type: control
                 eec_sensor_role: test_mode
               options:
-                type: tile
                 name: Test
                 icon: mdi:test-tube
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Advies starten
+          show_header_toggle: false
+        card_param: entities
+        filter:
+          include:
             - attributes:
                 eec_device_type: action
                 eec_sensor_role: apply_best_scenario
               options:
-                type: button
                 name: Advies starten
                 icon: mdi:play
+                type: button
                 show_state: false
 
       - type: markdown
@@ -262,6 +279,16 @@ views:
               options:
                 name: Volgende commando
                 icon: mdi:play-circle
+      - type: markdown
+        content: |
+          Smart Plug is onderdeel van de sturende ketting; dit is de actuele verbindingstoestand.
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Smart Plug
+          show_header_toggle: false
+        filter:
+          include:
             - attributes:
                 eec_device_type: smart_plug
                 eec_sensor_role: smart_plug_control
@@ -274,23 +301,23 @@ views:
               options:
                 name: Smart Plug API
                 icon: mdi:cloud-check
-
       - type: custom:auto-entities
         card:
-          type: grid
-          columns: 2
-          square: false
-          cards: []
-        card_param: cards
+          type: gauge
+          min: 0
+          max: 100
+          name: Zekerheid
+          unit: "%"
+          severity:
+            green: 80
+            yellow: 40
+            red: 0
+        card_param: entity
         filter:
           include:
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_confidence_score
-              options:
-                type: gauge
-                name: Zekerheid
-                icon: mdi:target
 
       - type: markdown
         content: |
@@ -432,13 +459,16 @@ views:
                 name: Scenario hulp
                 icon: mdi:lightbulb-on
 
+      - type: markdown
+        content: |
+          ## P1-historie
+          Als deze rij ontbreekt, is de bronset nog niet beschikbaar of nog niet geïmporteerd.
       - type: custom:auto-entities
         card:
-          type: grid
-          columns: 2
-          square: false
-          cards: []
-        card_param: cards
+          type: entities
+          show_header_toggle: false
+          title: P1-historie
+        card_param: entities
         filter:
           include:
             - attributes:
@@ -446,7 +476,6 @@ views:
                 eec_sensor_role: p1_history
                 period: today
               options:
-                type: tile
                 name: P1 dag
                 icon: mdi:chart-line
             - attributes:
@@ -454,7 +483,6 @@ views:
                 eec_sensor_role: p1_history
                 period: week
               options:
-                type: tile
                 name: P1 week
                 icon: mdi:chart-bell-curve
             - attributes:
@@ -462,30 +490,36 @@ views:
                 eec_sensor_role: p1_history
                 period: month
               options:
-                type: tile
                 name: P1 maand
                 icon: mdi:chart-bar
+
+      - type: markdown
+        content: |
+          ## Handmatig - tools
+          Dit is alleen voor diagnose en nood-bediening; reguliere sturing gaat via `Advies starten`.
+      - type: custom:auto-entities
+        card:
+          type: entities
+          show_header_toggle: false
+          title: Handmatige acties
+        card_param: entities
+        filter:
+          include:
             - attributes:
                 eec_device_type: action
                 eec_sensor_role: apply_strategy
               options:
-                type: button
                 name: Start
                 icon: mdi:play-circle
-                show_state: false
             - attributes:
                 eec_device_type: action
                 eec_sensor_role: check_ecoflow_api
               options:
-                type: button
                 name: EcoFlow
                 icon: mdi:cloud-check
-                show_state: false
             - attributes:
                 eec_device_type: action
                 eec_sensor_role: refresh_prices
               options:
-                type: button
                 name: Prijzen
                 icon: mdi:currency-eur
-                show_state: false

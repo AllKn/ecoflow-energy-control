@@ -106,6 +106,14 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         self.assertNotIn("dashboard_confidence_reason", block)
         self.assertNotIn("dashboard_best_period_value", block)
 
+    def test_dashboard_avoids_mini_tiles(self) -> None:
+        self.assertNotIn("type: tile", self.text)
+        self.assertNotIn(
+            "type: grid",
+            self.text,
+            msg="Gebruik geen grid-kaarten met losse mini-kaarten; dit maakt de Flow onleesbaar op kleine schermen.",
+        )
+
     def test_smart_plug_is_part_of_dezelfde_flow(self) -> None:
         start = self.text.index("## Scenario - uitvoering")
         end = self.text.index("## Controle & diagnose")

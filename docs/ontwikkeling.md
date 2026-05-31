@@ -261,6 +261,7 @@ Vanaf versie `0.5.272` is de HomeWizard-metersanering defensiever gemaakt tijden
 Vanaf versie `0.5.273` is de zonvoorspellingshorizon in de coordinator tijdzone-bestendig gemaakt (aware/naive datumvergelijkingen), waardoor de updatecyclus stabiel blijft bij forecast-rijen uit de weerbron.
 Vanaf versie `0.5.274` is het hoofd-dashboard opnieuw herschikt voor uitlegbaarheid en minimale achtergrondkennis: Flow, Basis en Scenario-flows hebben extra korte toelichtingsteksten, en secundaire blokken zijn compacter en duidelijker gesplitst. Daarmee blijft de productieflow met één dashboard bruikbaar zonder mini-tegeloverload.
 Vanaf versie `0.5.275` heeft de dashboardflow een extra productiewaardige leesbaarheidsronde gehad: minder losse mini-tegels en meer gecategoriseerde `entities`-lijsten in Basis en Controle, met extra routehints en inline uitleg via tooltip-achtige markdownregels zodat een nieuwe gebruiker direct kan starten zonder expertkennis.
+Vanaf versie `0.5.277` is Flow opnieuw hertekend naar één duidelijke lijn: eerst een compacte statuslijst, daarna één-koloms control-acties en duidelijke labelregels, naar voorbeeld van veel gebruikte EMS-dashboard flows. Daardoor blijft de route meteen hanteerbaar op mobiel zonder kleine onleesbare knoppen.
 
 ## Huidige stand
 

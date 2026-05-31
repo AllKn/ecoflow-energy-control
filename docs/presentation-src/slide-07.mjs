@@ -35,6 +35,7 @@ export async function slide07(presentation, ctx) {
       { text: "Dashboardtests blokkeren oude labels en dubbele kerntegels.", color: colors.green },
       { text: "De Versie-sensor toont ook de verwachte dashboard-YAML.", color: colors.green },
       { text: "Flow/Basis/Sleutelkaarten zijn bewust compacter met extra uitlegteksten voor snelle onboarding.", color: colors.amber },
+      { text: "Sinds 0.5.277 is de Flow-strip heringedeeld naar een EMS-stijl met statuslijst en enkele grote actiekaarten.", color: colors.amber },
       { text: "Vanaf 0.5.275 gebruikt Basis en Controle meer lijstblokken dan mini-tegels voor betere leesbaarheid.", color: colors.amber },
       { text: "Scenario - uitvoering blijft compact met overview, plan, uitvoerbaarheid en de geplande actie in één blok.", color: colors.amber },
       { text: "Scenario-details bundelen actie, reden, vermogen en EUR-effect.", color: colors.amber },

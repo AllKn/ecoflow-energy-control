@@ -159,7 +159,7 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.275`
+`0.5.277`
 
 ## Updatecontrole
 
@@ -721,5 +721,7 @@ Versie `0.5.273` maakt de zonvoorspelingshorizon robuuster tegen tijdzoneverschi
 Versie `0.5.274` herschikt de hoofd-dashboards voor betere leesbaarheid bij standaardgebruik: de flow is nu compacter met duidelijke sectieblokken, extra in-dashboard toelichtingen en minder mini-kaarten. Er zijn meer visuele hints toegevoegd zodat nieuwe gebruikers met minder uitleg direct herkennen wat Flow, Basis, Scenario - uitvoering en Diagnose betekenen.
 
 Versie `0.5.275` verbetert de leesbaarheid verder door de kernroutes te groeperen in minder drukke blokken: Basis en Controle maken meer gebruik van `entities`-lijsten i.p.v. losse mini-kaarten, met extra inline toelichtingen in markdown en korte tooltips per routekop. Daardoor blijft de productiestroom herkenbaar bij minimale achtergrondkennis.
+
+Versie `0.5.277` herverdeelt de bovenste Flow-strip naar een EMS-achtige, leesbare volgorde: kernstatus als compacte lijst, daarna één kolom aan control-acties met grote knoppen en duidelijke tooltips, zodat knoppen niet meer in mini-formaat in één rij krimpen.
 
 Versie `0.5.271` voegt Smart Plug-automatisering op vaste tijdvensters toe: met `schema_on` / `schema_off` worden aan/uit-vensters automatisch doorgezet bij elke update, naast de bestaande zon-gedreven fallback. In de device-status zie je nu schema-velden en de berekende `smart_plug_scheduled_state`.
