@@ -512,11 +512,17 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return 0.0
 
         horizon_start = now.replace(minute=0, second=0, microsecond=0)
+        horizon_tz = horizon_start.tzinfo
+        horizon_start = horizon_start.replace(tzinfo=None)
         horizon_end = horizon_start + timedelta(hours=horizon_hours)
         forecast_values: list[float] = []
         for row in hourly:
             try:
                 starts_at = dt_datetime.fromisoformat(str(row.get("start")))
+                if starts_at.tzinfo is not None and horizon_tz is not None:
+                    starts_at = starts_at.astimezone(horizon_tz)
+                if starts_at.tzinfo is not None:
+                    starts_at = starts_at.replace(tzinfo=None)
             except (TypeError, ValueError):
                 continue
             if not (horizon_start <= starts_at < horizon_end):

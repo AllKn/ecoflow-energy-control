@@ -1,4 +1,4 @@
-# EEC app dashboard yaml version: 0.5.271
+# EEC app dashboard yaml version: 0.5.273
 title: EEC app
 views:
   - title: Main
@@ -350,6 +350,12 @@ views:
               options:
                 type: tile
                 name: YAML
+            - attributes:
+                eec_device_type: control
+                eec_sensor_role: update_info
+              options:
+                type: entity
+                name: Update
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: dashboard_source_summary

@@ -159,7 +159,7 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.272`
+`0.5.273`
 
 ## Updatecontrole
 
@@ -717,5 +717,7 @@ Versie `0.5.268` geeft de eerste tegel in `Controle` expliciet de korte naam `Ov
 
 Versie `0.5.269` ruimt oude lange entiteitnamen in de Home Assistant registry op wanneer ze nog met `EcoFlow Energy Control applicatie` beginnen. Ook gebruikt `Scenario's - details` korte tegels zoals `Actie`, `Kan`, `Reden`, `W`, `EUR/u` en `Dag`.
 Versie `0.5.272` herstelt een startup-crash in de integratie door robuustere verwerking van HomeWizard-meterrollen in opgeslagen instellingen (bijv. ontbrekende `solar_total`-constante/legacy data).
+
+Versie `0.5.273` maakt de zonvoorspelingshorizon robuuster tegen tijdzoneverschillen in weather-tijdstempels (aware/naive datums), zodat updates niet meer falen tijdens het laden van scenario- en forecast-berekeningen.
 
 Versie `0.5.271` voegt Smart Plug-automatisering op vaste tijdvensters toe: met `schema_on` / `schema_off` worden aan/uit-vensters automatisch doorgezet bij elke update, naast de bestaande zon-gedreven fallback. In de device-status zie je nu schema-velden en de berekende `smart_plug_scheduled_state`.

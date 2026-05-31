@@ -44,6 +44,7 @@ class SensorStaticTest(unittest.TestCase):
             "dashboard_setup_advice",
             "dashboard_source_summary",
             "dashboard_main_summary",
+            "update_info",
             "dashboard_insight_state",
             "dashboard_ready_state",
             "dashboard_flow_snapshot",
@@ -80,8 +81,9 @@ class SensorStaticTest(unittest.TestCase):
         end = self.text.index("class DashboardYamlVersionSensor")
         block = self.text[start:end]
         self.assertIn('"eec_sensor_role": "app_version"', block)
-        self.assertIn('"dashboard_yaml_version": APP_VERSION', block)
-        self.assertIn('f"EEC app dashboard yaml version: {APP_VERSION}"', block)
+        self.assertIn('"dashboard_yaml_version": _dashboard_yaml_version()', block)
+        self.assertIn('"dashboard_yaml_marker": f"EEC app dashboard yaml version: {_dashboard_yaml_version()}"', block)
+        self.assertIn('"integration_version": _integration_version()', block)
         self.assertIn('"dashboard_file": "dashboards/ecoflow-energy-control.yaml"', block)
         self.assertIn('"dashboard_path": "/ecoflow-app-dashboard/ecoflow-energy"', block)
         self.assertIn('"dashboard_update_hint"', block)
@@ -93,9 +95,20 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn('"dashboard_yaml_version"', block)
         self.assertIn('return "mdi:file-document-check"', block)
         self.assertIn('"status": "actueel"', block)
-        self.assertIn('"dashboard_yaml_version": APP_VERSION', block)
-        self.assertIn('f"EEC app dashboard yaml version: {APP_VERSION}"', block)
+        self.assertIn('"dashboard_yaml_version": _dashboard_yaml_version()', block)
+        self.assertIn('"yaml_marker": f"EEC app dashboard yaml version: {_dashboard_yaml_version()}"', block)
+        self.assertIn('"dashboard_file_versioned": _dashboard_yaml_file_version()', block)
         self.assertIn('"stale_dashboard_hint"', block)
+
+    def test_update_info_sensor_documents_runtime_version_state(self) -> None:
+        start = self.text.index("class UpdateInfoSensor")
+        end = self.text.index("class PriceMinimumSensor")
+        block = self.text[start:end]
+        self.assertIn('"eec_sensor_role": "update_info"', block)
+        self.assertIn('"integration_version": _integration_version()', block)
+        self.assertIn('"manifest_version": _integration_version()', block)
+        self.assertIn('"dashboard_version": _dashboard_yaml_version()', block)
+        self.assertIn('"dashboard_file_version": _dashboard_yaml_file_version()', block)
 
     def test_homewizard_p1_grid_power_is_separate_from_solar_power(self) -> None:
         self.assertIn("HomeWizardGridPowerSensor(coordinator)", self.text)

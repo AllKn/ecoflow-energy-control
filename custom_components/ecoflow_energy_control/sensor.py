@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
@@ -59,6 +60,7 @@ async def async_setup_entry(
     entities: list[SensorEntity] = [
         VersionSensor(coordinator),
         DashboardYamlVersionSensor(coordinator),
+        UpdateInfoSensor(coordinator),
         PriceSensor(coordinator),
         PriceMinimumSensor(coordinator),
         PriceMaximumSensor(coordinator),
@@ -238,6 +240,46 @@ SCENARIOS = {
 }
 
 
+def _component_dir() -> Path:
+    return Path(__file__).resolve().parent
+
+
+def _integration_version() -> str:
+    try:
+        manifest = json.loads(
+            (_component_dir() / "manifest.json").read_text(encoding="utf-8")
+        )
+        return str(manifest.get("version", APP_VERSION))
+    except Exception:
+        return APP_VERSION
+
+
+def _dashboard_yaml_file_version() -> str:
+    marker = _dashboard_yaml_marker()
+    if marker:
+        return marker
+    return _integration_version()
+
+
+def _dashboard_yaml_marker() -> str | None:
+    try:
+        lines = (_component_dir() / ".." / "dashboards" / "ecoflow-energy-control.yaml").read_text(
+            encoding="utf-8"
+        )
+    except Exception:
+        return None
+    for line in lines.splitlines():
+        prefix = "# EEC app dashboard yaml version: "
+        if line.startswith(prefix):
+            marker = line[len(prefix) :].strip()
+            return marker or None
+    return None
+
+
+def _dashboard_yaml_version() -> str:
+    return _dashboard_yaml_marker() or _integration_version()
+
+
 class PriceSensor(BaseSensor):
     """Current spot price sensor."""
 
@@ -282,15 +324,18 @@ class VersionSensor(BaseSensor):
 
     @property
     def native_value(self) -> str:
-        return APP_VERSION
+        return _integration_version()
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {
             "eec_device_type": "control",
             "eec_sensor_role": "app_version",
-            "dashboard_yaml_version": APP_VERSION,
-            "dashboard_yaml_marker": f"EEC app dashboard yaml version: {APP_VERSION}",
+            "integration_version": _integration_version(),
+            "dashboard_yaml_version": _dashboard_yaml_version(),
+            "dashboard_yaml_marker": f"EEC app dashboard yaml version: {_dashboard_yaml_version()}",
+            "dashboard_version_source": "package metadata",
+            "manifest_version": _integration_version(),
             "dashboard_file": "dashboards/ecoflow-energy-control.yaml",
             "dashboard_path": "/ecoflow-app-dashboard/ecoflow-energy",
             "dashboard_update_hint": (
@@ -308,7 +353,7 @@ class DashboardYamlVersionSensor(BaseSensor):
 
     @property
     def native_value(self) -> str:
-        return APP_VERSION
+        return _dashboard_yaml_version()
 
     @property
     def icon(self) -> str:
@@ -320,16 +365,46 @@ class DashboardYamlVersionSensor(BaseSensor):
             "eec_device_type": "dashboard",
             "eec_sensor_role": "dashboard_yaml_version",
             "status": "actueel",
-            "dashboard_yaml_version": APP_VERSION,
-            "yaml_marker": f"EEC app dashboard yaml version: {APP_VERSION}",
+            "dashboard_yaml_version": _dashboard_yaml_version(),
+            "yaml_marker": f"EEC app dashboard yaml version: {_dashboard_yaml_version()}",
+            "manifest_version": _integration_version(),
             "dashboard_file": "dashboards/ecoflow-energy-control.yaml",
             "dashboard_path": "/ecoflow-app-dashboard/ecoflow-energy",
             "shipped_dashboards": ["ecoflow-energy-control.yaml"],
+            "dashboard_file_versioned": _dashboard_yaml_file_version(),
             "stale_dashboard_hint": (
                 "Als deze tegel ontbreekt, toont Home Assistant nog een oude "
                 "geimporteerde Lovelace-config."
             ),
             "basis": "deze tegel bewijst welke dashboard-YAML is geimporteerd",
+        }
+
+
+class UpdateInfoSensor(BaseSensor):
+    """Runtime update source metadata for quick troubleshooting."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "update_info", "update info")
+
+    @property
+    def native_value(self) -> str:
+        return "actueel" if _dashboard_yaml_version() == _integration_version() else "afwijkend"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "eec_device_type": "control",
+            "eec_sensor_role": "update_info",
+            "integration_version": _integration_version(),
+            "manifest_version": _integration_version(),
+            "dashboard_version": _dashboard_yaml_version(),
+            "dashboard_file_version": _dashboard_yaml_file_version(),
+            "dashboard_path": "/ecoflow-app-dashboard/ecoflow-energy",
+            "status": "actueel" if _dashboard_yaml_version() == _integration_version() else "controleer dashboard",
+            "hint": (
+                "Als deze tegel niet klopte, controleer dan of versie-informatie uit "
+                "de geïmporteerde dashboard YAML hieronder staat."
+            ),
         }
 
 
