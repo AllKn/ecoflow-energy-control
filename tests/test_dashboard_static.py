@@ -56,6 +56,7 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         block = self.text[start:end]
         self.assertIn("Directe panelen op een Delta?", block)
         self.assertIn("Vul per Delta het totaal in Wp in", block)
+        self.assertIn("minimum accu-percentage", block)
         self.assertIn("Batterij wijzigen", block)
 
     def test_kern_sections_in_expected_order(self) -> None:
@@ -88,6 +89,7 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
             "price_now",
             "battery_fleet_soc",
             "battery_fleet_available_kwh",
+            "battery_reserve_overview",
             "battery_fleet_charge_w",
             "battery_fleet_discharge_w",
             "battery_fleet_net_w",

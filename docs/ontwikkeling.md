@@ -280,6 +280,7 @@ Vanaf versie `0.5.294` maakt de lege Delta-zonstatus onderscheid tussen nog geen
 Vanaf versie `0.5.295` wordt directe Delta-zon ook zichtbaar in de besliscontext, zodat de hoofdroute uitlegt dat Wp-invoer meetelt in het advies.
 Vanaf versie `0.5.296` is het per-Delta panelenoverzicht begrensd: lange batterijnamen worden afgekort en de dashboardregel blijft kort genoeg voor Lovelace.
 Vanaf versie `0.5.297` hebben ook de handmatige Delta Pro en Delta Pro 3 toevoegen-stappen dezelfde Wp-uitleg als importeren en wijzigen.
+Vanaf versie `0.5.298` kan per Delta Pro of Delta Pro 3 een minimum accu-percentage worden bewaard. Die reserve wordt opgeslagen bij de batterij, door PowerStream-sturing en scenarioadvies gerespecteerd, en als `Delta reserve` zichtbaar gemaakt op het dashboard.
 
 ## Huidige stand
 

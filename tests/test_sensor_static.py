@@ -265,6 +265,18 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn('"batteries"', self.text)
         self.assertIn('"devices"', self.text)
 
+    def test_delta_reserve_overview_is_visible(self) -> None:
+        self.assertIn("BatteryReserveOverviewSensor(coordinator)", self.text)
+        self.assertIn("class BatteryReserveOverviewSensor", self.text)
+        self.assertIn('"eec_sensor_role": "battery_reserve_overview"', self.text)
+        self.assertIn('"Delta reserve"', self.text)
+        self.assertIn("CONF_BATTERY_RESERVE_SOC", self.text)
+        self.assertIn("DEFAULT_BATTERY_RESERVE_SOC", self.text)
+        self.assertIn("def _battery_reserve_devices", self.text)
+        self.assertIn("def _configured_battery_reserve_soc", self.text)
+        self.assertIn("def _battery_reserve_soc_for_serial", self.text)
+        self.assertIn('"managed_battery_reserve_soc"', self.text)
+
     def test_scenario_alignment_sensor_is_registered(self) -> None:
         self.assertIn("ScenarioAlignmentSensor(coordinator)", self.text)
         self.assertIn("ScenarioChoiceSummarySensor(coordinator)", self.text)
@@ -445,7 +457,7 @@ class SensorStaticTest(unittest.TestCase):
                 self.assertIn(f'"{state}"', self.text + self.health_text)
 
     def test_overview_and_fleet_only_count_configured_devices(self) -> None:
-        self.assertIn("for serial, name in configured.items():", self.text)
+        self.assertIn("for serial, configured_item in configured.items():", self.text)
         self.assertIn("item = data_batteries.get(serial, {})", self.text)
         self.assertIn("def _configured_live_items", self.text)
         self.assertIn("_configured_batteries_with_soc", self.text)

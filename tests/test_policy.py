@@ -66,6 +66,31 @@ class PowerStreamPolicyTest(unittest.TestCase):
         self.assertEqual(decision["group_action"], "stand-by")
         self.assertEqual(decision["suggested_watts"], 0)
 
+    def test_configured_reserve_blocks_export(self) -> None:
+        decision = policy.powerstream_group_decision(
+            "max_trading",
+            {"max_watts": 600, "battery_soc": 35, "battery_reserve_soc": 40},
+            0.42,
+            {"cheap": 0.05, "expensive": 0.35},
+            0,
+        )
+        self.assertEqual(decision["group_action"], "wachten")
+        self.assertEqual(decision["suggested_watts"], 0)
+        self.assertFalse(decision["can_discharge"])
+        self.assertEqual(decision["discharge_blocker"], "accu op of onder 40% reserve")
+
+    def test_buffer_50_uses_higher_configured_reserve(self) -> None:
+        decision = policy.powerstream_group_decision(
+            "buffer_50",
+            {"max_watts": 600, "battery_soc": 58, "battery_reserve_soc": 60},
+            0.42,
+            {"cheap": 0.05, "expensive": 0.35},
+            0,
+        )
+        self.assertEqual(decision["group_action"], "buffer bewaken")
+        self.assertEqual(decision["suggested_watts"], 0)
+        self.assertEqual(decision["discharge_blocker"], "accu op of onder 60%")
+
     def test_buffer_50_exports_only_above_buffer(self) -> None:
         decision = policy.powerstream_group_decision(
             "buffer_50",

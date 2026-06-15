@@ -17,12 +17,14 @@ from .const import (
     ATTR_ON,
     ATTR_WATTS,
     CONF_BATTERIES,
+    CONF_BATTERY_RESERVE_SOC,
     CONF_HOMEWIZARD_METERS,
     CONF_POWERSTREAMS,
     CONF_PRICE_SOURCE,
     CONF_PRICE_URL,
     CONF_SMA_INVERTERS,
     CONF_SMART_PLUGS,
+    DEFAULT_BATTERY_RESERVE_SOC,
     DEFAULT_PRICE_SOURCE,
     DEFAULT_HOMEWIZARD_ROLE,
     HOMEWIZARD_ROLE_GRID_METER,
@@ -137,6 +139,9 @@ def _normalize_entry_storage(hass: HomeAssistant, entry: ConfigEntry) -> None:
     if merged.get(CONF_PRICE_URL) == _OLD_DEFAULT_PRICE_URL:
         merged[CONF_PRICE_URL] = ""
         merged[CONF_PRICE_SOURCE] = DEFAULT_PRICE_SOURCE
+    merged[CONF_BATTERIES] = _normalize_battery_settings(
+        merged.get(CONF_BATTERIES, [])
+    )
     try:
         merged[CONF_HOMEWIZARD_METERS] = _prune_homewizard_manual_duplicates(
             merged.get(CONF_HOMEWIZARD_METERS, [])
@@ -149,6 +154,33 @@ def _normalize_entry_storage(hass: HomeAssistant, entry: ConfigEntry) -> None:
     merged.setdefault(CONF_PRICE_SOURCE, DEFAULT_PRICE_SOURCE)
     if merged != entry.data or entry.options:
         hass.config_entries.async_update_entry(entry, data=merged, options={})
+
+
+def _normalize_battery_settings(items: list[dict[str, Any]] | Any) -> list[dict[str, Any]]:
+    """Backfill safe battery defaults introduced after first setup."""
+    if not isinstance(items, list):
+        return []
+    output: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        output.append(
+            {
+                **item,
+                CONF_BATTERY_RESERVE_SOC: _coerce_reserve_soc(
+                    item.get(CONF_BATTERY_RESERVE_SOC)
+                ),
+            }
+        )
+    return output
+
+
+def _coerce_reserve_soc(value: Any) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = DEFAULT_BATTERY_RESERVE_SOC
+    return max(0, min(100, number))
 
 
 def _prune_homewizard_manual_duplicates(items: list[dict[str, Any]] | Any) -> list[dict[str, Any]]:

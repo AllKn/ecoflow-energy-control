@@ -84,9 +84,10 @@
       },
       "import_ecoflow_battery": {
         "title": "Delta zonnepanelen",
-        "description": "Vul het totale paneelvermogen in Wp in voor alleen deze Delta. Voorbeeld: drie panelen van samen 1100 Wp = 1100. Laat 0 staan als er geen panelen direct op deze Delta zitten. Waarden onder 0 of boven 10000 Wp worden niet geaccepteerd.",
+        "description": "Vul het totale paneelvermogen in Wp in voor alleen deze Delta en kies hoeveel accu altijd bewaard blijft. Voorbeeld panelen: drie panelen van samen 1100 Wp = 1100. Laat 0 staan als deze Delta geen directe panelen heeft. De reserve voorkomt dat sturing deze Delta verder ontlaadt.",
         "data": {
-          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)"
+          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)",
+          "reserve_soc_percent": "Minimum accu bewaren (%)"
         }
       },
       "import_ecoflow_smart_plug": {
@@ -99,20 +100,22 @@
       },
       "device_delta_pro": {
         "title": "Delta Pro toevoegen",
-        "description": "Heeft deze Delta directe panelen? Vul het totaal in Wp in. Voorbeeld: drie panelen van samen 1100 Wp = 1100. Laat 0 staan als deze Delta geen directe panelen heeft.",
+        "description": "Heeft deze Delta directe panelen? Vul het totaal in Wp in. Laat 0 staan als deze Delta geen directe panelen heeft. Kies ook hoeveel accu altijd bewaard moet blijven; standaard is 20%.",
         "data": {
           "name": "Vriendelijke naam",
           "serial": "Serienummer",
-          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)"
+          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)",
+          "reserve_soc_percent": "Minimum accu bewaren (%)"
         }
       },
       "device_delta_pro_3": {
         "title": "Delta Pro 3 toevoegen",
-        "description": "Heeft deze Delta directe panelen? Vul het totaal in Wp in. Voorbeeld: drie panelen van samen 1100 Wp = 1100. Laat 0 staan als deze Delta geen directe panelen heeft.",
+        "description": "Heeft deze Delta directe panelen? Vul het totaal in Wp in. Laat 0 staan als deze Delta geen directe panelen heeft. Kies ook hoeveel accu altijd bewaard moet blijven; standaard is 20%.",
         "data": {
           "name": "Vriendelijke naam",
           "serial": "Serienummer",
-          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)"
+          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)",
+          "reserve_soc_percent": "Minimum accu bewaren (%)"
         }
       },
       "device_powerstream": {
@@ -141,12 +144,13 @@
       },
       "edit_batteries": {
         "title": "Batterij wijzigen",
-        "description": "Vul bij directe panelen het totaal in Wp in voor alleen deze Delta. Voorbeeld: drie panelen van samen 1100 Wp = 1100. Laat 0 staan als deze Delta geen directe panelen heeft.",
+        "description": "Vul bij directe panelen het totaal in Wp in voor alleen deze Delta. Kies ook hoeveel accu altijd als reserve bewaard moet blijven.",
         "data": {
           "name": "Vriendelijke naam",
           "model": "Model",
           "serial": "Serienummer",
-          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)"
+          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)",
+          "reserve_soc_percent": "Minimum accu bewaren (%)"
         }
       },
       "edit_powerstreams": {

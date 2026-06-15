@@ -15,6 +15,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from .const import (
     CONF_ACCESS_KEY,
     CONF_BATTERIES,
+    CONF_BATTERY_RESERVE_SOC,
     CONF_DRY_RUN,
     CONF_DIRECT_SOLAR_WP,
     CONF_ECOFLOW_HOST,
@@ -35,6 +36,7 @@ from .const import (
     CONF_SMART_PLUGS,
     CONF_WEATHER_CITY,
     DEFAULT_BATTERY_QUOTAS,
+    DEFAULT_BATTERY_RESERVE_SOC,
     DEFAULT_ECOFLOW_HOST,
     DEFAULT_HOMEWIZARD_ROLE,
     DEFAULT_POWERSTREAM_COMMAND,
@@ -61,6 +63,8 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 DIRECT_SOLAR_WP_MAX = 10000
+BATTERY_RESERVE_SOC_MIN = 0
+BATTERY_RESERVE_SOC_MAX = 100
 
 
 def _initial_setup_defaults() -> dict[str, Any]:
@@ -99,6 +103,25 @@ def _direct_solar_wp_value(values: dict[str, Any]) -> int:
     except (TypeError, ValueError):
         return 0
     return max(0, min(DIRECT_SOLAR_WP_MAX, value))
+
+
+def _battery_reserve_soc_schema() -> Any:
+    """Schema for the per-Delta minimum reserve percentage."""
+    return vol.All(
+        vol.Coerce(int),
+        vol.Range(min=BATTERY_RESERVE_SOC_MIN, max=BATTERY_RESERVE_SOC_MAX),
+    )
+
+
+def _battery_reserve_soc_value(values: dict[str, Any]) -> int:
+    """Normalize stored per-Delta reserve percentage."""
+    try:
+        value = int(
+            values.get(CONF_BATTERY_RESERVE_SOC, DEFAULT_BATTERY_RESERVE_SOC)
+        )
+    except (TypeError, ValueError):
+        return DEFAULT_BATTERY_RESERVE_SOC
+    return max(BATTERY_RESERVE_SOC_MIN, min(BATTERY_RESERVE_SOC_MAX, value))
 
 
 class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -325,6 +348,10 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_DIRECT_SOLAR_WP, default=0
                     ): _direct_solar_wp_schema(),
+                    vol.Optional(
+                        CONF_BATTERY_RESERVE_SOC,
+                        default=DEFAULT_BATTERY_RESERVE_SOC,
+                    ): _battery_reserve_soc_schema(),
                 }
             ),
         )
@@ -515,6 +542,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                         "model": default_name,
                         "serial": user_input["serial"],
                         CONF_DIRECT_SOLAR_WP: _direct_solar_wp_value(user_input),
+                        CONF_BATTERY_RESERVE_SOC: _battery_reserve_soc_value(
+                            user_input
+                        ),
                         "quotas": DEFAULT_BATTERY_QUOTAS,
                     }
                 )
@@ -528,6 +558,10 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_DIRECT_SOLAR_WP, default=0
                     ): _direct_solar_wp_schema(),
+                    vol.Optional(
+                        CONF_BATTERY_RESERVE_SOC,
+                        default=DEFAULT_BATTERY_RESERVE_SOC,
+                    ): _battery_reserve_soc_schema(),
                 }
             ),
             errors=errors,
@@ -740,6 +774,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     "model": user_input["model"],
                     "serial": user_input["serial"],
                     CONF_DIRECT_SOLAR_WP: _direct_solar_wp_value(user_input),
+                    CONF_BATTERY_RESERVE_SOC: _battery_reserve_soc_value(
+                        user_input
+                    ),
                     "quotas": DEFAULT_BATTERY_QUOTAS,
                 }
                 return self._replace_device(group, index, item)
@@ -756,6 +793,13 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                         CONF_DIRECT_SOLAR_WP,
                         default=current.get(CONF_DIRECT_SOLAR_WP, 0),
                     ): _direct_solar_wp_schema(),
+                    vol.Optional(
+                        CONF_BATTERY_RESERVE_SOC,
+                        default=current.get(
+                            CONF_BATTERY_RESERVE_SOC,
+                            DEFAULT_BATTERY_RESERVE_SOC,
+                        ),
+                    ): _battery_reserve_soc_schema(),
                 }
             ),
             errors=errors,
@@ -1032,6 +1076,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     else "Delta Pro",
                     "serial": config["serial"],
                     CONF_DIRECT_SOLAR_WP: _direct_solar_wp_value(config),
+                    CONF_BATTERY_RESERVE_SOC: _battery_reserve_soc_value(config),
                     "quotas": DEFAULT_BATTERY_QUOTAS,
                 }
             )

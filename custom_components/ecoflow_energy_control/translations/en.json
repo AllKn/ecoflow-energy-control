@@ -84,9 +84,10 @@
       },
       "import_ecoflow_battery": {
         "title": "Delta solar panels",
-        "description": "Enter the total panel capacity in Wp for this Delta only. Example: three panels with 1100 Wp together = 1100. Keep 0 when no panels are directly connected to this Delta. Values below 0 or above 10000 Wp are not accepted.",
+        "description": "Enter the total panel capacity in Wp for this Delta only and choose how much battery should always be kept. Panel example: three panels with 1100 Wp together = 1100. Keep 0 when this Delta has no direct panels. The reserve prevents control from discharging this Delta further.",
         "data": {
-          "direct_solar_wp": "Total solar panels on this Delta (Wp)"
+          "direct_solar_wp": "Total solar panels on this Delta (Wp)",
+          "reserve_soc_percent": "Minimum battery to keep (%)"
         }
       },
       "import_ecoflow_smart_plug": {
@@ -99,20 +100,22 @@
       },
       "device_delta_pro": {
         "title": "Add Delta Pro",
-        "description": "Does this Delta have direct panels? Enter the total Wp. Example: three panels with 1100 Wp together = 1100. Keep 0 when this Delta has no direct panels.",
+        "description": "Does this Delta have direct panels? Enter the total Wp. Keep 0 when this Delta has no direct panels. Also choose how much battery should always be kept; default is 20%.",
         "data": {
           "name": "Friendly name",
           "serial": "Serial number",
-          "direct_solar_wp": "Total solar panels on this Delta (Wp)"
+          "direct_solar_wp": "Total solar panels on this Delta (Wp)",
+          "reserve_soc_percent": "Minimum battery to keep (%)"
         }
       },
       "device_delta_pro_3": {
         "title": "Add Delta Pro 3",
-        "description": "Does this Delta have direct panels? Enter the total Wp. Example: three panels with 1100 Wp together = 1100. Keep 0 when this Delta has no direct panels.",
+        "description": "Does this Delta have direct panels? Enter the total Wp. Keep 0 when this Delta has no direct panels. Also choose how much battery should always be kept; default is 20%.",
         "data": {
           "name": "Friendly name",
           "serial": "Serial number",
-          "direct_solar_wp": "Total solar panels on this Delta (Wp)"
+          "direct_solar_wp": "Total solar panels on this Delta (Wp)",
+          "reserve_soc_percent": "Minimum battery to keep (%)"
         }
       },
       "device_powerstream": {
@@ -141,12 +144,13 @@
       },
       "edit_batteries": {
         "title": "Edit battery",
-        "description": "For direct panels, enter the total Wp for this Delta only. Example: three panels with 1100 Wp together = 1100. Keep 0 when this Delta has no direct panels.",
+        "description": "For direct panels, enter the total Wp for this Delta only. Also choose how much battery should always be kept as reserve.",
         "data": {
           "name": "Friendly name",
           "model": "Model",
           "serial": "Serial number",
-          "direct_solar_wp": "Total solar panels on this Delta (Wp)"
+          "direct_solar_wp": "Total solar panels on this Delta (Wp)",
+          "reserve_soc_percent": "Minimum battery to keep (%)"
         }
       },
       "edit_powerstreams": {

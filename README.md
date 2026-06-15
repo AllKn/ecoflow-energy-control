@@ -49,7 +49,7 @@ Beschikbare acties:
 
 Bij importeren kies je eerst het gevonden EcoFlow-serienummer en daarna het type. De app controleert de verbinding voordat het apparaat wordt opgeslagen. Alleen bij een Smart Plug wordt gevraagd welke batterij ermee geladen wordt. Dit veld wordt gevuld met de reeds toegevoegde batterij-devices.
 
-Bij Delta Pro en Delta Pro 3 kun je tijdens importeren of wijzigen ook direct `Totaal zonnepanelen op deze Delta (Wp)` invullen. Die simpele Wp-invoer telt mee als zonnebron voor setup en scenario's en verschijnt op het dashboard als `Zon op Delta`, `Delta panelen`, `Delta zonstatus` en `Delta zon verwacht`.
+Bij Delta Pro en Delta Pro 3 kun je tijdens importeren of wijzigen ook direct `Totaal zonnepanelen op deze Delta (Wp)` en `Minimum accu bewaren (%)` invullen. De Wp-invoer telt mee als zonnebron voor setup en scenario's. De reserve voorkomt dat PowerStream-sturing een Delta verder ontlaadt dan gewenst. Beide instellingen verschijnen leesbaar op het dashboard.
 
 ## Diagnose
 
@@ -161,7 +161,7 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.297`
+`0.5.298`
 
 ## Updatecontrole
 
@@ -764,3 +764,5 @@ Versie `0.5.295` neemt directe Delta-zon ook mee in de zichtbare besliscontext. 
 Versie `0.5.296` houdt het per-Delta panelenoverzicht compact. Lange batterijnamen worden afgekort en de dashboardregel blijft binnen een veilige lengte, zodat de hoofdroute leesbaar blijft.
 
 Versie `0.5.297` geeft ook de handmatige stappen **Delta Pro toevoegen** en **Delta Pro 3 toevoegen** dezelfde Wp-uitleg als importeren en wijzigen. Daardoor is elk configuratiepad voor directe panelen gelijk duidelijk.
+
+Versie `0.5.298` voegt per Delta Pro en Delta Pro 3 `Minimum accu bewaren (%)` toe. PowerStream-sturing en scenarioadvies respecteren die reserve, en het dashboard toont `Delta reserve` als leesbaar overzicht per batterij.

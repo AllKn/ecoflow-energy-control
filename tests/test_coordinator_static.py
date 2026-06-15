@@ -99,7 +99,8 @@ class CoordinatorStaticTest(unittest.TestCase):
         self.assertIn("STRATEGY_BUFFER_50: POWERSTREAM_STRATEGY_BUFFER_50", self.coordinator)
         policy_text = (COMPONENT / "policy.py").read_text(encoding="utf-8")
         self.assertIn('if strategy == "buffer_50":', policy_text)
-        self.assertIn("float(soc) > 50", policy_text)
+        self.assertIn("buffer_soc = max(50.0, reserve_soc)", policy_text)
+        self.assertIn("float(soc) > buffer_soc", policy_text)
 
     def test_global_idle_overrides_stale_group_strategies(self) -> None:
         idle_pos = self.coordinator.index("if self.strategy == STRATEGY_IDLE:")
@@ -184,6 +185,17 @@ class CoordinatorStaticTest(unittest.TestCase):
         self.assertIn("def _direct_solar_forecast_power", self.coordinator)
         self.assertIn("forecast_solar_power = max(", self.coordinator)
         self.assertIn('float(direct_solar.get("forecast_power_w") or 0.0)', self.coordinator)
+
+    def test_delta_reserve_soc_feeds_powerstream_and_scenarios(self) -> None:
+        self.assertIn("CONF_BATTERY_RESERVE_SOC", self.coordinator)
+        self.assertIn("DEFAULT_BATTERY_RESERVE_SOC", self.coordinator)
+        self.assertIn('"reserve_soc": _battery_reserve_soc(device)', self.coordinator)
+        self.assertIn('"battery_reserve_soc": _battery_reserve_soc_for_serial', self.coordinator)
+        self.assertIn("battery_reserve_soc = _battery_max_reserve_soc(batteries)", self.coordinator)
+        self.assertIn("export_allowed = _battery_export_allowed(batteries)", self.coordinator)
+        self.assertIn('"battery_reserve_soc": battery_reserve_soc', self.coordinator)
+        self.assertIn("def _battery_reserve_soc_for_serial", self.coordinator)
+        self.assertIn("def _battery_export_allowed", self.coordinator)
 
     def test_corrected_phase_power_can_show_net_consumption(self) -> None:
         self.assertNotIn("phase: max(\n                0.0,", self.coordinator)

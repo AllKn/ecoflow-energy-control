@@ -17,7 +17,8 @@ def powerstream_group_decision(
     if max_watts <= 0:
         max_watts = 800.0
     soc = item.get("battery_soc")
-    battery_ready = soc is None or float(soc) > 20
+    reserve_soc = _reserve_soc(item)
+    battery_ready = soc is None or float(soc) > reserve_soc
     free_wh = item.get("battery_free_wh")
     can_charge = free_wh is None or float(free_wh) > 100
     can_discharge = battery_ready
@@ -45,7 +46,9 @@ def powerstream_group_decision(
                 "can_charge": True,
                 "can_discharge": can_discharge,
                 "charge_blocker": None,
-                "discharge_blocker": None if can_discharge else "accu onder minimum",
+                "discharge_blocker": None
+                if can_discharge
+                else f"accu op of onder {reserve_soc:.0f}% reserve",
             }
         if expensive is not None and price >= expensive and can_discharge:
             return {
@@ -66,16 +69,19 @@ def powerstream_group_decision(
             "can_charge": can_charge,
             "can_discharge": can_discharge,
             "charge_blocker": None if can_charge else "geen vrije accuruimte",
-            "discharge_blocker": None if can_discharge else "accu onder minimum",
+            "discharge_blocker": None
+            if can_discharge
+            else f"accu op of onder {reserve_soc:.0f}% reserve",
         }
 
     if strategy == "buffer_50":
-        above_buffer = soc is None or float(soc) > 50
+        buffer_soc = max(50.0, reserve_soc)
+        above_buffer = soc is None or float(soc) > buffer_soc
         if expensive is not None and price >= expensive and above_buffer and can_discharge:
             return {
                 "group_action": "terugleveren boven buffer",
                 "suggested_watts": round(max_watts, 0),
-                "decision_reason": "hoge prijs en accu boven 50%",
+                "decision_reason": f"hoge prijs en accu boven {buffer_soc:.0f}%",
                 "can_charge": can_charge,
                 "can_discharge": True,
                 "charge_blocker": None if can_charge else "geen vrije accuruimte",
@@ -84,15 +90,15 @@ def powerstream_group_decision(
         return {
             "group_action": "buffer bewaken",
             "suggested_watts": 0,
-            "decision_reason": "50% buffer wordt bewaakt"
+            "decision_reason": f"{buffer_soc:.0f}% buffer wordt bewaakt"
             if above_buffer
-            else "accu op of onder 50%",
+            else f"accu op of onder {buffer_soc:.0f}%",
             "can_charge": can_charge,
             "can_discharge": can_discharge and above_buffer,
             "charge_blocker": None if can_charge else "geen vrije accuruimte",
             "discharge_blocker": None
             if can_discharge and above_buffer
-            else "accu op of onder 50%",
+            else f"accu op of onder {buffer_soc:.0f}%",
         }
 
     if solar > 300 and can_charge:
@@ -103,7 +109,9 @@ def powerstream_group_decision(
             "can_charge": True,
             "can_discharge": can_discharge,
             "charge_blocker": None,
-            "discharge_blocker": None if can_discharge else "accu onder minimum",
+            "discharge_blocker": None
+            if can_discharge
+            else f"accu op of onder {reserve_soc:.0f}% reserve",
         }
     if expensive is not None and price >= expensive and can_discharge:
         return {
@@ -122,8 +130,18 @@ def powerstream_group_decision(
         "can_charge": can_charge,
         "can_discharge": can_discharge,
         "charge_blocker": None if can_charge else "geen vrije accuruimte",
-        "discharge_blocker": None if can_discharge else "accu onder minimum",
+        "discharge_blocker": None
+        if can_discharge
+        else f"accu op of onder {reserve_soc:.0f}% reserve",
     }
+
+
+def _reserve_soc(item: dict[str, Any]) -> float:
+    try:
+        value = float(item.get("battery_reserve_soc", 20))
+    except (TypeError, ValueError):
+        value = 20.0
+    return max(0.0, min(100.0, value))
 
 
 def best_scenario(
@@ -159,6 +177,7 @@ def best_scenario(
         "input_warnings": best_data.get("input_warnings"),
         "price_eur_kwh": best_data.get("price_eur_kwh"),
         "battery_soc": best_data.get("battery_soc"),
+        "battery_reserve_soc": best_data.get("battery_reserve_soc"),
     }
 
 

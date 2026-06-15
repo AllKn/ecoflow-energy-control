@@ -160,6 +160,34 @@ class ConfigFlowStaticTest(unittest.TestCase):
         self.assertIn('"edit_batteries"', nl)
         self.assertIn("Laat 0 staan als deze Delta geen directe panelen heeft", nl)
 
+    def test_delta_batteries_accept_reserve_soc(self) -> None:
+        self.assertIn("CONF_BATTERY_RESERVE_SOC", self.text)
+        self.assertIn("DEFAULT_BATTERY_RESERVE_SOC", self.text)
+        self.assertIn("BATTERY_RESERVE_SOC_MAX = 100", self.text)
+        self.assertIn("def _battery_reserve_soc_schema", self.text)
+        self.assertIn("vol.Range(min=BATTERY_RESERVE_SOC_MIN, max=BATTERY_RESERVE_SOC_MAX)", self.text)
+        self.assertIn("def _battery_reserve_soc_value", self.text)
+        for step_name in (
+            "async_step_import_ecoflow_battery",
+            "_async_battery_form",
+            "async_step_edit_batteries",
+            "_save_imported_ecoflow_device",
+        ):
+            prefix = "async def " if step_name != "_save_imported_ecoflow_device" else "def "
+            block = self.text[self.text.index(f"{prefix}{step_name}") :]
+            with self.subTest(step_name=step_name):
+                self.assertIn("CONF_BATTERY_RESERVE_SOC", block)
+                self.assertIn("_battery_reserve_soc_value", block)
+        nl = (
+            ROOT
+            / "custom_components"
+            / "ecoflow_energy_control"
+            / "translations"
+            / "nl.json"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Minimum accu bewaren (%)", nl)
+        self.assertIn("standaard is 20%", nl)
+
     def test_general_settings_keep_only_common_controls(self) -> None:
         general = self.text[
             self.text.index("async def async_step_general") : self.text.index(

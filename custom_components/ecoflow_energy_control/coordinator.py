@@ -33,6 +33,7 @@ from .api.weather import fetch_open_meteo_solar
 from .const import (
     CONF_ACCESS_KEY,
     CONF_BATTERIES,
+    CONF_BATTERY_RESERVE_SOC,
     CONF_DRY_RUN,
     CONF_DIRECT_SOLAR_WP,
     CONF_ECOFLOW_HOST,
@@ -53,6 +54,7 @@ from .const import (
     CONF_SMART_PLUGS,
     CONF_WEATHER_CITY,
     DEFAULT_ECOFLOW_HOST,
+    DEFAULT_BATTERY_RESERVE_SOC,
     DEFAULT_POWERSTREAM_QUOTAS,
     DEFAULT_SMART_PLUG_SCHEDULE_ENABLED,
     DEFAULT_SMART_PLUG_SCHEDULE_OFF,
@@ -205,6 +207,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         values = all_values
                 batteries[serial] = {
                     "name": device.get("name", serial),
+                    "reserve_soc": _battery_reserve_soc(device),
                     "response": response,
                     "values": values,
                     "quota_source": source,
@@ -212,7 +215,11 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 }
             except Exception as err:  # noqa: BLE001
                 errors[f"battery_{serial}"] = str(err)
-                batteries[serial] = {"name": device.get("name", serial), "error": str(err)}
+                batteries[serial] = {
+                    "name": device.get("name", serial),
+                    "reserve_soc": _battery_reserve_soc(device),
+                    "error": str(err),
+                }
 
         configured_batteries = [
             item
@@ -271,6 +278,9 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "battery_serial": battery_serial,
                     "battery_name": _battery_name(settings, battery_serial),
                     "battery_soc": _battery_soc_for_serial(batteries, battery_serial),
+                    "battery_reserve_soc": _battery_reserve_soc_for_serial(
+                        settings, battery_serial
+                    ),
                     "battery_free_wh": _battery_free_wh_for_serial(
                         batteries, battery_serial, _battery_name(settings, battery_serial)
                     ),
@@ -288,6 +298,9 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "battery_serial": battery_serial,
                     "battery_name": _battery_name(settings, battery_serial),
                     "battery_soc": _battery_soc_for_serial(batteries, battery_serial),
+                    "battery_reserve_soc": _battery_reserve_soc_for_serial(
+                        settings, battery_serial
+                    ),
                     "battery_free_wh": _battery_free_wh_for_serial(
                         batteries, battery_serial, _battery_name(settings, battery_serial)
                     ),
@@ -647,8 +660,14 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         spread = max(0.0, float(expensive or price) - float(cheap or price))
         export_capacity_w = self._configured_powerstream_capacity(settings)
         battery_soc = _battery_min_soc(batteries)
-        usable_export_w = export_capacity_w if battery_soc is None or battery_soc > 10 else 0.0
-        buffer_export_w = export_capacity_w if battery_soc is None or battery_soc > 50 else 0.0
+        battery_reserve_soc = _battery_max_reserve_soc(batteries)
+        export_allowed = _battery_export_allowed(batteries)
+        buffer_reserve_soc = max(50.0, float(battery_reserve_soc or 0.0))
+        buffer_export_allowed = _battery_export_allowed(
+            batteries, override_reserve_soc=buffer_reserve_soc
+        )
+        usable_export_w = export_capacity_w if export_allowed else 0.0
+        buffer_export_w = export_capacity_w if buffer_export_allowed else 0.0
         solar_surplus_w = max(0.0, float(solar_power_w or 0))
         forecast_solar_w = max(0.0, float(forecast_solar_watts or 0))
         forecasted_solar_for_plug = max(solar_surplus_w, forecast_solar_w)
@@ -666,6 +685,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 * max(price, spread),
                 price=price,
                 battery_soc=battery_soc,
+                battery_reserve_soc=battery_reserve_soc,
                 reason="netto zonopwek beschikbaar"
                 if forecasted_solar_for_plug > 100
                 else "geen bruikbare zonopwek",
@@ -693,8 +713,11 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 else 0.0,
                 price=price,
                 battery_soc=battery_soc,
-                reason="hoge prijs en accu boven minimum"
+                battery_reserve_soc=battery_reserve_soc,
+                reason=f"hoge prijs en accu boven {battery_reserve_soc:.0f}% reserve"
                 if expensive is not None and price >= expensive and usable_export_w > 0
+                else f"accu op of onder {battery_reserve_soc:.0f}% reserve"
+                if expensive is not None and price >= expensive and usable_export_w <= 0
                 else "lage prijs, laden voorbereiden"
                 if cheap is not None and price <= cheap and can_charge_from_grid
                 else "prijs niet laag of hoog genoeg",
@@ -711,8 +734,11 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 else 0.0,
                 price=price,
                 battery_soc=battery_soc,
-                reason="hoge prijs en buffer blijft boven 50%"
+                battery_reserve_soc=buffer_reserve_soc,
+                reason=f"hoge prijs en buffer blijft boven {buffer_reserve_soc:.0f}%"
                 if buffer_export_w > 0 and expensive is not None and price >= expensive
+                else f"accu op of onder {buffer_reserve_soc:.0f}% buffer"
+                if expensive is not None and price >= expensive and buffer_export_w <= 0
                 else "buffer wordt bewaakt",
                 input_warnings=input_warnings,
             ),
@@ -739,6 +765,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         eur_per_hour: float,
         price: float,
         battery_soc: float | None,
+        battery_reserve_soc: float | None,
         reason: str,
         input_warnings: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -750,6 +777,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "eur_per_hour": round(eur_per_hour, 4),
             "price_eur_kwh": price,
             "battery_soc": battery_soc,
+            "battery_reserve_soc": battery_reserve_soc,
             "reason": _scenario_reason(reason, warnings),
             "input_ready": not warnings,
             "input_warnings": warnings,
@@ -1562,6 +1590,64 @@ def _battery_min_soc(batteries: dict[str, Any]) -> float | None:
     if not values:
         return None
     return min(values)
+
+
+def _battery_max_reserve_soc(batteries: dict[str, Any]) -> float:
+    reserves = [
+        _battery_reserve_soc(item)
+        for item in batteries.values()
+        if isinstance(item, dict)
+    ]
+    if not reserves:
+        return float(DEFAULT_BATTERY_RESERVE_SOC)
+    return max(reserves)
+
+
+def _battery_export_allowed(
+    batteries: dict[str, Any], override_reserve_soc: float | None = None
+) -> bool:
+    if not batteries:
+        return True
+    known_soc = False
+    for item in batteries.values():
+        if not isinstance(item, dict):
+            continue
+        battery_values = item.get("values", {}) if isinstance(item, dict) else {}
+        soc = _battery_soc_value(battery_values)
+        if soc is None:
+            continue
+        known_soc = True
+        reserve = (
+            float(override_reserve_soc)
+            if override_reserve_soc is not None
+            else _battery_reserve_soc(item)
+        )
+        if float(soc) <= reserve:
+            return False
+    return True if known_soc else True
+
+
+def _battery_reserve_soc(item: dict[str, Any] | None) -> float:
+    if not isinstance(item, dict):
+        return float(DEFAULT_BATTERY_RESERVE_SOC)
+    try:
+        value = float(item.get(CONF_BATTERY_RESERVE_SOC, DEFAULT_BATTERY_RESERVE_SOC))
+    except (TypeError, ValueError):
+        value = float(DEFAULT_BATTERY_RESERVE_SOC)
+    return max(0.0, min(100.0, value))
+
+
+def _battery_reserve_soc_for_serial(
+    settings: dict[str, Any], serial: str | None
+) -> float:
+    if not serial:
+        return float(DEFAULT_BATTERY_RESERVE_SOC)
+    for item in settings.get(CONF_BATTERIES, []):
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("serial") or "") == str(serial):
+            return _battery_reserve_soc(item)
+    return float(DEFAULT_BATTERY_RESERVE_SOC)
 
 
 def _scenario_input_warnings(

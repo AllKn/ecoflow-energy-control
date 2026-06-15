@@ -1,7 +1,7 @@
-# EEC app dashboard yaml version: 0.5.297
-title: Ecoflow app [0.5.297]
+# EEC app dashboard yaml version: 0.5.298
+title: Ecoflow app [0.5.298]
 views:
-  - title: Main [0.5.297]
+  - title: Main [0.5.298]
     path: ecoflow-energy
     icon: mdi:view-dashboard
     cards:
@@ -15,7 +15,7 @@ views:
           - **Scenario - uitvoering**: toont of het gekozen scenario nu echt uitvoerbaar is.
           - **Controle**: verklaart waarom iets wel of niet gebeurt.
 
-          Directe panelen op een Delta? Vul per Delta het totaal in Wp in via **Configureren** → **Batterij wijzigen**.
+          Directe panelen op een Delta? Vul per Delta het totaal in Wp in via **Configureren** → **Batterij wijzigen**. Stel daar ook het minimum accu-percentage in als je reserve wilt bewaren.
 
           Alles hieronder is met minimale achtergrondkennis te volgen.
 
@@ -229,6 +229,12 @@ views:
               options:
                 name: Beschikbaar kWh
                 icon: mdi:home-battery
+            - attributes:
+                eec_device_type: battery_fleet
+                eec_sensor_role: battery_reserve_overview
+              options:
+                name: Delta reserve
+                icon: mdi:battery-lock
             - attributes:
                 eec_device_type: battery_fleet
                 eec_sensor_role: battery_fleet_charge_w

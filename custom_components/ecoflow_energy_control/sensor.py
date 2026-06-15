@@ -17,7 +17,9 @@ from homeassistant.util import slugify
 from .const import (
     APP_NAME,
     APP_VERSION,
+    CONF_BATTERY_RESERVE_SOC,
     CONF_DIRECT_SOLAR_WP,
+    DEFAULT_BATTERY_RESERVE_SOC,
     DOMAIN,
     HOMEWIZARD_ROLE_GRID_METER,
     LEGACY_DASHBOARD_OBJECT_PREFIX,
@@ -92,6 +94,7 @@ async def async_setup_entry(
         BatteryFleetChargePowerSensor(coordinator),
         BatteryFleetDischargePowerSensor(coordinator),
         BatteryFleetNetPowerSensor(coordinator),
+        BatteryReserveOverviewSensor(coordinator),
         BestScenarioSensor(coordinator),
         ScenarioAlignmentSensor(coordinator),
         ScenarioChoiceSummarySensor(coordinator),
@@ -863,6 +866,47 @@ class DirectSolarPowerSensor(BaseSensor):
             "eec_sensor_role": "direct_solar_power",
             **solar,
             "basis": "conservatieve voorspelling op basis van Wp en weer",
+        }
+
+
+class BatteryReserveOverviewSensor(BaseSensor):
+    """Readable per-Delta reserve setup overview."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "battery_reserve_overview", "Delta reserve")
+
+    @property
+    def native_value(self) -> str:
+        batteries = _battery_reserve_devices(self.coordinator)
+        if not batteries:
+            return "geen Delta ingesteld"
+        parts: list[str] = []
+        for item in batteries[:4]:
+            name = _compact_text(str(item.get("name") or "Delta"), 18)
+            reserve = _as_float(item.get("reserve_soc_percent"))
+            label = f"{reserve:.0f}%" if reserve is not None else "20%"
+            parts.append(f"{name}: {label}")
+        if len(batteries) > 4:
+            parts.append(f"+{len(batteries) - 4} extra")
+        return _compact_text("; ".join(parts), 240)
+
+    @property
+    def icon(self) -> str:
+        return "mdi:battery-lock"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        devices = _battery_reserve_devices(self.coordinator)
+        return {
+            "eec_device_type": "battery_fleet",
+            "eec_sensor_role": "battery_reserve_overview",
+            "devices": devices,
+            "max_reserve_soc": max(
+                [float(item["reserve_soc_percent"]) for item in devices],
+                default=float(DEFAULT_BATTERY_RESERVE_SOC),
+            ),
+            "setup_hint": "Configureren > batterij wijzigen > minimum accu bewaren (%)",
+            "basis": "per Delta ingestelde ondergrens voor ontladen en terugleveren",
         }
 
 
@@ -3075,6 +3119,9 @@ class EcoFlowDeviceStatusSensor(BaseSensor):
                     "managed_battery_serial": item.get("battery_serial") if item else None,
                     "managed_battery_name": item.get("battery_name") if item else None,
                     "managed_battery_soc": item.get("battery_soc") if item else None,
+                    "managed_battery_reserve_soc": item.get("battery_reserve_soc")
+                    if item
+                    else None,
                     "power_candidates": _powerstream_power_candidates(values),
                 }
             )
@@ -3446,6 +3493,7 @@ class PowerStreamGroupBatterySocSensor(BaseSensor):
             **_device_attrs("powerstream", self._serial, "group_battery_soc"),
             "managed_battery_serial": data.get("battery_serial"),
             "managed_battery_name": data.get("battery_name"),
+            "managed_battery_reserve_soc": data.get("battery_reserve_soc"),
             "available_wh": _powerstream_group_available_wh(
                 self.coordinator, self._serial
             ),
@@ -4311,12 +4359,17 @@ def _battery_fleet_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, A
     total_net_w = 0.0
     batteries = []
     configured = {
-        str(device.get("serial")): str(device.get("name") or device.get("serial"))
+        str(device.get("serial")): {
+            "name": str(device.get("name") or device.get("serial")),
+            "reserve_soc": _configured_battery_reserve_soc(device),
+        }
         for device in coordinator.settings.get("batteries", [])
-        if device.get("serial")
+        if isinstance(device, dict) and device.get("serial")
     }
     data_batteries = (coordinator.data or {}).get("batteries") or {}
-    for serial, name in configured.items():
+    for serial, configured_item in configured.items():
+        name = str(configured_item["name"])
+        reserve_soc = float(configured_item["reserve_soc"])
         item = data_batteries.get(serial, {})
         values = item.get("values", {}) if isinstance(item, dict) else {}
         soc = _battery_soc_value(values)
@@ -4333,6 +4386,7 @@ def _battery_fleet_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, A
                     "serial": serial,
                     "name": name,
                     "soc": soc,
+                    "reserve_soc": reserve_soc,
                     "capacity_kwh": round(capacity / 1000, 2) if capacity else None,
                     "available_kwh": None,
                     "free_kwh": None,
@@ -4352,6 +4406,7 @@ def _battery_fleet_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, A
                 "serial": serial,
                 "name": name,
                 "soc": round(float(soc), 1),
+                "reserve_soc": reserve_soc,
                 "capacity_kwh": round(capacity / 1000, 2),
                 "available_kwh": round(available / 1000, 2),
                 "free_kwh": round(free / 1000, 2),
@@ -4373,6 +4428,10 @@ def _battery_fleet_summary(coordinator: EcoFlowEnergyCoordinator) -> dict[str, A
         "discharge_w": round(total_discharge_w, 0),
         "net_w": round(total_net_w, 0),
         "battery_count": len(batteries),
+        "max_reserve_soc": max(
+            [float(item["reserve_soc"]) for item in batteries],
+            default=float(DEFAULT_BATTERY_RESERVE_SOC),
+        ),
         "batteries": batteries,
     }
 
@@ -4584,6 +4643,29 @@ def _direct_solar_devices(coordinator: EcoFlowEnergyCoordinator) -> list[dict[st
     if devices:
         return devices
     return list((_direct_solar(coordinator).get("batteries") or []))
+
+
+def _battery_reserve_devices(coordinator: EcoFlowEnergyCoordinator) -> list[dict[str, Any]]:
+    devices = []
+    for item in coordinator.settings.get("batteries", []):
+        if not isinstance(item, dict) or not item.get("serial"):
+            continue
+        devices.append(
+            {
+                "name": item.get("name") or item.get("serial") or "Delta",
+                "serial": item.get("serial"),
+                "reserve_soc_percent": _configured_battery_reserve_soc(item),
+            }
+        )
+    return devices
+
+
+def _configured_battery_reserve_soc(item: dict[str, Any]) -> float:
+    try:
+        value = float(item.get(CONF_BATTERY_RESERVE_SOC, DEFAULT_BATTERY_RESERVE_SOC))
+    except (TypeError, ValueError):
+        value = float(DEFAULT_BATTERY_RESERVE_SOC)
+    return max(0.0, min(100.0, value))
 
 
 def _configured_direct_solar_wp(item: dict[str, Any]) -> float:
@@ -4976,6 +5058,9 @@ def _powerstream_execution_plan(
             **item,
             "max_watts": item.get("max_watts") or device.get("max_watts"),
             "battery_soc": battery_soc,
+            "battery_reserve_soc": item["battery_reserve_soc"]
+            if item.get("battery_reserve_soc") is not None
+            else _battery_reserve_soc_for_serial(coordinator, battery_serial),
             "battery_free_wh": battery_free_wh,
         }
         decision = powerstream_group_decision(
@@ -5028,6 +5113,9 @@ def _powerstream_execution_plan(
                 "managed_battery_serial": battery_serial,
                 "managed_battery_name": battery_name,
                 "managed_battery_soc": battery_soc,
+                "managed_battery_reserve_soc": decision_item.get(
+                    "battery_reserve_soc"
+                ),
                 "managed_battery_free_wh": battery_free_wh,
                 "can_charge": item.get("can_charge")
                 if item.get("can_charge") is not None
@@ -5604,6 +5692,19 @@ def _battery_soc_for_serial(
     if serial is None:
         return None
     return _battery_soc_value(_battery_values(coordinator, str(serial)))
+
+
+def _battery_reserve_soc_for_serial(
+    coordinator: EcoFlowEnergyCoordinator, serial: Any | None
+) -> float:
+    if serial is None:
+        return float(DEFAULT_BATTERY_RESERVE_SOC)
+    for item in coordinator.settings.get("batteries", []):
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("serial") or "") == str(serial):
+            return _configured_battery_reserve_soc(item)
+    return float(DEFAULT_BATTERY_RESERVE_SOC)
 
 
 def _battery_free_wh_for_serial(
