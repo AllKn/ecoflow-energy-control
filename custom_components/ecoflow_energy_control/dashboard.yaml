@@ -1,7 +1,7 @@
-# EEC app dashboard yaml version: 0.5.285
-title: Ecoflow app [0.5.285]
+# EEC app dashboard yaml version: 0.5.297
+title: Ecoflow app [0.5.297]
 views:
-  - title: Main [0.5.285]
+  - title: Main [0.5.297]
     path: ecoflow-energy
     icon: mdi:view-dashboard
     cards:
@@ -14,6 +14,8 @@ views:
           - **Basis**: laat de live kernwaarden zien waar de sturing op is gebaseerd.
           - **Scenario - uitvoering**: toont of het gekozen scenario nu echt uitvoerbaar is.
           - **Controle**: verklaart waarom iets wel of niet gebeurt.
+
+          Directe panelen op een Delta? Vul per Delta het totaal in Wp in via **Configureren** → **Batterij wijzigen**.
 
           Alles hieronder is met minimale achtergrondkennis te volgen.
 
@@ -183,6 +185,24 @@ views:
               options:
                 name: Zonvoordeel
                 icon: mdi:sun-snowflake
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: direct_solar_summary
+              options:
+                name: Zon op Delta
+                icon: mdi:solar-panel-large
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: direct_solar_devices
+              options:
+                name: Delta panelen
+                icon: mdi:solar-power-variant
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: direct_solar_advice
+              options:
+                name: Delta zonstatus
+                icon: mdi:white-balance-sunny
             - attributes:
                 eec_device_type: dashboard
                 eec_sensor_role: decision_context
@@ -744,6 +764,11 @@ views:
                 eec_sensor_role: weather_solar_4h
               options:
                 name: Zon 4u
+            - attributes:
+                eec_device_type: weather
+                eec_sensor_role: direct_solar_power
+              options:
+                name: Delta zon
 
   - title: Energy
     path: energy

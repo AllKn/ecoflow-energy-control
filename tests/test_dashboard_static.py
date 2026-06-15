@@ -50,6 +50,14 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
         self.assertIn("name: Advies starten", block)
         self.assertLessEqual(block.count("eec_sensor_role:"), 12)
 
+    def test_snelstart_points_to_delta_panel_setup(self) -> None:
+        start = self.text.index("## Snelstart")
+        end = self.text.index("## Flow")
+        block = self.text[start:end]
+        self.assertIn("Directe panelen op een Delta?", block)
+        self.assertIn("Vul per Delta het totaal in Wp in", block)
+        self.assertIn("Batterij wijzigen", block)
+
     def test_kern_sections_in_expected_order(self) -> None:
         titles = re.findall(r"^\s*## (.+)$", self.text, re.MULTILINE)
         route = [title for title in titles if title in {
@@ -85,6 +93,9 @@ class MainDashboardSimpleFlowTest(unittest.TestCase):
             "battery_fleet_net_w",
             "powerstream_export",
             "expected_savings",
+            "direct_solar_summary",
+            "direct_solar_devices",
+            "direct_solar_advice",
             "decision_context",
         ):
             self.assertIn(f"eec_sensor_role: {role}", block)

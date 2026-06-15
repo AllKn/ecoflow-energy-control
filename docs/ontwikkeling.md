@@ -265,7 +265,21 @@ Vanaf versie `0.5.277` is Flow opnieuw hertekend naar één duidelijke lijn: eer
 Vanaf versie `0.5.278` zijn de Flow-waarde en Zekerheid-kaarten teruggebracht naar reguliere `entities`-regels. Dat voorkomt de Home Assistant `Configuration error` die ontstond bij een dynamische gauge via `custom:auto-entities`.
 Vanaf versie `0.5.279` synchroniseert de integratie het meegeleverde dashboard automatisch naar de Lovelace-opslag onder `ecoflow-app-dashboard`. Daardoor gaan dashboardtitel en inhoud mee met een HACS-update/reload, zonder handmatig plakken in de raw editor.
 Vanaf versie `0.5.280` is er handmatige noodbediening toegevoegd: `Teruglevering naar 0` zet alle PowerStreams direct op 0 W en zet hun groepstrategie op idle. De Smart Plug voor Delta Pro-laden staat daarnaast als schakelaar in het handmatige blok en gebruikt de actuele EcoFlow-status als beginstand wanneer die quota beschikbaar is.
+Vanaf versie `0.5.281` zijn handmatige actieknoppen contextgevoeliger. `Advies starten` is alleen beschikbaar als er een PowerStream of Smart Plug is ingesteld, `Start beste scenario` alleen als het huidige beste scenario echt uitvoerbaar is, en `Teruglevering naar 0` alleen wanneer een PowerStream actief exporteert of nog geen live exporttelemetrie heeft aangeleverd.
+Vanaf versie `0.5.284` bewaart de app scenario-simulatie totalen in Home Assistant-opslag. Dag-, week- en maandtotalen voor de scenariovergelijking lopen daardoor door na reloads en updates. Daarnaast is er een aparte `Simulatie`-view met advies nu, gemiste waarde, zekerheid en historie van de scenario-uitkomsten zonder echte sturing.
 Vanaf versie `0.5.285` is er een aparte view `Energy` die de Home Assistant Energy-presentatie volgt met verdeling, bronnen, gebruik en P1-liveblokken. HomeWizard P1-bronnen met import/export-energie of fasevermogens worden automatisch als `grid_meter` gecorrigeerd, zodat `P1 status` de bestaande P1-meter herkent.
+Vanaf versie `0.5.286` kan per Delta Pro of Delta Pro 3 het totaal aan direct aangesloten zonnepanelen in Wp worden ingevoerd. Die invoer telt mee als eenvoudige zonnebron voor setup en scenario's en verschijnt als leesbare Delta-zonstatus op het dashboard.
+Vanaf versie `0.5.287` is de Delta-zonstatus minder cijfergericht gemaakt. De hoofdroute toont een korte tekststatus voor beginners; de wattverwachting blijft beschikbaar in context en historie.
+Vanaf versie `0.5.288` valideert de configuratie de Delta-zonnepanelen-invoer als geheel getal van 0 tot 10000 Wp. Daardoor blijven typefouten, negatieve waarden en onrealistische invoer uit de scenario's.
+Vanaf versie `0.5.289` wijst het setupadvies bij ontbrekende zon expliciet naar de twee logische routes: Delta-zonnepanelen invullen of een zonmeter toevoegen.
+Vanaf versie `0.5.290` tonen lege Delta-zontegels een actiegerichte tekst in plaats van alleen `niet ingesteld`, inclusief hint waar de Wp-invoer per Delta staat.
+Vanaf versie `0.5.291` is er een per-Delta overzichtsregel toegevoegd, zodat direct zichtbaar is welke Delta panelen heeft en welke nog geen Wp-invoer heeft.
+Vanaf versie `0.5.292` benoemt de Snelstart bovenaan het dashboard direct waar je panelen op een Delta invult: via Configureren > Batterij wijzigen, als totaal Wp per Delta.
+Vanaf versie `0.5.293` heeft ook de optie Batterij wijzigen zelf een korte uitleg bij directe panelen, inclusief het 1100 Wp voorbeeld en de 0-waarde voor geen panelen.
+Vanaf versie `0.5.294` maakt de lege Delta-zonstatus onderscheid tussen nog geen Delta ingesteld en wel een Delta maar nog geen Wp-invoer.
+Vanaf versie `0.5.295` wordt directe Delta-zon ook zichtbaar in de besliscontext, zodat de hoofdroute uitlegt dat Wp-invoer meetelt in het advies.
+Vanaf versie `0.5.296` is het per-Delta panelenoverzicht begrensd: lange batterijnamen worden afgekort en de dashboardregel blijft kort genoeg voor Lovelace.
+Vanaf versie `0.5.297` hebben ook de handmatige Delta Pro en Delta Pro 3 toevoegen-stappen dezelfde Wp-uitleg als importeren en wijzigen.
 
 ## Huidige stand
 

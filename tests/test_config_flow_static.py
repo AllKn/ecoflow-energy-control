@@ -123,6 +123,43 @@ class ConfigFlowStaticTest(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(f'return "{marker}"', helper)
 
+    def test_delta_batteries_accept_direct_solar_wp(self) -> None:
+        self.assertIn("CONF_DIRECT_SOLAR_WP", self.text)
+        self.assertIn("DIRECT_SOLAR_WP_MAX = 10000", self.text)
+        self.assertIn("def _direct_solar_wp_schema", self.text)
+        self.assertIn("vol.Coerce(int)", self.text)
+        self.assertIn("vol.Range(min=0, max=DIRECT_SOLAR_WP_MAX)", self.text)
+        self.assertIn("def _direct_solar_wp_value", self.text)
+        self.assertIn("max(0, min(DIRECT_SOLAR_WP_MAX, value))", self.text)
+        self.assertIn("async def async_step_import_ecoflow_battery", self.text)
+        for step_name in (
+            "async_step_import_ecoflow_battery",
+            "_async_battery_form",
+            "async_step_edit_batteries",
+            "_save_imported_ecoflow_device",
+        ):
+            prefix = "async def " if step_name != "_save_imported_ecoflow_device" else "def "
+            block = self.text[
+                self.text.index(f"{prefix}{step_name}")
+                :
+            ]
+            with self.subTest(step_name=step_name):
+                self.assertIn("CONF_DIRECT_SOLAR_WP", block)
+        nl = (
+            ROOT
+            / "custom_components"
+            / "ecoflow_energy_control"
+            / "translations"
+            / "nl.json"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Totaal zonnepanelen op deze Delta (Wp)", nl)
+        self.assertIn("drie panelen van samen 1100 Wp = 1100", nl)
+        self.assertIn('"device_delta_pro"', nl)
+        self.assertIn('"device_delta_pro_3"', nl)
+        self.assertIn("Heeft deze Delta directe panelen?", nl)
+        self.assertIn('"edit_batteries"', nl)
+        self.assertIn("Laat 0 staan als deze Delta geen directe panelen heeft", nl)
+
     def test_general_settings_keep_only_common_controls(self) -> None:
         general = self.text[
             self.text.index("async def async_step_general") : self.text.index(

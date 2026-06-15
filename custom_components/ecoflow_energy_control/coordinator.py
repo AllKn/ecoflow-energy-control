@@ -34,6 +34,7 @@ from .const import (
     CONF_ACCESS_KEY,
     CONF_BATTERIES,
     CONF_DRY_RUN,
+    CONF_DIRECT_SOLAR_WP,
     CONF_ECOFLOW_HOST,
     CONF_HOMEWIZARD_METERS,
     CONF_POWERSTREAMS,
@@ -175,6 +176,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Could not fetch weather forecast: %s", err)
             errors["weather"] = str(err)
+        direct_solar = _direct_solar_summary(settings, weather)
 
         batteries = {}
         for device in settings.get(CONF_BATTERIES, []):
@@ -450,6 +452,10 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             effective_solar_power,
             dt_util.now(),
         )
+        forecast_solar_power = max(
+            forecast_solar_power,
+            float(direct_solar.get("forecast_power_w") or 0.0),
+        )
         for serial, item in smart_plugs.items():
             if isinstance(item, dict):
                 item["forecast_solar_power"] = forecast_solar_power
@@ -514,6 +520,7 @@ class EcoFlowEnergyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "homewizard_solar_power": homewizard_solar_power,
             "powerstream_export_w": powerstream_export,
             "corrected_solar_power": effective_solar_power,
+            "direct_solar": direct_solar,
             "forecast_solar_power": forecast_solar_power,
             "corrected_phase_power": corrected_phase_power,
             "homewizard_grid_power": homewizard_grid_power,
@@ -1577,6 +1584,77 @@ def _scenario_reason(reason: str, warnings: list[str]) -> str:
     if not warnings:
         return reason
     return f"input beperkt: {', '.join(warnings)}; {reason}"
+
+
+def _direct_solar_summary(settings: dict[str, Any], weather: dict[str, Any]) -> dict[str, Any]:
+    """Estimate direct panels connected to Delta batteries from configured Wp."""
+    batteries = [
+        item
+        for item in settings.get(CONF_BATTERIES, [])
+        if isinstance(item, dict) and item.get("serial")
+    ]
+    total_wp = sum(_direct_solar_wp(item) for item in batteries)
+    current_power = _direct_solar_power_from_shortwave(
+        total_wp, weather.get("shortwave_w_m2")
+    )
+    forecast_power = _direct_solar_forecast_power(total_wp, weather)
+    return {
+        "configured": total_wp > 0,
+        "battery_count": len(batteries),
+        "battery_count_with_panels": len(
+            [item for item in batteries if _direct_solar_wp(item) > 0]
+        ),
+        "total_wp": total_wp,
+        "current_power_w": current_power,
+        "forecast_power_w": forecast_power,
+        "batteries": [
+            {
+                "name": item.get("name") or item.get("serial"),
+                "serial": item.get("serial"),
+                "direct_solar_wp": _direct_solar_wp(item),
+            }
+            for item in batteries
+            if _direct_solar_wp(item) > 0
+        ],
+        "basis": "schatting voor direct op Delta aangesloten zonnepanelen",
+    }
+
+
+def _direct_solar_wp(item: dict[str, Any]) -> float:
+    try:
+        return max(0.0, float(item.get(CONF_DIRECT_SOLAR_WP) or 0.0))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _direct_solar_power_from_shortwave(total_wp: float, shortwave_w_m2: Any) -> float:
+    if total_wp <= 0:
+        return 0.0
+    try:
+        shortwave = max(0.0, float(shortwave_w_m2 or 0.0))
+    except (TypeError, ValueError):
+        return 0.0
+    return round(total_wp * min(shortwave / 1000.0, 1.0) * 0.85, 1)
+
+
+def _direct_solar_forecast_power(total_wp: float, weather: dict[str, Any]) -> float:
+    if total_wp <= 0:
+        return 0.0
+    hourly = weather.get("hourly") or []
+    values: list[float] = []
+    if isinstance(hourly, list):
+        for row in hourly[:4]:
+            if isinstance(row, dict):
+                values.append(
+                    _direct_solar_power_from_shortwave(
+                        total_wp, row.get("shortwave_w_m2")
+                    )
+                )
+    if not values:
+        return _direct_solar_power_from_shortwave(
+            total_wp, weather.get("shortwave_w_m2")
+        )
+    return round(max(values), 1)
 
 
 def _battery_soc_for_serial(

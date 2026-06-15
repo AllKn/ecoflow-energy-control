@@ -82,6 +82,13 @@
           "battery_serial": "Gekoppelde Delta Pro"
         }
       },
+      "import_ecoflow_battery": {
+        "title": "Delta zonnepanelen",
+        "description": "Vul het totale paneelvermogen in Wp in voor alleen deze Delta. Voorbeeld: drie panelen van samen 1100 Wp = 1100. Laat 0 staan als er geen panelen direct op deze Delta zitten. Waarden onder 0 of boven 10000 Wp worden niet geaccepteerd.",
+        "data": {
+          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)"
+        }
+      },
       "import_ecoflow_smart_plug": {
         "title": "Smart Plug instellingen",
         "description": "Kies welke batterij deze Smart Plug bij zon of lage prijs mag laden."
@@ -91,10 +98,22 @@
         "description": "Pas naam, koppeling of limieten van een bestaand apparaat aan."
       },
       "device_delta_pro": {
-        "title": "Delta Pro toevoegen"
+        "title": "Delta Pro toevoegen",
+        "description": "Heeft deze Delta directe panelen? Vul het totaal in Wp in. Voorbeeld: drie panelen van samen 1100 Wp = 1100. Laat 0 staan als deze Delta geen directe panelen heeft.",
+        "data": {
+          "name": "Vriendelijke naam",
+          "serial": "Serienummer",
+          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)"
+        }
       },
       "device_delta_pro_3": {
-        "title": "Delta Pro 3 toevoegen"
+        "title": "Delta Pro 3 toevoegen",
+        "description": "Heeft deze Delta directe panelen? Vul het totaal in Wp in. Voorbeeld: drie panelen van samen 1100 Wp = 1100. Laat 0 staan als deze Delta geen directe panelen heeft.",
+        "data": {
+          "name": "Vriendelijke naam",
+          "serial": "Serienummer",
+          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)"
+        }
       },
       "device_powerstream": {
         "title": "PowerStream toevoegen",
@@ -121,7 +140,14 @@
         "title": "Smart Plug toevoegen"
       },
       "edit_batteries": {
-        "title": "Batterij wijzigen"
+        "title": "Batterij wijzigen",
+        "description": "Vul bij directe panelen het totaal in Wp in voor alleen deze Delta. Voorbeeld: drie panelen van samen 1100 Wp = 1100. Laat 0 staan als deze Delta geen directe panelen heeft.",
+        "data": {
+          "name": "Vriendelijke naam",
+          "model": "Model",
+          "serial": "Serienummer",
+          "direct_solar_wp": "Totaal zonnepanelen op deze Delta (Wp)"
+        }
       },
       "edit_powerstreams": {
         "title": "PowerStream wijzigen",

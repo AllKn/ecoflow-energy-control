@@ -16,6 +16,7 @@ from .const import (
     CONF_ACCESS_KEY,
     CONF_BATTERIES,
     CONF_DRY_RUN,
+    CONF_DIRECT_SOLAR_WP,
     CONF_ECOFLOW_HOST,
     CONF_HOMEWIZARD_METERS,
     CONF_POWERSTREAMS,
@@ -59,6 +60,7 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+DIRECT_SOLAR_WP_MAX = 10000
 
 
 def _initial_setup_defaults() -> dict[str, Any]:
@@ -83,6 +85,20 @@ def _initial_setup_defaults() -> dict[str, Any]:
         CONF_SMART_PLUGS: [],
         CONF_HOMEWIZARD_METERS: [],
     }
+
+
+def _direct_solar_wp_schema() -> Any:
+    """Schema for beginner-friendly Delta panel capacity input."""
+    return vol.All(vol.Coerce(int), vol.Range(min=0, max=DIRECT_SOLAR_WP_MAX))
+
+
+def _direct_solar_wp_value(values: dict[str, Any]) -> int:
+    """Normalize stored Delta panel capacity."""
+    try:
+        value = int(values.get(CONF_DIRECT_SOLAR_WP) or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(DIRECT_SOLAR_WP_MAX, value))
 
 
 class EcoFlowEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -262,6 +278,8 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     return await self.async_step_import_ecoflow_powerstream()
                 if user_input["device_type"] == "smart_plug":
                     return await self.async_step_import_ecoflow_smart_plug()
+                if user_input["device_type"] in ("delta_pro", "delta_pro_3"):
+                    return await self.async_step_import_ecoflow_battery()
                 return self._save_imported_ecoflow_device()
 
         return self.async_show_form(
@@ -290,6 +308,25 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 ),
                 "suggested_type": _ecoflow_device_type_label(suggested_type),
             },
+        )
+
+    async def async_step_import_ecoflow_battery(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.FlowResult:
+        if self._pending_import_config is None:
+            return await self.async_step_import_ecoflow()
+        if user_input is not None:
+            self._pending_import_config.update(user_input)
+            return self._save_imported_ecoflow_device()
+        return self.async_show_form(
+            step_id="import_ecoflow_battery",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_DIRECT_SOLAR_WP, default=0
+                    ): _direct_solar_wp_schema(),
+                }
+            ),
         )
 
     async def async_step_import_ecoflow_powerstream(
@@ -477,6 +514,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                         "name": user_input["name"],
                         "model": default_name,
                         "serial": user_input["serial"],
+                        CONF_DIRECT_SOLAR_WP: _direct_solar_wp_value(user_input),
                         "quotas": DEFAULT_BATTERY_QUOTAS,
                     }
                 )
@@ -487,6 +525,9 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Required("name", default=default_name): str,
                     vol.Required("serial"): str,
+                    vol.Optional(
+                        CONF_DIRECT_SOLAR_WP, default=0
+                    ): _direct_solar_wp_schema(),
                 }
             ),
             errors=errors,
@@ -698,6 +739,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     "name": user_input["name"],
                     "model": user_input["model"],
                     "serial": user_input["serial"],
+                    CONF_DIRECT_SOLAR_WP: _direct_solar_wp_value(user_input),
                     "quotas": DEFAULT_BATTERY_QUOTAS,
                 }
                 return self._replace_device(group, index, item)
@@ -710,6 +752,10 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                         "model", default=current.get("model", "Delta Pro")
                     ): vol.In({"Delta Pro": "Delta Pro", "Delta Pro 3": "Delta Pro 3"}),
                     vol.Required("serial", default=current.get("serial", "")): str,
+                    vol.Optional(
+                        CONF_DIRECT_SOLAR_WP,
+                        default=current.get(CONF_DIRECT_SOLAR_WP, 0),
+                    ): _direct_solar_wp_schema(),
                 }
             ),
             errors=errors,
@@ -985,6 +1031,7 @@ class EcoFlowEnergyOptionsFlow(config_entries.OptionsFlow):
                     if device_type == "delta_pro_3"
                     else "Delta Pro",
                     "serial": config["serial"],
+                    CONF_DIRECT_SOLAR_WP: _direct_solar_wp_value(config),
                     "quotas": DEFAULT_BATTERY_QUOTAS,
                 }
             )

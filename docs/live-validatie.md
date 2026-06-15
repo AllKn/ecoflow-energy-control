@@ -18,7 +18,7 @@ Gebruik in Home Assistant de dashboardroute van het geimporteerde dashboard. Bij
 
 Als `/lovelace/ecoflow-energy` op `Overview` uitkomt, gebruik je een oud of verkeerd pad.
 
-Vanaf versie `0.5.255` levert EEC app nog maar één dagelijks dashboard mee. PowerStream-, scenario-, weer- en diagnoseblokken staan lager op deze hoofdroute en worden verborgen als er geen passende entiteiten zijn.
+Vanaf versie `0.5.255` levert EEC app nog maar één primaire dagelijkse route mee: `Main`. PowerStream-, scenario-, weer- en diagnoseblokken staan lager op die hoofdroute en worden verborgen als er geen passende entiteiten zijn. Vanaf `0.5.284` en `0.5.285` zijn er daarnaast aparte views `Simulatie` en `Energy`, maar die zijn aanvullend en niet nodig voor de normale dagelijkse bediening.
 
 De setup is live bruikbaar als deze punten kloppen:
 

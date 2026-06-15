@@ -76,6 +76,83 @@ class DashboardReadinessTest(unittest.TestCase):
         self.assertEqual(checks["scenarios"]["details"]["scenario_count"], 3)
         self.assertFalse(checks["execution"]["details"]["dry_run"])
 
+    def test_direct_delta_solar_counts_as_solar_source(self) -> None:
+        result = health.dashboard_readiness(
+            {
+                "price_now": 0.21,
+                "prices": [{"price": 0.2}] * 24,
+                "price_summary": {"chart": [{"price": 0.2}] * 24},
+                "batteries": {"bat": {"values": {"pd.soc": 70}}},
+                "powerstreams": {
+                    "ps": {
+                        "values": {"permanentWatts": 0},
+                        "battery_serial": "bat",
+                        "battery_soc": 70,
+                    }
+                },
+                "weather": WEATHER_READY,
+                "direct_solar": {
+                    "configured": True,
+                    "total_wp": 1100,
+                    "forecast_power_w": 650,
+                },
+                "scenarios": {"a": {}, "b": {}, "c": {}},
+            },
+            {
+                "batteries": [{"serial": "bat", "direct_solar_wp": 1100}],
+                "powerstreams": [{"serial": "ps"}],
+                "dry_run": False,
+            },
+        )
+        checks = {item["key"]: item for item in result["checks"]}
+        self.assertEqual(checks["solar"]["status"], "klaar")
+        self.assertEqual(checks["solar"]["message"], "Delta-zon ingesteld")
+        self.assertEqual(checks["solar"]["details"]["direct_solar_wp"], 1100)
+        self.assertEqual(
+            checks["solar"]["details"]["direct_solar_forecast_w"], 650
+        )
+
+    def test_setup_state_uses_direct_delta_solar_as_optional_solar(self) -> None:
+        result = health.setup_state(
+            {
+                "batteries": [{"serial": "bat", "direct_solar_wp": 1100}],
+                "powerstreams": [{"serial": "ps"}],
+                "weather_city": "Amsterdam",
+            },
+            dry_run=False,
+        )
+        self.assertEqual(result["configured_direct_solar_batteries"], 1)
+        self.assertEqual(result["configured_direct_solar_wp"], 1100)
+        self.assertEqual(result["configured_solar_sources"], 1)
+        self.assertNotIn("zonmeter toevoegen", result["missing_optional"])
+
+    def test_setup_state_points_beginners_to_delta_solar_or_meter(self) -> None:
+        result = health.setup_state(
+            {
+                "batteries": [{"serial": "bat"}],
+                "powerstreams": [{"serial": "ps"}],
+                "weather_city": "Amsterdam",
+            },
+            dry_run=True,
+        )
+        self.assertEqual(result["state"], "basis klaar")
+        self.assertEqual(
+            result["next_step"],
+            "Delta-zonnepanelen invullen of zonmeter toevoegen",
+        )
+        self.assertIn(
+            "Delta-zonnepanelen invullen of zonmeter toevoegen",
+            result["missing_optional"],
+        )
+        self.assertEqual(
+            result["direct_solar_setup_hint"],
+            "vul per Delta het totale Wp aan direct aangesloten panelen in",
+        )
+        self.assertEqual(
+            result["optimization_requirements"],
+            ["Delta-zon of zonmeter", "weerstad"],
+        )
+
     def test_source_summary_reports_all_clear(self) -> None:
         summary = health.source_summary(
             {
@@ -440,7 +517,9 @@ class DashboardReadinessTest(unittest.TestCase):
         self.assertEqual(setup["next_step_kind"], "klaar")
         self.assertEqual(setup["basic_requirements"], ["batterij"])
         self.assertEqual(setup["control_requirements"], ["PowerStream"])
-        self.assertEqual(setup["optimization_requirements"], ["zonmeter", "weerstad"])
+        self.assertEqual(
+            setup["optimization_requirements"], ["Delta-zon of zonmeter", "weerstad"]
+        )
         self.assertTrue(setup["ready_for_basic_insight"])
         self.assertTrue(setup["ready_for_powerstream_control"])
         self.assertTrue(setup["ready_for_full_optimization"])

@@ -49,6 +49,8 @@ Beschikbare acties:
 
 Bij importeren kies je eerst het gevonden EcoFlow-serienummer en daarna het type. De app controleert de verbinding voordat het apparaat wordt opgeslagen. Alleen bij een Smart Plug wordt gevraagd welke batterij ermee geladen wordt. Dit veld wordt gevuld met de reeds toegevoegde batterij-devices.
 
+Bij Delta Pro en Delta Pro 3 kun je tijdens importeren of wijzigen ook direct `Totaal zonnepanelen op deze Delta (Wp)` invullen. Die simpele Wp-invoer telt mee als zonnebron voor setup en scenario's en verschijnt op het dashboard als `Zon op Delta`, `Delta panelen`, `Delta zonstatus` en `Delta zon verwacht`.
+
 ## Diagnose
 
 Gebruik in het dashboard:
@@ -115,7 +117,7 @@ Gebruik dus niet een oude `/lovelace/ecoflow-energy` URL als die naar `Overview`
 
 Gebruik dit dashboard als hoofdscherm. Het combineert de volledige flow: actuele status, accu-inhoud, PowerStream-sturing, strategieadvies, prijzen, netto opwek, weer en diagnose. De kaarten zoeken apparaten dynamisch op via EEC-attributen, zodat hardcoded device-namen zoals `Delta Pro` of `PowerStream 1` niet meer nodig zijn.
 
-Voor normaal gebruik heb je alleen dit dashboard nodig. Niet-relevante losse dashboards zijn verwijderd; detail-, test- en scenario-informatie staat nu lager op dezelfde hoofdroute.
+Voor normaal gebruik heb je alleen dit dashboard nodig. Gebruik daarbij vooral de `Main`-view als dagelijkse route. De oude losse PowerStream-, app-stijl- en scenario-dashboards zijn verwijderd; de dagelijkse flow blijft op dezelfde hoofdroute, met aanvullende `Simulatie`- en `Energy`-views voor respectievelijk scenariovergelijking en Home Assistant Energy-overzicht.
 
 Voor live validatie na een update kijk je bovenaan naar:
 
@@ -159,7 +161,7 @@ Deze vereisten staan ook in `dashboards/frontend-requirements.yaml`, inclusief H
 
 ## Huidige Versie
 
-`0.5.285`
+`0.5.297`
 
 ## Updatecontrole
 
@@ -714,6 +716,9 @@ Versie `0.5.267` zet dashboard-updatehints ook op de bestaande `Versie`-sensor. 
 Versie `0.5.268` geeft de eerste tegel in `Controle` expliciet de korte naam `Overzicht`. Daardoor gebruikt Home Assistant geen oude, lange entiteitnaam meer wanneer het dashboard al eerder geimporteerd was.
 
 Versie `0.5.269` ruimt oude lange entiteitnamen in de Home Assistant registry op wanneer ze nog met `EcoFlow Energy Control applicatie` beginnen. Ook gebruikt `Scenario's - details` korte tegels zoals `Actie`, `Kan`, `Reden`, `W`, `EUR/u` en `Dag`.
+
+Versie `0.5.271` voegt Smart Plug-automatisering op vaste tijdvensters toe: met `schema_on` / `schema_off` worden aan/uit-vensters automatisch doorgezet bij elke update, naast de bestaande zon-gedreven fallback. In de device-status zie je nu schema-velden en de berekende `smart_plug_scheduled_state`.
+
 Versie `0.5.272` herstelt een startup-crash in de integratie door robuustere verwerking van HomeWizard-meterrollen in opgeslagen instellingen (bijv. ontbrekende `solar_total`-constante/legacy data).
 
 Versie `0.5.273` maakt de zonvoorspelingshorizon robuuster tegen tijdzoneverschillen in weather-tijdstempels (aware/naive datums), zodat updates niet meer falen tijdens het laden van scenario- en forecast-berekeningen.
@@ -730,6 +735,32 @@ Versie `0.5.279` levert het hoofd-dashboard ook mee binnen de integratiemap en s
 
 Versie `0.5.280` voegt handmatige noodbediening toe: **Teruglevering naar 0** zet alle ingestelde PowerStreams direct op 0 W en houdt hun groepstrategie op idle. Daarnaast staat de EcoFlow Smart Plug voor Delta Pro-laden als schakelaar in **Handmatig - tools**, met beginstand uit de actuele Smart Plug-quota wanneer EcoFlow die status teruggeeft.
 
+Versie `0.5.281` maakt handmatige acties contextgevoeliger. `Advies starten` verschijnt alleen als er echt een stuurdoel is, `Start beste scenario` alleen als het beste scenario uitvoerbaar is, en `Teruglevering naar 0` alleen als een PowerStream echt actief is of nog geen live exportdata heeft teruggegeven.
+
+Versie `0.5.284` bewaart scenario-simulatie over reloads en updates heen. De dag-, week- en maandtotalen van de scenariovergelijking blijven daardoor doorlopen, en er is een aparte **Simulatie**-pagina bijgekomen om advies, waarde, zekerheid en historiegrafieken van de scenario's te volgen zonder echte sturing uit te voeren.
+
 Versie `0.5.285` neemt de Home Assistant Energy-presentatie mee als aparte **Energy**-dashboardpagina en maakt P1-herkenning robuuster. Een bestaande HomeWizard P1 met import/export-energie of fasevermogens wordt automatisch als `P1/netmeter` behandeld, ook wanneer hij eerder verkeerd als opwekbron was opgeslagen.
 
-Versie `0.5.271` voegt Smart Plug-automatisering op vaste tijdvensters toe: met `schema_on` / `schema_off` worden aan/uit-vensters automatisch doorgezet bij elke update, naast de bestaande zon-gedreven fallback. In de device-status zie je nu schema-velden en de berekende `smart_plug_scheduled_state`.
+Versie `0.5.286` maakt direct aangesloten zonnepanelen per Delta Pro of Delta Pro 3 instelbaar in Wp. De app gebruikt die eenvoudige invoer als Delta-zonverwachting in scenario's en toont dit als leesbare dashboardstatus, zodat beginners niet eerst losse zonnemeters hoeven te begrijpen.
+
+Versie `0.5.287` maakt die Delta-zonweergave minder cijfergericht. De hoofdroute toont nu een tekststatus zoals `zonladen verwacht` of `weinig Delta-zon`, terwijl het watt-getal beschikbaar blijft als aanvullende context en historiegrafiek.
+
+Versie `0.5.288` maakt de Wp-invoer veiliger voor beginners. Delta-zonnepanelen worden nu als geheel getal tussen 0 en 10000 Wp gevalideerd en opgeslagen, zodat typefouten of negatieve waarden niet stil in scenario's terechtkomen.
+
+Versie `0.5.289` maakt het setupadvies voor zon begrijpelijker. Als er wel een Delta is maar nog geen zonnebron, noemt de app nu expliciet `Delta-zonnepanelen invullen of zonmeter toevoegen` in plaats van alleen om een zonmeter te vragen.
+
+Versie `0.5.290` maakt de lege Delta-zontegels actiegericht. In plaats van `niet ingesteld` tonen ze nu dat je Wp per Delta moet invullen, met een setup-hint naar de batterij-instellingen.
+
+Versie `0.5.291` toont op het dashboard ook per Delta welke directe panelen zijn ingevuld, bijvoorbeeld `Berging: 1100 Wp; DP3: geen panelen`. Daardoor hoef je niet in attributen te zoeken om te zien welk apparaat panelen heeft.
+
+Versie `0.5.292` zet de Delta-panelen-invoer ook in de Snelstart van het dashboard. Nieuwe gebruikers zien bovenaan meteen dat directe panelen per Delta via **Configureren > Batterij wijzigen** in Wp kunnen worden ingevuld.
+
+Versie `0.5.293` geeft ook de stap **Batterij wijzigen** zelf een korte uitleg bij directe panelen. Daardoor is het toevoegen of aanpassen van Wp per bestaande Delta duidelijk zonder terug te moeten naar de dashboardtekst.
+
+Versie `0.5.294` maakt de lege Delta-zonstatus preciezer. Zonder ingestelde Delta zegt het dashboard nu eerst `Delta toevoegen`; pas bij een bestaande Delta zonder panelen zegt het `Wp invullen`.
+
+Versie `0.5.295` neemt directe Delta-zon ook mee in de zichtbare besliscontext. De tegel `Context` kan nu bijvoorbeeld `Delta-zon verwacht` tonen, zodat duidelijk is dat de Wp-invoer meetelt in het laadadvies.
+
+Versie `0.5.296` houdt het per-Delta panelenoverzicht compact. Lange batterijnamen worden afgekort en de dashboardregel blijft binnen een veilige lengte, zodat de hoofdroute leesbaar blijft.
+
+Versie `0.5.297` geeft ook de handmatige stappen **Delta Pro toevoegen** en **Delta Pro 3 toevoegen** dezelfde Wp-uitleg als importeren en wijzigen. Daardoor is elk configuratiepad voor directe panelen gelijk duidelijk.

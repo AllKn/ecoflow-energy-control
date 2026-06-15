@@ -439,7 +439,8 @@ def setup_state(settings: dict[str, Any], *, dry_run: bool = True) -> dict[str, 
     powerstreams = _configured_setup_items(settings, "powerstreams")
     homewizard = _configured_setup_items(settings, "homewizard_meters")
     sma = _configured_setup_items(settings, "sma_inverters")
-    solar_sources = homewizard + sma
+    direct_solar_batteries = _configured_direct_solar_batteries(settings)
+    solar_sources = homewizard + sma + direct_solar_batteries
     price_source = settings.get("price_source") or DEFAULT_SETUP_PRICE_SOURCE
     missing: list[str] = []
     optional: list[str] = []
@@ -448,7 +449,7 @@ def setup_state(settings: dict[str, Any], *, dry_run: bool = True) -> dict[str, 
     if not powerstreams:
         optional.append("PowerStream toevoegen")
     if not solar_sources:
-        optional.append("zonmeter toevoegen")
+        optional.append(_solar_setup_step(batteries))
     if not settings.get("weather_city"):
         optional.append("weerstad instellen")
     if missing:
@@ -489,7 +490,7 @@ def setup_state(settings: dict[str, Any], *, dry_run: bool = True) -> dict[str, 
         "ready_for_full_optimization": ready_for_full_optimization,
         "basic_requirements": ["batterij"],
         "control_requirements": ["PowerStream"],
-        "optimization_requirements": ["zonmeter", "weerstad"],
+        "optimization_requirements": ["Delta-zon of zonmeter", "weerstad"],
         "required_done": required_done,
         "required_total": 1,
         "optional_done": optional_done,
@@ -501,12 +502,20 @@ def setup_state(settings: dict[str, Any], *, dry_run: bool = True) -> dict[str, 
         "configured_solar_sources": len(solar_sources),
         "configured_homewizard_meters": len(homewizard),
         "configured_sma_inverters": len(sma),
+        "configured_direct_solar_batteries": len(direct_solar_batteries),
+        "configured_direct_solar_wp": _configured_direct_solar_wp(settings),
+        "solar_setup_step": _solar_setup_step(batteries),
+        "direct_solar_setup_hint": (
+            "vul per Delta het totale Wp aan direct aangesloten panelen in"
+            if batteries and not direct_solar_batteries
+            else None
+        ),
         "price_source": price_source,
         "price_source_defaulted": not bool(settings.get("price_source") or settings.get("price_url")),
         "custom_price_url": bool(settings.get("price_url")),
         "weather_city": settings.get("weather_city"),
         "dry_run": dry_run,
-        "basis": "minimaal: batterij; prijsdata gebruikt standaard EnergyZero; optimaal: PowerStream, zonmeter en weerstad",
+        "basis": "minimaal: batterij; optimaal: PowerStream, Delta-zon of zonmeter, en weerstad",
     }
 
 
@@ -656,14 +665,25 @@ def _check_powerstreams(data: dict[str, Any], settings: dict[str, Any]) -> dict[
 
 
 def _check_solar(data: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
-    configured = settings.get("homewizard_meters") or settings.get("sma_inverters") or []
+    direct_solar = data.get("direct_solar") or {}
+    configured = (
+        list(settings.get("homewizard_meters") or [])
+        + list(settings.get("sma_inverters") or [])
+        + _configured_direct_solar_batteries(settings)
+    )
     details = {
         "configured": len(configured),
         "corrected_solar_power": data.get("corrected_solar_power"),
         "powerstream_export_w": data.get("powerstream_export_w"),
+        "direct_solar_wp": direct_solar.get(
+            "total_wp", _configured_direct_solar_wp(settings)
+        ),
+        "direct_solar_forecast_w": direct_solar.get("forecast_power_w"),
     }
     if not configured:
         return _check("solar", "gedeeltelijk", "geen opwekbron ingesteld", details)
+    if direct_solar.get("configured"):
+        return _check("solar", "klaar", "Delta-zon ingesteld", details)
     if data.get("corrected_solar_power") is None:
         return _check("solar", "actie nodig", "netto opwek ontbreekt", details)
     return _check("solar", "klaar", "netto opwek beschikbaar", details)
@@ -828,6 +848,31 @@ def _configured_setup_items(settings: dict[str, Any], key: str) -> list[dict[str
         )
         and "VUL_HIER" not in str(item)
     ]
+
+
+def _configured_direct_solar_batteries(settings: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in _configured_setup_items(settings, "batteries")
+        if _direct_solar_wp(item) > 0
+    ]
+
+
+def _solar_setup_step(batteries: list[dict[str, Any]]) -> str:
+    if batteries:
+        return "Delta-zonnepanelen invullen of zonmeter toevoegen"
+    return "zonmeter toevoegen"
+
+
+def _configured_direct_solar_wp(settings: dict[str, Any]) -> float:
+    return sum(_direct_solar_wp(item) for item in _configured_setup_items(settings, "batteries"))
+
+
+def _direct_solar_wp(item: dict[str, Any]) -> float:
+    try:
+        return max(0.0, float(item.get("direct_solar_wp") or 0.0))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _homewizard_reading(

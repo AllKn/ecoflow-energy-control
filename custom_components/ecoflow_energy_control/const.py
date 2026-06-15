@@ -4,7 +4,7 @@ from __future__ import annotations
 
 DOMAIN = "ecoflow_energy_control"
 APP_NAME = "EEC app"
-APP_VERSION = "0.5.285"
+APP_VERSION = "0.5.297"
 LEGACY_DASHBOARD_OBJECT_PREFIX = "ecoflow_energy_control_applicatie"
 
 CONF_ACCESS_KEY = "access_key"
@@ -31,6 +31,7 @@ CONF_SMA_TOKEN = "sma_token"
 CONF_SMA_PLANT_ID = "sma_plant_id"
 CONF_SMA_ENDPOINT = "sma_endpoint"
 CONF_WEATHER_CITY = "weather_city"
+CONF_DIRECT_SOLAR_WP = "direct_solar_wp"
 
 DEFAULT_ECOFLOW_HOST = "https://api-e.ecoflow.com"
 DEFAULT_PRICE_PROVIDER = "quatt-energy"

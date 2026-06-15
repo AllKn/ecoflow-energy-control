@@ -82,6 +82,13 @@
           "battery_serial": "Linked Delta Pro"
         }
       },
+      "import_ecoflow_battery": {
+        "title": "Delta solar panels",
+        "description": "Enter the total panel capacity in Wp for this Delta only. Example: three panels with 1100 Wp together = 1100. Keep 0 when no panels are directly connected to this Delta. Values below 0 or above 10000 Wp are not accepted.",
+        "data": {
+          "direct_solar_wp": "Total solar panels on this Delta (Wp)"
+        }
+      },
       "import_ecoflow_smart_plug": {
         "title": "Smart Plug settings",
         "description": "Choose which battery this Smart Plug may charge during solar surplus or low prices."
@@ -91,10 +98,22 @@
         "description": "Change the name, link or limits of an existing device."
       },
       "device_delta_pro": {
-        "title": "Add Delta Pro"
+        "title": "Add Delta Pro",
+        "description": "Does this Delta have direct panels? Enter the total Wp. Example: three panels with 1100 Wp together = 1100. Keep 0 when this Delta has no direct panels.",
+        "data": {
+          "name": "Friendly name",
+          "serial": "Serial number",
+          "direct_solar_wp": "Total solar panels on this Delta (Wp)"
+        }
       },
       "device_delta_pro_3": {
-        "title": "Add Delta Pro 3"
+        "title": "Add Delta Pro 3",
+        "description": "Does this Delta have direct panels? Enter the total Wp. Example: three panels with 1100 Wp together = 1100. Keep 0 when this Delta has no direct panels.",
+        "data": {
+          "name": "Friendly name",
+          "serial": "Serial number",
+          "direct_solar_wp": "Total solar panels on this Delta (Wp)"
+        }
       },
       "device_powerstream": {
         "title": "Add PowerStream",
@@ -121,7 +140,14 @@
         "title": "Add Smart Plug"
       },
       "edit_batteries": {
-        "title": "Edit battery"
+        "title": "Edit battery",
+        "description": "For direct panels, enter the total Wp for this Delta only. Example: three panels with 1100 Wp together = 1100. Keep 0 when this Delta has no direct panels.",
+        "data": {
+          "name": "Friendly name",
+          "model": "Model",
+          "serial": "Serial number",
+          "direct_solar_wp": "Total solar panels on this Delta (Wp)"
+        }
       },
       "edit_powerstreams": {
         "title": "Edit PowerStream",

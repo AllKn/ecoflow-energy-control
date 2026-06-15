@@ -176,6 +176,15 @@ class CoordinatorStaticTest(unittest.TestCase):
         self.assertIn("def _looks_like_homewizard_p1", self.init)
         self.assertIn("HOMEWIZARD_ROLE_GRID_METER", self.init)
 
+    def test_direct_delta_solar_feeds_forecast_and_scenarios(self) -> None:
+        self.assertIn("CONF_DIRECT_SOLAR_WP", self.coordinator)
+        self.assertIn("direct_solar = _direct_solar_summary(settings, weather)", self.coordinator)
+        self.assertIn('"direct_solar": direct_solar', self.coordinator)
+        self.assertIn("def _direct_solar_summary", self.coordinator)
+        self.assertIn("def _direct_solar_forecast_power", self.coordinator)
+        self.assertIn("forecast_solar_power = max(", self.coordinator)
+        self.assertIn('float(direct_solar.get("forecast_power_w") or 0.0)', self.coordinator)
+
     def test_corrected_phase_power_can_show_net_consumption(self) -> None:
         self.assertNotIn("phase: max(\n                0.0,", self.coordinator)
         self.assertIn(

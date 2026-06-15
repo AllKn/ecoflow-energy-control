@@ -30,6 +30,10 @@ class SensorStaticTest(unittest.TestCase):
             "expected_savings",
             "weather_now",
             "weather_icon_summary",
+            "direct_solar_summary",
+            "direct_solar_devices",
+            "direct_solar_advice",
+            "direct_solar_power",
             "homewizard_raw_power",
             "powerstream_export",
             "app_status",
@@ -227,6 +231,40 @@ class SensorStaticTest(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertIn(f'"{field}"', self.text)
 
+    def test_direct_delta_solar_sensors_are_beginner_friendly(self) -> None:
+        self.assertIn("DirectSolarSummarySensor(coordinator)", self.text)
+        self.assertIn("DirectSolarDeviceOverviewSensor(coordinator)", self.text)
+        self.assertIn("DirectSolarAdviceSensor(coordinator)", self.text)
+        self.assertIn("DirectSolarPowerSensor(coordinator)", self.text)
+        self.assertIn("class DirectSolarSummarySensor", self.text)
+        self.assertIn("class DirectSolarDeviceOverviewSensor", self.text)
+        self.assertIn("class DirectSolarAdviceSensor", self.text)
+        self.assertIn("class DirectSolarPowerSensor", self.text)
+        self.assertIn('"eec_sensor_role": "direct_solar_summary"', self.text)
+        self.assertIn('"eec_sensor_role": "direct_solar_devices"', self.text)
+        self.assertIn('"eec_sensor_role": "direct_solar_advice"', self.text)
+        self.assertIn('"eec_sensor_role": "direct_solar_power"', self.text)
+        self.assertIn('"zon op Delta"', self.text)
+        self.assertIn('"Delta panelen"', self.text)
+        self.assertIn("def _direct_solar_devices", self.text)
+        self.assertIn("def _compact_text", self.text)
+        self.assertIn("_compact_text(str(item.get(\"name\") or \"Delta\"), 18)", self.text)
+        self.assertIn('return _compact_text("; ".join(parts), 240)', self.text)
+        self.assertIn("geen panelen", self.text)
+        self.assertIn('"Delta zonstatus"', self.text)
+        self.assertIn('"Delta zon verwacht"', self.text)
+        self.assertIn("zonladen verwacht", self.text)
+        self.assertIn("weinig Delta-zon", self.text)
+        self.assertIn("CONF_DIRECT_SOLAR_WP", self.text)
+        self.assertIn("Delta toevoegen", self.text)
+        self.assertIn("vul Wp per Delta in", self.text)
+        self.assertIn("Wp invullen", self.text)
+        self.assertIn("Configureren > batterij wijzigen > totaal zonnepanelen op deze Delta (Wp)", self.text)
+        self.assertIn('"setup_hint"', self.text)
+        self.assertIn('"total_wp"', self.text)
+        self.assertIn('"batteries"', self.text)
+        self.assertIn('"devices"', self.text)
+
     def test_scenario_alignment_sensor_is_registered(self) -> None:
         self.assertIn("ScenarioAlignmentSensor(coordinator)", self.text)
         self.assertIn("ScenarioChoiceSummarySensor(coordinator)", self.text)
@@ -353,6 +391,9 @@ class SensorStaticTest(unittest.TestCase):
             "missing_required",
             "missing_optional",
             "configured_solar_sources",
+            "configured_direct_solar_wp",
+            "solar_setup_step",
+            "direct_solar_setup_hint",
             "price_source",
             "price_source_defaulted",
             "price_source_note",
@@ -388,7 +429,7 @@ class SensorStaticTest(unittest.TestCase):
                 self.assertIn(f'"{field}"', self.text + self.health_text)
         self.assertIn("accu SoC", self.text)
         self.assertIn("basisinzicht vereist alleen prijsdata en batterij-SoC", self.text)
-        self.assertIn("minimaal: batterij; prijsdata gebruikt standaard EnergyZero", self.text + self.health_text)
+        self.assertIn("minimaal: batterij; optimaal: PowerStream, Delta-zon of zonmeter, en weerstad", self.text + self.health_text)
         self.assertIn("EnergyZero standaard", self.text)
         self.assertIn("basisinzicht werkt; PowerStream is alleen nodig voor sturing", self.text)
         self.assertIn("eerst basisinzicht, daarna PowerStream-sturing", self.text)
@@ -645,9 +686,15 @@ class SensorStaticTest(unittest.TestCase):
         self.assertIn('"eec_sensor_role": "decision_context"', self.text)
         self.assertIn("def _price_context_label", self.text)
         self.assertIn("def _solar_context_label", self.text)
+        self.assertIn("def _direct_solar_context_label", self.text)
+        self.assertIn("Delta-zon verwacht", self.text)
+        self.assertIn("lichte Delta-zon", self.text)
         for field in (
             "price_context",
             "solar_context",
+            "direct_solar_context",
+            "direct_solar_wp",
+            "direct_solar_forecast_w",
             "price_now",
             "corrected_solar_power",
             "available_kwh",

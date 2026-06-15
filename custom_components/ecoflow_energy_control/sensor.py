@@ -17,6 +17,7 @@ from homeassistant.util import slugify
 from .const import (
     APP_NAME,
     APP_VERSION,
+    CONF_DIRECT_SOLAR_WP,
     DOMAIN,
     HOMEWIZARD_ROLE_GRID_METER,
     LEGACY_DASHBOARD_OBJECT_PREFIX,
@@ -78,6 +79,10 @@ async def async_setup_entry(
         WeatherSolarForecastSensor(coordinator, 4),
         WeatherSolarForecastSensor(coordinator, 12),
         WeatherSolarForecastSensor(coordinator, 24),
+        DirectSolarSummarySensor(coordinator),
+        DirectSolarDeviceOverviewSensor(coordinator),
+        DirectSolarAdviceSensor(coordinator),
+        DirectSolarPowerSensor(coordinator),
         ExpectedSavingsSensor(coordinator),
         BatteryFleetSocSensor(coordinator),
         BatteryFleetAvailableEnergySensor(coordinator),
@@ -718,6 +723,149 @@ class WeatherSolarForecastSensor(BaseSensor):
         }
 
 
+class DirectSolarSummarySensor(BaseSensor):
+    """Beginner-friendly summary for panels directly connected to Delta batteries."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "direct_solar_summary", "zon op Delta")
+
+    @property
+    def native_value(self) -> str:
+        solar = _direct_solar(self.coordinator)
+        total_wp = _as_float(solar.get("total_wp")) or 0.0
+        count = int(solar.get("battery_count_with_panels") or 0)
+        if total_wp <= 0:
+            if not _direct_solar_devices(self.coordinator):
+                return "Delta toevoegen"
+            return "vul Wp per Delta in"
+        if count == 1:
+            return f"{total_wp / 1000:.1f} kWp op 1 Delta"
+        return f"{total_wp / 1000:.1f} kWp op {count} Delta's"
+
+    @property
+    def icon(self) -> str:
+        return "mdi:solar-panel-large"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        solar = _direct_solar(self.coordinator)
+        return {
+            "eec_device_type": "weather",
+            "eec_sensor_role": "direct_solar_summary",
+            **solar,
+            "setup_hint": "Configureren > batterij wijzigen > totaal zonnepanelen op deze Delta (Wp)",
+            "basis": "direct op Delta aangesloten zonnepanelen; gebruikt voor laadadvies",
+        }
+
+
+class DirectSolarDeviceOverviewSensor(BaseSensor):
+    """Readable per-Delta panel setup overview."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "direct_solar_devices", "Delta panelen")
+
+    @property
+    def native_value(self) -> str:
+        batteries = _direct_solar_devices(self.coordinator)
+        if not batteries:
+            return "geen Delta ingesteld"
+        parts: list[str] = []
+        for item in batteries[:4]:
+            name = _compact_text(str(item.get("name") or "Delta"), 18)
+            wp = _as_float(item.get("direct_solar_wp")) or 0.0
+            label = f"{int(round(wp))} Wp" if wp > 0 else "geen panelen"
+            parts.append(f"{name}: {label}")
+        if len(batteries) > 4:
+            parts.append(f"+{len(batteries) - 4} extra")
+        return _compact_text("; ".join(parts), 240)
+
+    @property
+    def icon(self) -> str:
+        return "mdi:solar-power-variant"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        solar = _direct_solar(self.coordinator)
+        devices = _direct_solar_devices(self.coordinator)
+        return {
+            "eec_device_type": "weather",
+            "eec_sensor_role": "direct_solar_devices",
+            **solar,
+            "devices": devices,
+            "setup_hint": "Configureren > batterij wijzigen > totaal zonnepanelen op deze Delta (Wp)",
+            "basis": "per Delta zichtbaar welke directe zonnepanelen zijn ingevuld",
+        }
+
+
+class DirectSolarAdviceSensor(BaseSensor):
+    """Plain-language status for direct Delta solar panels."""
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "direct_solar_advice", "Delta zonstatus")
+
+    @property
+    def native_value(self) -> str:
+        solar = _direct_solar(self.coordinator)
+        total_wp = _as_float(solar.get("total_wp")) or 0.0
+        if total_wp <= 0:
+            if not _direct_solar_devices(self.coordinator):
+                return "Delta toevoegen"
+            return "Wp invullen"
+        current_power = _as_float(solar.get("current_power_w")) or 0.0
+        forecast_power = _as_float(solar.get("forecast_power_w")) or 0.0
+        if current_power >= 100:
+            return "Delta krijgt zon"
+        if forecast_power >= 500:
+            return "zonladen verwacht"
+        if forecast_power >= 100:
+            return "lichte zonbijdrage"
+        return "weinig Delta-zon"
+
+    @property
+    def icon(self) -> str:
+        return "mdi:white-balance-sunny"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        solar = _direct_solar(self.coordinator)
+        return {
+            "eec_device_type": "weather",
+            "eec_sensor_role": "direct_solar_advice",
+            **solar,
+            "setup_hint": "Configureren > batterij wijzigen > totaal zonnepanelen op deze Delta (Wp)",
+            "basis": "tekstadvies voor direct op Delta aangesloten zonnepanelen",
+        }
+
+
+class DirectSolarPowerSensor(BaseSensor):
+    """Estimated direct solar charging power for Delta batteries."""
+
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_device_class = "power"
+
+    def __init__(self, coordinator: EcoFlowEnergyCoordinator) -> None:
+        super().__init__(coordinator, "direct_solar_power", "Delta zon verwacht")
+
+    @property
+    def native_value(self) -> float:
+        solar = _direct_solar(self.coordinator)
+        return round(_as_float(solar.get("forecast_power_w")) or 0.0, 0)
+
+    @property
+    def icon(self) -> str:
+        return "mdi:white-balance-sunny"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        solar = _direct_solar(self.coordinator)
+        return {
+            "eec_device_type": "weather",
+            "eec_sensor_role": "direct_solar_power",
+            **solar,
+            "basis": "conservatieve voorspelling op basis van Wp en weer",
+        }
+
+
 class WeatherIconSummarySensor(BaseSensor):
     """Compact icon timeline for the next weather hours."""
 
@@ -1084,6 +1232,7 @@ class DecisionContextSensor(BaseSensor):
         best = _best_scenario(self.coordinator)
         price_label = _price_context_label(data)
         solar_label = _solar_context_label(data.get("corrected_solar_power"))
+        direct_solar_label = _direct_solar_context_label(data.get("direct_solar") or {})
         fleet = _battery_fleet_summary(self.coordinator)
         available = fleet.get("available_kwh")
         action = best.get("action") or "wachten"
@@ -1091,7 +1240,11 @@ class DecisionContextSensor(BaseSensor):
             storage = "accu onbekend"
         else:
             storage = f"{float(available):.1f} kWh"
-        return f"{price_label}, {solar_label}, {storage}: {action}"
+        context = [price_label, solar_label]
+        if direct_solar_label:
+            context.append(direct_solar_label)
+        context.append(storage)
+        return f"{', '.join(context)}: {action}"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1100,11 +1253,15 @@ class DecisionContextSensor(BaseSensor):
         best = _best_scenario(self.coordinator)
         fleet = _battery_fleet_summary(self.coordinator)
         solar = data.get("corrected_solar_power")
+        direct_solar = data.get("direct_solar") or {}
         return {
             "eec_device_type": "dashboard",
             "eec_sensor_role": "decision_context",
             "price_context": _price_context_label(data),
             "solar_context": _solar_context_label(solar),
+            "direct_solar_context": _direct_solar_context_label(direct_solar),
+            "direct_solar_wp": direct_solar.get("total_wp"),
+            "direct_solar_forecast_w": direct_solar.get("forecast_power_w"),
             "price_now": data.get("price_now"),
             "price_cheap_band": bands.get("cheap"),
             "price_expensive_band": bands.get("expensive"),
@@ -4338,6 +4495,16 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
+def _compact_text(value: str, limit: int) -> str:
+    if len(value) <= limit:
+        return value
+    if limit <= 1:
+        return value[:limit]
+    if limit <= 3:
+        return value[:limit]
+    return f"{value[: limit - 3]}..."
+
+
 def _price_context_label(data: dict[str, Any]) -> str:
     price = _as_float(data.get("price_now"))
     bands = data.get("price_bands") or {}
@@ -4365,10 +4532,65 @@ def _solar_context_label(value: Any) -> str:
     return "weinig zon"
 
 
+def _direct_solar_context_label(direct_solar: dict[str, Any]) -> str | None:
+    total_wp = _as_float(direct_solar.get("total_wp")) or 0.0
+    if total_wp <= 0:
+        return None
+    forecast = _as_float(direct_solar.get("forecast_power_w")) or 0.0
+    if forecast >= 500:
+        return "Delta-zon verwacht"
+    if forecast >= 100:
+        return "lichte Delta-zon"
+    return "Delta-panelen ingesteld"
+
+
 def _dashboard_settings(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
     settings = dict(coordinator.settings)
     settings["dry_run"] = coordinator.dry_run
     return settings
+
+
+def _direct_solar(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
+    return (coordinator.data or {}).get("direct_solar") or {
+        "configured": False,
+        "total_wp": sum(
+            _configured_direct_solar_wp(item)
+            for item in coordinator.settings.get("batteries", [])
+            if isinstance(item, dict)
+        ),
+        "battery_count_with_panels": len(
+            [
+                item
+                for item in coordinator.settings.get("batteries", [])
+                if isinstance(item, dict) and _configured_direct_solar_wp(item) > 0
+            ]
+        ),
+        "current_power_w": 0,
+        "forecast_power_w": 0,
+        "batteries": [],
+    }
+
+
+def _direct_solar_devices(coordinator: EcoFlowEnergyCoordinator) -> list[dict[str, Any]]:
+    devices = [
+        {
+            "name": item.get("name") or item.get("serial") or "Delta",
+            "serial": item.get("serial"),
+            "direct_solar_wp": _configured_direct_solar_wp(item),
+        }
+        for item in coordinator.settings.get("batteries", [])
+        if isinstance(item, dict) and item.get("serial")
+    ]
+    if devices:
+        return devices
+    return list((_direct_solar(coordinator).get("batteries") or []))
+
+
+def _configured_direct_solar_wp(item: dict[str, Any]) -> float:
+    try:
+        return max(0.0, float(item.get(CONF_DIRECT_SOLAR_WP) or 0.0))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _flow_start_state(
@@ -5256,6 +5478,9 @@ def _setup_advice(coordinator: EcoFlowEnergyCoordinator) -> dict[str, Any]:
         "configured_batteries": setup.get("configured_batteries"),
         "configured_powerstreams": setup.get("configured_powerstreams"),
         "configured_solar_sources": setup.get("configured_solar_sources"),
+        "configured_direct_solar_wp": setup.get("configured_direct_solar_wp"),
+        "solar_setup_step": setup.get("solar_setup_step"),
+        "direct_solar_setup_hint": setup.get("direct_solar_setup_hint"),
         "price_source": setup.get("price_source"),
         "price_source_defaulted": setup.get("price_source_defaulted"),
         "price_source_note": (
